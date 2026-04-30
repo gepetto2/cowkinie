@@ -77,6 +77,18 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 repertoire_url = f"https://helios.pl/{cinema['slug_city']}/{cinema['slug']}/repertuar"
                 nuxt_state = await fetch_nuxt_state(client, repertoire_url)
                 repertoire = nuxt_state.get("state", {}).get("repertoire", {})
+
+                # Mapowanie _id filmu/wydarzenia na typ (np. Helios na Scenie) na podstawie flag
+                id_to_movie_type = {}
+                irrelevant_flags = {"premiera", "familijny", "Już w sprzedaży!"}
+                for date_screenings in repertoire.get("screenings", {}).values():
+                    for _id, item_data in date_screenings.items():
+                        flags = item_data.get("flags")
+                        if flags and _id not in id_to_movie_type:
+                            for flag in flags:
+                                if flag not in irrelevant_flags:
+                                    id_to_movie_type[_id] = flag
+                                    break
                 
                 clean_titles = {}
                 for date_data in repertoire.get("screenings", {}).values():
@@ -90,14 +102,30 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
 
                 api_id_to_title = {}
                 orig_title_to_title = {}
+                movies_to_upsert = {}
+
                 for m in repertoire.get("list", []):
+                    _id = m.get("_id")
                     source_id = m.get("sourceId")
                     orig_title = m.get("title") or m.get("name")
-                    if source_id and orig_title:
-                        title = clean_titles.get(m.get("_id")) or orig_title
-                        api_id_to_title[source_id] = title
-                        orig_title_to_title[orig_title] = title
+                    if not orig_title:
+                        continue
 
+                    title = clean_titles.get(_id) or orig_title
+                    
+                    if source_id:
+                        api_id_to_title[source_id] = title
+                    orig_title_to_title[orig_title] = title
+
+                    if title not in movies_to_upsert:
+                        release_date = m.get("premiereDate", "")
+                        movies_to_upsert[title] = {
+                            "title": title,
+                            "movie_type": id_to_movie_type.get(_id),
+                            "length": m.get("duration"),
+                            "poster": m.get("posterPhoto", {}).get("url"),
+                            "release_year": release_date[:4] if release_date else None
+                        }
                 # --- POBIERANIE SEANSÓW Z REST API ---
                 screenings_url = f"https://restapi.helios.pl/api/cinema/{cinema_source_id}/screening"
                 try:
@@ -124,8 +152,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     continue
 
                 print("Zapisywanie filmów do bazy...")
-                movies_to_upsert = {title: {"title": title} for title in api_id_to_title.values() if title}
-                            
+
                 if movies_to_upsert:
                     updated_cache = upsert_movies_batch(supabase, movies_to_upsert)
                     movies_cache.update(updated_cache)
