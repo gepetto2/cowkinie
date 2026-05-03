@@ -64,7 +64,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
 
                 print(f"\n--- Rozpoczynam scraping dla: {cinema_name} (ID: {cinema_id_api}) ---")
                 
-                # Upsert kina w Supabase (wymaga nałożonego UNIQUE na kolumnach 'name, franchise')
+                # Upsert kina w Supabase
                 db_cinema_id = upsert_cinema(supabase, cinema_name, cinema_city, "Multikino")
                 
                 # Właściwe zapytanie do API kina
@@ -121,6 +121,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "poster_multikino": film.get("posterImageSrc"),
                         "release_year_multikino": release_year,
                         "description_multikino": film.get("synopsisShort"),
+                        "director_multikino": film.get("director"),
+                        "cast_multikino": film.get("cast")
                     }
                     
                 if movies_to_upsert:
@@ -161,6 +163,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                                 "movie_id": movie_id,
                                 "cinema_id": db_cinema_id,
                                 "start_time": start_time,
+                                "end_time": parse_start_time(session.get("endTime")) if session.get("endTime") else None,
+                                "duration": session.get("duration"),
                                 "room_name": screen_name,
                                 "lang": "PL" if lang=="POLSKI" else lang,
                                 "booking_link": booking_url

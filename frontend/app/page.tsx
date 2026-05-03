@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 
 type Showing = {
   time: string;
+  endTime: string | null;
   cinemaName: string;
   franchise: string;
   city: string;
@@ -12,6 +13,8 @@ type Showing = {
   bookingLink: string | null;
   availabilityRatio: number | null;
   roomName: string;
+  adsLength: number | null;
+  actualStartTime: string | null;
 };
 
 type Film = {
@@ -32,6 +35,8 @@ type RawMovieResponse = {
   release_year: string | null;
   screenings: {
     start_time: string;
+    end_time: string | null;
+    duration: number | null;
     room_name: string;
     lang: string | null;
     booking_link: string | null;
@@ -138,9 +143,16 @@ function FilmCard({ film }: { film: Film }) {
                       return (
                         <Wrapper key={idx} {...wrapperProps} className={`p-4 border-2 rounded-xl hover:shadow-md transition flex flex-col justify-between ${style.card} ${hoverStyles}`}>
                           <div className="flex justify-between items-start">
-                            <p className={`font-bold text-xl ${style.text}`}>
-                              {showing.time}
+                        <div>
+                          <p className={`font-bold text-xl ${style.text}`}>
+                            {showing.time} {showing.endTime && <span className="text-sm font-normal text-gray-500 dark:text-gray-400">- {showing.endTime}</span>}
+                          </p>
+                          {showing.adsLength !== null && showing.actualStartTime && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                              Start filmu ok. <span className="font-semibold">{showing.actualStartTime}</span> ({showing.adsLength} min reklam)
                             </p>
+                          )}
+                        </div>
                             {showing.lang && (
                               <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-black/5 dark:bg-white/10 text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                                 {showing.lang}
@@ -196,6 +208,8 @@ export default function Home() {
             release_year,
             screenings (
               start_time,
+              end_time,
+              duration,
               room_name,
               lang,
               booking_link,
@@ -225,10 +239,29 @@ export default function Home() {
             const dateKey = dateObj.toLocaleDateString("pl-PL", { timeZone: "Europe/Warsaw" });
             const timeKey = dateObj.toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" });
             
+            let endTimeKey: string | null = null;
+            let adsLength: number | null = null;
+            let actualStartTime: string | null = null;
+
+            if (screening.end_time) {
+              const endObj = new Date(screening.end_time);
+              endTimeKey = endObj.toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" });
+              
+              const totalScreeningMinutes = (endObj.getTime() - dateObj.getTime()) / 60000;
+              const movieDuration = screening.duration || movie.length;
+
+              if (movieDuration && totalScreeningMinutes >= movieDuration) {
+                adsLength = Math.round(totalScreeningMinutes - movieDuration);
+                const actualStartObj = new Date(dateObj.getTime() + adsLength * 60000);
+                actualStartTime = actualStartObj.toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" });
+              }
+            }
+
             showingsByDate[dateKey] ??= [];
             
             showingsByDate[dateKey].push({
               time: timeKey,
+              endTime: endTimeKey,
               cinemaName: screening.cinemas?.name || "Brak informacji",
               city: screening.cinemas?.city || "Nieznane",
               franchise: screening.cinemas?.franchise || "Nieznane",
@@ -236,6 +269,8 @@ export default function Home() {
               bookingLink: screening.booking_link,
               availabilityRatio: screening.availability_ratio,
               roomName: screening.room_name || "",
+              adsLength,
+              actualStartTime,
             });
           });
 
