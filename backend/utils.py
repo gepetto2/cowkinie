@@ -12,17 +12,3 @@ def parse_start_time(start_time_raw: str) -> str:
         return dt_obj.isoformat()
     except ValueError:
         return start_time_raw
-
-def merge_release_year(existing_year, new_year):
-    """Zwraca wcześniejszy z podanych lat premiery."""
-    if existing_year and new_year:
-        # Sprawdza, czy oba to liczby przed min() w celu uniknięcia błędów
-        if str(existing_year).isdigit() and str(new_year).isdigit():
-            return str(min(int(existing_year), int(new_year)))
-        return str(min(str(existing_year), str(new_year)))
-    elif existing_year:
-        return str(existing_year)
-    elif new_year:
-        return str(new_year)
-        
-    return None

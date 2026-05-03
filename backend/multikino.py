@@ -1,6 +1,6 @@
 from curl_cffi import requests
-from utils import parse_start_time, merge_release_year
-from database import get_movies_cache, upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
+from utils import parse_start_time
+from database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Multikino i filtruje te z wybranych miast."""
@@ -54,8 +54,6 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 print("Nie znaleziono kin lub wystąpił błąd. Zakończono.")
                 return
                 
-            print("Pobieranie istniejących filmów z bazy (do weryfikacji daty premiery, plakatów i typu filmu)...")
-            existing_db_movies = get_movies_cache(supabase)
             movies_cache = {}
 
             # KROK 3: Iteracja po znalezionych kinach
@@ -113,30 +111,16 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     if title.startswith("Maraton:") or title.startswith("Minimaraton"):
                         movie_type = "MARATON"
 
-                    existing_movie = existing_db_movies.get(title, {})
-                    if not movie_type:
-                        movie_type = existing_movie.get("movie_type")
-
                     release_date = film.get("releaseDate")
-                    new_year = release_date[:4] if release_date else None
-                    
-                    existing_year = existing_movie.get("release_year")
-                    release_year = merge_release_year(existing_year, new_year)
-                        
-                    existing_movie["release_year"] = release_year
-                    
-                    mk_poster = film.get("posterImageSrc")
-                    poster = mk_poster if mk_poster else existing_movie.get("poster")
-                    existing_movie["poster"] = poster
-                    existing_db_movies[title] = existing_movie
+                    release_year = release_date[:4] if release_date else None
 
                     movies_to_upsert[title] = {
                         "title": title,
-                        "movie_type": movie_type,
-                        "length": film.get("runningTime") if film.get("runningTime") and film.get("runningTime") > 0 else None,
-                        "poster": poster,
-                        "release_year": release_year,
-                        "mk_description": film.get("synopsisShort"),
+                        "movie_type_multikino": movie_type,
+                        "length_multikino": film.get("runningTime") if film.get("runningTime") and film.get("runningTime") > 0 else None,
+                        "poster_multikino": film.get("posterImageSrc"),
+                        "release_year_multikino": release_year,
+                        "description_multikino": film.get("synopsisShort"),
                     }
                     
                 if movies_to_upsert:

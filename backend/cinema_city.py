@@ -2,8 +2,8 @@ import asyncio
 import json
 from curl_cffi import requests
 from datetime import datetime, timedelta
-from utils import parse_start_time, merge_release_year
-from database import get_movies_cache, upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
+from utils import parse_start_time
+from database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Cinema City i filtruje te z wybranych miast."""
@@ -62,9 +62,6 @@ async def scrape_cinema_city(supabase, cities=["Poznań"]):
 
             movies_cache = {}  # Pamięć podręczna dla pobranych/dodanych filmów z bazy
             
-            print("Pobieranie istniejących filmów z bazy (do weryfikacji daty premiery, plakatów i typu filmu)...")
-            existing_db_movies = get_movies_cache(supabase)
-
             sem = asyncio.Semaphore(10)  # Ograniczenie do max. 10 jednoczesnych połączeń
 
             # KROK 3: Iteracja po znalezionych kinach
@@ -125,7 +122,7 @@ async def scrape_cinema_city(supabase, cities=["Poznań"]):
                         attribute_ids = film.get("attributeIds", [])
                         type_mapping = {
                             "marathon": "MARATON",
-                            "music-event": "MUZYKA",
+                            "music-event": "KONCERT",
                             "sport-event": "SPORT",
                             "sport": "SPORT",
                             "dubbed-lang-uk": "UKRAIŃSKI DUBBING",
@@ -133,29 +130,15 @@ async def scrape_cinema_city(supabase, cities=["Poznań"]):
                         }
                         movie_type = next((val for key, val in type_mapping.items() if key in attribute_ids), None)
 
-                        existing_movie = existing_db_movies.get(title, {})
-                        if not movie_type:
-                            movie_type = existing_movie.get("movie_type")
-
                         raw_release_year = film.get("releaseYear")
-                        new_year = str(raw_release_year).replace('/', ',').split(',')[0].strip() if raw_release_year else None
-                        
-                        existing_year = existing_movie.get("release_year")
-                        release_year = merge_release_year(existing_year, new_year)
-                            
-                        existing_movie["release_year"] = release_year
-                        
-                        cc_poster = film.get("posterLink")
-                        poster = existing_movie.get("poster") if existing_movie.get("poster") else cc_poster
-                        existing_movie["poster"] = poster
-                        existing_db_movies[title] = existing_movie
+                        release_year = str(raw_release_year).replace('/', ',').split(',')[0].strip() if raw_release_year else None
 
                         all_movies_to_upsert[title] = {
                             "title": title, 
-                            "movie_type": movie_type,
-                            "length": film.get("length"),
-                            "poster": poster,
-                            "release_year": release_year
+                            "movie_type_cc": movie_type,
+                            "length_cc": film.get("length"),
+                            "poster_cc": film.get("posterLink"),
+                            "release_year_cc": release_year
                         }
                         
                 # Zbiorczy Upsert wszystkich nowych filmów ze wszystkich dni

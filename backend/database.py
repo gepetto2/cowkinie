@@ -1,8 +1,3 @@
-def get_movies_cache(supabase):
-    """Pobiera istniejące filmy z bazy i zwraca słownik z mapowaniem title -> dane filmu."""
-    all_movies_res = supabase.table("movies").select("id, title, release_year, poster, movie_type").execute()
-    return {m["title"]: m for m in all_movies_res.data}
-
 def upsert_cinema(supabase, name: str, city: str, franchise: str) -> str:
     """Dodaje lub aktualizuje kino w bazie danych i zwraca jego ID."""
     cinema_res = supabase.table("cinemas").upsert(

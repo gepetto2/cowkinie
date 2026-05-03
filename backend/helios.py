@@ -121,10 +121,10 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         release_date = m.get("premiereDate", "")
                         movies_to_upsert[title] = {
                             "title": title,
-                            "movie_type": id_to_movie_type.get(_id),
-                            "length": m.get("duration"),
-                            "poster": m.get("posterPhoto", {}).get("url"),
-                            "release_year": release_date[:4] if release_date else None
+                            "movie_type_helios": id_to_movie_type.get(_id),
+                            "length_helios": m.get("duration"),
+                            "poster_helios": m.get("posterPhoto", {}).get("url"),
+                            "release_year_helios": release_date[:4] if release_date else None
                         }
                 # --- POBIERANIE SEANSÓW Z REST API ---
                 screenings_url = f"https://restapi.helios.pl/api/cinema/{cinema_source_id}/screening"
