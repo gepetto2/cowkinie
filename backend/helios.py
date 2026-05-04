@@ -78,17 +78,15 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 nuxt_state = await fetch_nuxt_state(client, repertoire_url)
                 repertoire = nuxt_state.get("state", {}).get("repertoire", {})
 
-                # Mapowanie _id filmu/wydarzenia na typ (np. Helios na Scenie) na podstawie flag
-                id_to_movie_type = {}
-                irrelevant_flags = {"premiera", "familijny", "Już w sprzedaży!"}
+                # Zbieranie flag dla poszczególnych filmów/wydarzeń z sekcji screenings
+                id_to_flags = {}
                 for date_screenings in repertoire.get("screenings", {}).values():
                     for _id, item_data in date_screenings.items():
                         flags = item_data.get("flags")
-                        if flags and _id not in id_to_movie_type:
-                            for flag in flags:
-                                if flag not in irrelevant_flags:
-                                    id_to_movie_type[_id] = flag
-                                    break
+                        if flags:
+                            if _id not in id_to_flags:
+                                id_to_flags[_id] = set()
+                            id_to_flags[_id].update(flags)
                 
                 clean_titles = {}
                 for date_data in repertoire.get("screenings", {}).values():
@@ -119,9 +117,26 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
 
                     if title not in movies_to_upsert:
                         release_date = m.get("premiereDate", "")
+                        
+                        movie_flags = id_to_flags.get(_id, set())
+                        movie_genres = [g.get("name") for g in m.get("genres", [])]
+                        
+                        movie_type = None
+                        if "Helios na Scenie" in movie_flags:
+                            if "wydarzenie cyrkowe" in movie_genres:
+                                movie_type = "CYRK"
+                            else:
+                                movie_type = "KONCERT"
+                        elif "Helios Sport" in movie_flags:
+                            movie_type = "SPORT"
+                        elif "Maraton Filmowy" in movie_flags:
+                            movie_type = "MARATON"
+                        elif "Helios RePlay" in movie_flags:
+                            movie_type = "KULTOWE"
+
                         movies_to_upsert[title] = {
                             "title": title,
-                            "movie_type_helios": id_to_movie_type.get(_id),
+                            "movie_type_helios": movie_type,
                             "length_helios": m.get("duration"),
                             "poster_helios": m.get("posterPhoto", {}).get("url"),
                             "release_year_helios": release_date[:4] if release_date else None
