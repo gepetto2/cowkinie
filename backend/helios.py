@@ -195,13 +195,21 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     screen_id = scr.get("screenId")
                     room_name = screens_mapping.get(screen_id, "") if screen_id else ""
                     
+                    max_occupancy = scr.get("maxOccupancy") or 0
+                    audience = scr.get("audience") or 0
+                    availability_ratio = round(max(0.0, (max_occupancy - audience) / max_occupancy), 2) if max_occupancy > 0 else 1.0
+
+                    lang = scr.get("speakingType", "").upper() if scr.get("speakingType") else None
+
                     screening_key = (db_movie_id, db_cinema_id, start_time, room_name)
                     new_screenings[screening_key] = {
                         "movie_id": db_movie_id,
                         "cinema_id": db_cinema_id,
                         "start_time": start_time,
                         "room_name": room_name,
-                        "booking_link": f"https://bilety.helios.pl/screen/{scr_id}?cinemaId={cinema_source_id}"
+                        "booking_link": f"https://bilety.helios.pl/screen/{scr_id}?cinemaId={cinema_source_id}",
+                        "lang": lang,
+                        "availability_ratio": availability_ratio
                     }
                             
                 # 2. Seanse wydarzeń specjalnych
@@ -222,13 +230,28 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     screen_id = event.get("screenId")
                     room_name = screens_mapping.get(screen_id, "") if screen_id else ""
                         
+                    max_occupancy = event.get("maxOccupancy") or 0
+                    audience = event.get("audience") or 0
+                    availability_ratio = round(max(0.0, (max_occupancy - audience) / max_occupancy), 2) if max_occupancy > 0 else 1.0
+
+                    lang_raw = None
+                    items = event.get("items", [])
+                    if items and items[0].get("speakingType"):
+                        lang_raw = items[0].get("speakingType")
+                    elif event.get("release") and "/" in event.get("release"):
+                        lang_raw = event.get("release").split("/")[1]
+
+                    lang = lang_raw.upper() if lang_raw else None
+
                     screening_key = (db_movie_id, db_cinema_id, start_time, room_name)
                     new_screenings[screening_key] = {
                         "movie_id": db_movie_id,
                         "cinema_id": db_cinema_id,
                         "start_time": start_time,
                         "room_name": room_name,
-                        "booking_link": f"https://bilety.helios.pl/screen/{scr_id}?cinemaId={cinema_source_id}"
+                        "booking_link": f"https://bilety.helios.pl/screen/{scr_id}?cinemaId={cinema_source_id}",
+                        "lang": lang,
+                        "availability_ratio": availability_ratio
                     }
                             
                 if new_screenings:
