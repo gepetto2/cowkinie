@@ -126,7 +126,8 @@ async def scrape_cinema_city(supabase, cities=["Poznań"]):
                             "sport-event": "SPORT",
                             "sport": "SPORT",
                             "dubbed-lang-uk": "UKRAIŃSKI DUBBING",
-                            "special-event": "WYDARZENIE SPECJALNE"
+                            "special-event": "WYDARZENIE SPECJALNE",
+                            "ladies-night": "LADIES NIGHT/KNO"
                         }
                         movie_type = next((val for key, val in type_mapping.items() if key in attribute_ids), None)
 
