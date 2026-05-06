@@ -104,7 +104,6 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
     return {
         "tmdb_id": movie_id,
         "title": tmdb_movie.get("title"),
-        "original_title": tmdb_movie.get("original_title"),
         "release_year": release_year,
         "length": tmdb_movie.get("runtime"),
         "director": director,
