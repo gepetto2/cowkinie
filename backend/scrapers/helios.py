@@ -1,4 +1,5 @@
 import re
+import asyncio
 import execjs
 from curl_cffi import requests
 from datetime import datetime, timedelta
@@ -23,6 +24,18 @@ async def fetch_nuxt_state(client: requests.AsyncSession, url: str) -> dict:
         print(f"Błąd pobierania/parsowania {url}: {e}")
         return {}
 
+async def fetch_movie_details(client: requests.AsyncSession, cinema_int_id: int, movie_id: int, sem: asyncio.Semaphore) -> tuple:
+    """Pobiera szczegółowe informacje o filmie z API Heliosa."""
+    async with sem:
+        url = f"https://api.helios.pl/api/v1/cinemas/{cinema_int_id}/movies/{movie_id}"
+        try:
+            resp = await client.get(url, timeout=30.0)
+            if resp.status_code == 200:
+                return movie_id, resp.json().get("data", {})
+        except Exception as e:
+            print(f"Błąd pobierania szczegółów filmu (ID: {movie_id}): {e}")
+        return movie_id, {}
+
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Helios poprzez parsowanie obiektu stanu window.__NUXT__."""
     print("Pobieranie listy kin z Helios (parsowanie window.__NUXT__)...")
@@ -32,6 +45,7 @@ async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> lis
     target_cinemas = [
         {
             "id": c.get("sourceId"),
+            "int_id": c.get("id"),
             "name": c.get("name"),
             "city": c.get("city"),
             "slug_city": c.get("slugCity"),
@@ -53,9 +67,11 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 return
 
             movies_cache = {}
+            sem = asyncio.Semaphore(10)
 
             for cinema in target_cinemas:
                 cinema_name = cinema['name']
+                cinema_int_id = cinema['int_id']
                 print(f"\n--- Repertuar dla: {cinema_name} ---")
 
                 # Zapis kina do bazy
@@ -98,6 +114,18 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                                     clean_titles[_id] = movies[0]["movie"]["title"]
                                     break
 
+                # --- POBIERANIE SZCZEGÓŁÓW FILMÓW Z REST API ---
+                movie_ids_to_fetch = set()
+                for m in repertoire.get("list", []):
+                    movie_id = m.get("id")
+                    if movie_id:
+                        movie_ids_to_fetch.add(movie_id)
+                        
+                print(f"Pobieranie szczegółów dla {len(movie_ids_to_fetch)} filmów z API...")
+                details_tasks = [fetch_movie_details(client, cinema_int_id, m_id, sem) for m_id in movie_ids_to_fetch]
+                details_results = await asyncio.gather(*details_tasks)
+                movie_details_cache = dict(details_results)
+
                 api_id_to_title = {}
                 orig_title_to_title = {}
                 movies_to_upsert = {}
@@ -105,6 +133,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 for m in repertoire.get("list", []):
                     _id = m.get("_id")
                     source_id = m.get("sourceId")
+                    movie_id = m.get("id")
                     orig_title = m.get("title") or m.get("name")
                     if not orig_title:
                         continue
@@ -133,13 +162,16 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                             movie_type = "MARATON"
                         elif "Helios RePlay" in movie_flags:
                             movie_type = "KULTOWE"
+                            
+                        details = movie_details_cache.get(movie_id, {})
 
                         movies_to_upsert[title] = {
                             "title": title,
                             "movie_type_helios": movie_type,
                             "length_helios": m.get("duration"),
                             "poster_helios": m.get("posterPhoto", {}).get("url"),
-                            "release_year_helios": release_date[:4] if release_date else None
+                            "release_year_helios": release_date[:4] if release_date else None,
+                            "director_helios": details.get("director"),
                         }
                 # --- POBIERANIE SEANSÓW Z REST API ---
                 screenings_url = f"https://restapi.helios.pl/api/cinema/{cinema_source_id}/screening"
