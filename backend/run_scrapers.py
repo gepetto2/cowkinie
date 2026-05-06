@@ -17,9 +17,9 @@ except Exception as e:
     exit(1)
 
 # Importujemy funkcje scrapujące z naszych plików
-from multikino import scrape_and_save as scrape_multikina
-from cinema_city import scrape_cinema_city
-from helios import scrape_and_save as scrape_helios
+from backend.scrapers.multikino import scrape_and_save as scrape_multikina
+from backend.scrapers.cinema_city import scrape_cinema_city
+from backend.scrapers.helios import scrape_and_save as scrape_helios
 from enrich_movies import enrich_movies_data
 
 async def run_all():
