@@ -20,6 +20,7 @@ except Exception as e:
 from multikino import scrape_and_save as scrape_multikina
 from cinema_city import scrape_cinema_city
 from helios import scrape_and_save as scrape_helios
+from enrich_movies import enrich_movies_data
 
 async def run_all():
     cities_to_scrape = ["Poznań", "Bydgoszcz"]
@@ -33,6 +34,9 @@ async def run_all():
         scrape_helios(supabase, cities_to_scrape)
     )
     print("\nWszystkie dane z Multikina, Cinema City i Heliosa zostały pomyślnie pobrane i zapisane!")
+    
+    # Po zakończeniu scrapowania kin uzupełniamy brakujące dane z TMDB i Filmwebu
+    await enrich_movies_data(supabase)
 
 if __name__ == "__main__":
     asyncio.run(run_all())
