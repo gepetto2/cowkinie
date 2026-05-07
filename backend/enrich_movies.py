@@ -10,8 +10,11 @@ async def enrich_movies_data(supabase: Client):
     print("\nRozpoczynamy wzbogacanie danych o filmach z TMDB i Filmweb...")
     
     # Pobieramy filmy, które nie mają jeszcze danych z TMDB (zabezpieczenie przed ponownym pobieraniem)
-    response = supabase.table("movies").select("id, title, release_year").is_("title_tmdb", "null").execute()
+    response = supabase.table("movies").select("id, title, release_year, movie_type").is_("title_tmdb", "null").execute()
     movies = response.data
+
+    # Pomijamy filmy typu SPORT i MARATON
+    movies = [m for m in movies if m.get("movie_type") not in ("SPORT", "MARATON")]
 
     if not movies:
         print("Wszystkie filmy mają już pobrane informacje z baz zewnętrznych.")

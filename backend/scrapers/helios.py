@@ -105,21 +105,48 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                             id_to_flags[_id].update(flags)
                 
                 clean_titles = {}
+                real_movie_ids = {}
                 for date_data in repertoire.get("screenings", {}).values():
                     for _id, item_data in date_data.items():
                         if _id not in clean_titles:
                             for scr in item_data.get("screenings", []):
                                 movies = scr.get("screeningMovies", [])
-                                if movies and movies[0].get("movie", {}).get("title"):
-                                    clean_titles[_id] = movies[0]["movie"]["title"]
+                                if movies and movies[0].get("movie"):
+                                    movie_info = movies[0]["movie"]
+                                    if movie_info.get("title"):
+                                        clean_titles[_id] = movie_info["title"]
+                                    if movie_info.get("id"):
+                                        real_movie_ids[_id] = movie_info["id"]
                                     break
 
                 # --- POBIERANIE SZCZEGÓŁÓW FILMÓW Z REST API ---
                 movie_ids_to_fetch = set()
                 for m in repertoire.get("list", []):
-                    movie_id = m.get("id")
+                    _id = m.get("_id", "")
+                    movie_id = real_movie_ids.get(_id)
+                    
+                    # Jeśli wydarzenie nie miało seansów (np. zapowiedź), używamy zwykłego ID
+                    if not movie_id:
+                        movie_id = m.get("id")
+                    
+                    # Czasem w Heliosie ID filmu kryje się w _id pod postacią np. "m4401"
+                    if not movie_id and isinstance(_id, str) and _id.startswith("m"):
+                        try:
+                            movie_id = int(_id[1:])
+                        except ValueError:
+                            pass
+                            
                     if movie_id:
-                        movie_ids_to_fetch.add(movie_id)
+                        try:
+                            movie_id = int(movie_id)
+                            # Zabezpieczenie: jeśli to wydarzenie bez powiązanego filmu, pomijamy odpytywanie endpointu /movies/
+                            if m.get("isEvent") and _id not in real_movie_ids:
+                                continue
+                                
+                            movie_ids_to_fetch.add(movie_id)
+                            m["_extracted_id"] = movie_id
+                        except ValueError:
+                            pass
                         
                 print(f"Pobieranie szczegółów dla {len(movie_ids_to_fetch)} filmów z API...")
                 details_tasks = [fetch_movie_details(client, cinema_int_id, m_id, sem) for m_id in movie_ids_to_fetch]
@@ -133,7 +160,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 for m in repertoire.get("list", []):
                     _id = m.get("_id")
                     source_id = m.get("sourceId")
-                    movie_id = m.get("id")
+                    movie_id = m.get("_extracted_id")
                     orig_title = m.get("title") or m.get("name")
                     if not orig_title:
                         continue
@@ -145,7 +172,15 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     orig_title_to_title[orig_title] = title
 
                     if title not in movies_to_upsert:
-                        release_date = m.get("premiereDate", "")
+                        details = movie_details_cache.get(movie_id, {})
+                        
+                        release_date = details.get("premiereDate") or details.get("worldPremiereDate") or m.get("premiereDate")
+                        release_year = None
+                        if release_date and len(release_date) >= 4:
+                            try:
+                                release_year = int(release_date[:4])
+                            except ValueError:
+                                pass
                         
                         movie_flags = id_to_flags.get(_id, set())
                         movie_genres = [g.get("name") for g in m.get("genres", [])]
@@ -162,16 +197,14 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                             movie_type = "MARATON"
                         elif "Helios RePlay" in movie_flags:
                             movie_type = "KULTOWE"
-                            
-                        details = movie_details_cache.get(movie_id, {})
 
                         movies_to_upsert[title] = {
                             "title": title,
                             "movie_type_helios": movie_type,
-                            "length_helios": m.get("duration"),
-                            "poster_helios": m.get("posterPhoto", {}).get("url"),
-                            "release_year_helios": release_date[:4] if release_date else None,
-                            "director_helios": details.get("director"),
+                            "length_helios": m.get("duration") or details.get("duration"),
+                            "poster_helios": m.get("posterPhoto", {}).get("url") or details.get("posterPhoto", {}).get("url"),
+                            "release_year_helios": release_year,
+                            "director_helios": details.get("director")
                         }
                 # --- POBIERANIE SEANSÓW Z REST API ---
                 screenings_url = f"https://restapi.helios.pl/api/cinema/{cinema_source_id}/screening"

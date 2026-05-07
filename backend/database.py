@@ -36,19 +36,20 @@ def upsert_screenings_chunked(supabase, screenings_dict: dict, cinema_name: str,
     print(f"Zapisano {len(screenings_list)} seansów do bazy dla kina {cinema_name}.")
 
 def consolidate_movie_data(supabase):
-    """Wypełnia główne kolumny release_year i movie_type na podstawie danych z poszczególnych kin."""
-    print("\nKonsolidacja danych o filmach (release_year, movie_type)...")
+    """Wypełnia główne kolumny release_year, movie_type i director na podstawie danych z poszczególnych źródeł."""
+    print("\nKonsolidacja danych o filmach (release_year, movie_type, director)...")
     
-    # Pobieramy filmy, które nie mają jeszcze głównego release_year lub movie_type
+    # Pobieramy filmy, które nie mają jeszcze głównego release_year, movie_type lub director
     response = supabase.table("movies").select(
-        "id, title, release_year, movie_type, "
+        "id, title, release_year, movie_type, director, "
         "release_year_cc, release_year_multikino, release_year_helios, "
-        "movie_type_cc, movie_type_multikino, movie_type_helios"
-    ).or_("release_year.is.null,movie_type.is.null").execute()
+        "movie_type_cc, movie_type_multikino, movie_type_helios, "
+        "director_multikino, director_helios, director_tmdb, director_filmweb"
+    ).or_("release_year.is.null,movie_type.is.null,director.is.null").execute()
     movies = response.data
     
     if not movies:
-        print("Wszystkie filmy mają już określony release_year oraz movie_type.")
+        print("Wszystkie filmy mają już określony release_year, movie_type oraz director.")
         return
         
     updated_count = 0
@@ -74,6 +75,21 @@ def consolidate_movie_data(supabase):
                 
                 # Wybieramy pierwszą z brzegu niepustą wartość
                 update_data["movie_type"] = valid_types[0]
+                
+        if movie.get("director") is None:
+            directors = [
+                movie.get("director_multikino"),
+                movie.get("director_helios"),
+                movie.get("director_cc")
+            ]
+            valid_directors = [d for d in directors if d]
+            
+            if valid_directors:
+                unique_directors = list(set(valid_directors))
+                if len(unique_directors) > 1:
+                    print(f"  Uwaga: Niezgodność reżyserów dla filmu '{movie.get('title')}': {unique_directors}")
+                
+                update_data["director"] = valid_directors[0]
                 
         if update_data:
             supabase.table("movies").update(update_data).eq("id", movie["id"]).execute()
