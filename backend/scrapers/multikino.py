@@ -123,7 +123,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "poster_multikino": film.get("posterImageSrc"),
                         "release_year_multikino": release_year,
                         "description_multikino": film.get("synopsisShort"),
-                        "director_multikino": film.get("director"),
+                        "director_multikino": film.get("director").strip(),
                         "cast_multikino": film.get("cast")
                     }
                     

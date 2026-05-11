@@ -1,311 +1,274 @@
-import re
 import asyncio
-import execjs
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from utils import parse_start_time
 from database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
-async def fetch_nuxt_state(client: requests.AsyncSession, url: str) -> dict:
-    """Pobiera i dekoduje stan window.__NUXT__ ze wskazanej strony."""
+async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
+    """Pobiera listę kin Helios z API v1 i filtruje te z wybranych miast."""
+    cinemas_url = "https://api.helios.pl/api/v1/cinemas"
+    
+    print("Pobieranie listy kin z Heliosa...")
     try:
-        response = await client.get(url, timeout=60.0)
+        response = await client.get(cinemas_url, timeout=30.0)
         if response.status_code != 200:
-            print(f"Błąd HTTP {response.status_code} dla {url}")
-            return {}
+            print(f"Błąd pobierania listy kin (Kod {response.status_code})")
+            return []
             
-        match = re.search(r'window\.__NUXT__=(.*?);</script>', response.text, re.DOTALL)
-        if not match:
-            return {}
-            
-        return execjs.eval(match.group(1))
+        all_cinemas = response.json().get("data", [])
+        
+        target_cinemas = [
+            cinema for cinema in all_cinemas
+            if cinema.get("location", {}).get("city") in cities
+        ]
+        
+        print(f"Znaleziono {len(target_cinemas)} kin dla miast: {', '.join(cities)}.")
+        return target_cinemas
+        
     except Exception as e:
-        print(f"Błąd pobierania/parsowania {url}: {e}")
-        return {}
+        print(f"Błąd podczas pobierania listy kin: {e}")
+        return []
 
-async def fetch_movie_details(client: requests.AsyncSession, cinema_int_id: int, movie_id: int, sem: asyncio.Semaphore) -> tuple:
-    """Pobiera szczegółowe informacje o filmie z API Heliosa."""
+async def fetch_movie_details(client: requests.AsyncSession, movie_id: str, sem: asyncio.Semaphore) -> tuple:
+    """Pobiera szczegółowe informacje o filmie z REST API za pomocą UUID."""
     async with sem:
-        url = f"https://api.helios.pl/api/v1/cinemas/{cinema_int_id}/movies/{movie_id}"
+        url = f"https://restapi.helios.pl/api/movie/{movie_id}"
         try:
             resp = await client.get(url, timeout=30.0)
             if resp.status_code == 200:
-                return movie_id, resp.json().get("data", {})
+                return movie_id, resp.json()
         except Exception as e:
             print(f"Błąd pobierania szczegółów filmu (ID: {movie_id}): {e}")
         return movie_id, {}
-
-async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
-    """Pobiera listę kin Helios poprzez parsowanie obiektu stanu window.__NUXT__."""
-    print("Pobieranie listy kin z Helios (parsowanie window.__NUXT__)...")
-    nuxt_state = await fetch_nuxt_state(client, "https://helios.pl/")
-    cinemas_data = nuxt_state.get("state", {}).get("core", {}).get("cinemas", [])
-
-    target_cinemas = [
-        {
-            "id": c.get("sourceId"),
-            "int_id": c.get("id"),
-            "name": c.get("name"),
-            "city": c.get("city"),
-            "slug_city": c.get("slugCity"),
-            "slug": c.get("slug")
-        }
-        for c in cinemas_data if c.get("city") in cities
-    ]
-            
-    print(f"Znaleziono {len(target_cinemas)} kin Helios dla miast: {', '.join(cities)}.")
-    return target_cinemas
 
 async def scrape_and_save(supabase, cities=["Poznań"]):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             print("Nawiązywanie połączenia z Heliosem...")
             target_cinemas = await get_target_cinemas(client, cities)
+            
             if not target_cinemas:
-                print("Nie znaleziono kin Heliosa. Zakończono.")
+                print("Nie znaleziono kin Heliosa lub wystąpił błąd. Zakończono.")
                 return
-
-            movies_cache = {}
-            sem = asyncio.Semaphore(10)
+                
+            db_movies_cache = {}
+            global_movie_details_cache = {}
+            sem = asyncio.Semaphore(15)
+            
+            # Ustawienie ram czasowych
+            now = datetime.now(ZoneInfo("Europe/Warsaw"))
+            date_from = now.strftime("%Y-%m-%dT00:00:00.000")
+            date_to = (now + timedelta(days=365)).strftime("%Y-%m-%dT23:59:59.999")
 
             for cinema in target_cinemas:
-                cinema_name = cinema['name']
-                cinema_int_id = cinema['int_id']
-                print(f"\n--- Repertuar dla: {cinema_name} ---")
-
+                cinema_uuid = cinema.get("sourceId") 
+                cinema_name = cinema.get("name")
+                cinema_city = cinema.get("location", {}).get("city")
+                cinema_int_id = cinema.get("id")
+                
+                if not cinema_uuid or not cinema_name:
+                    continue
+                    
+                print(f"\n--- Rozpoczynam scraping dla: {cinema_name} ---")
+                
                 # Zapis kina do bazy
-                db_cinema_id = upsert_cinema(supabase, cinema_name, cinema['city'], "Helios")
-
-                # --- POBIERANIE INFORMACJI O SALACH Z REST API ---
-                cinema_source_id = cinema['id']
-                screens_url = f"https://restapi.helios.pl/api/cinema/{cinema_source_id}/screen"
+                db_cinema_id = upsert_cinema(supabase, cinema_name, cinema_city, "Helios")
+                
+                # 1. Pobranie sal (Screen mapping)
                 screens_mapping = {}
                 try:
+                    screens_url = f"https://restapi.helios.pl/api/cinema/{cinema_uuid}/screen"
                     screens_resp = await client.get(screens_url, timeout=30.0)
                     if screens_resp.status_code == 200:
                         for screen in screens_resp.json():
                             screens_mapping[screen["id"]] = screen.get("name", "")
                 except Exception as e:
-                    print(f"Błąd pobierania sal dla kina {cinema_name}: {e}")
+                    print(f"Błąd pobierania sal: {e}")
 
-                # --- POBIERANIE LISTY FILMÓW Z NUXT ---
-                repertoire_url = f"https://helios.pl/{cinema['slug_city']}/{cinema['slug']}/repertuar"
-                nuxt_state = await fetch_nuxt_state(client, repertoire_url)
-                repertoire = nuxt_state.get("state", {}).get("repertoire", {})
-
-                # Zbieranie flag dla poszczególnych filmów/wydarzeń z sekcji screenings
-                id_to_flags = {}
-                for date_screenings in repertoire.get("screenings", {}).values():
-                    for _id, item_data in date_screenings.items():
-                        flags = item_data.get("flags")
-                        if flags:
-                            if _id not in id_to_flags:
-                                id_to_flags[_id] = set()
-                            id_to_flags[_id].update(flags)
-                
-                clean_titles = {}
-                real_movie_ids = {}
-                for date_data in repertoire.get("screenings", {}).values():
-                    for _id, item_data in date_data.items():
-                        if _id not in clean_titles:
-                            for scr in item_data.get("screenings", []):
-                                movies = scr.get("screeningMovies", [])
-                                if movies and movies[0].get("movie"):
-                                    movie_info = movies[0]["movie"]
-                                    if movie_info.get("title"):
-                                        clean_titles[_id] = movie_info["title"]
-                                    if movie_info.get("id"):
-                                        real_movie_ids[_id] = movie_info["id"]
-                                    break
-
-                # --- POBIERANIE SZCZEGÓŁÓW FILMÓW Z REST API ---
-                movie_ids_to_fetch = set()
-                for m in repertoire.get("list", []):
-                    _id = m.get("_id", "")
-                    movie_id = real_movie_ids.get(_id)
-                    
-                    # Jeśli wydarzenie nie miało seansów (np. zapowiedź), używamy zwykłego ID
-                    if not movie_id:
-                        movie_id = m.get("id")
-                    
-                    # Czasem w Heliosie ID filmu kryje się w _id pod postacią np. "m4401"
-                    if not movie_id and isinstance(_id, str) and _id.startswith("m"):
-                        try:
-                            movie_id = int(_id[1:])
-                        except ValueError:
-                            pass
-                            
-                    if movie_id:
-                        try:
-                            movie_id = int(movie_id)
-                            # Zabezpieczenie: jeśli to wydarzenie bez powiązanego filmu, pomijamy odpytywanie endpointu /movies/
-                            if m.get("isEvent") and _id not in real_movie_ids:
-                                continue
-                                
-                            movie_ids_to_fetch.add(movie_id)
-                            m["_extracted_id"] = movie_id
-                        except ValueError:
-                            pass
-                        
-                print(f"Pobieranie szczegółów dla {len(movie_ids_to_fetch)} filmów z API...")
-                details_tasks = [fetch_movie_details(client, cinema_int_id, m_id, sem) for m_id in movie_ids_to_fetch]
-                details_results = await asyncio.gather(*details_tasks)
-                movie_details_cache = dict(details_results)
-
-                api_id_to_title = {}
-                orig_title_to_title = {}
-                movies_to_upsert = {}
-
-                for m in repertoire.get("list", []):
-                    _id = m.get("_id")
-                    source_id = m.get("sourceId")
-                    movie_id = m.get("_extracted_id")
-                    orig_title = m.get("title") or m.get("name")
-                    if not orig_title:
-                        continue
-
-                    title = clean_titles.get(_id) or orig_title
-                    
-                    if source_id:
-                        api_id_to_title[source_id] = title
-                    orig_title_to_title[orig_title] = title
-
-                    if title not in movies_to_upsert:
-                        details = movie_details_cache.get(movie_id, {})
-                        
-                        release_date = details.get("premiereDate") or details.get("worldPremiereDate") or m.get("premiereDate")
-                        release_year = None
-                        if release_date and len(release_date) >= 4:
-                            try:
-                                release_year = int(release_date[:4])
-                            except ValueError:
-                                pass
-                        
-                        movie_flags = id_to_flags.get(_id, set())
-                        movie_genres = [g.get("name") for g in m.get("genres", [])]
-                        
-                        movie_type = None
-                        if "Helios na Scenie" in movie_flags:
-                            if "wydarzenie cyrkowe" in movie_genres:
-                                movie_type = "CYRK"
-                            else:
-                                movie_type = "KONCERT"
-                        elif "Helios Sport" in movie_flags:
-                            movie_type = "SPORT"
-                        elif "Maraton Filmowy" in movie_flags:
-                            movie_type = "MARATON"
-                        elif "Helios RePlay" in movie_flags:
-                            movie_type = "KULTOWE"
-
-                        movies_to_upsert[title] = {
-                            "title": title,
-                            "movie_type_helios": movie_type,
-                            "length_helios": m.get("duration") or details.get("duration"),
-                            "poster_helios": m.get("posterPhoto", {}).get("url") or details.get("posterPhoto", {}).get("url"),
-                            "release_year_helios": release_year,
-                            "director_helios": details.get("director")
-                        }
-                # --- POBIERANIE SEANSÓW Z REST API ---
-                screenings_url = f"https://restapi.helios.pl/api/cinema/{cinema_source_id}/screening"
+                # 2. Pobranie zwykłych seansów i wydarzeń
+                screenings_data, events_data, v1_screenings_data = [], [], {}
                 try:
-                    screenings_resp = await client.get(screenings_url, timeout=30.0)
-                    screenings_data = screenings_resp.json() if screenings_resp.status_code == 200 else []
+                    screenings_url = f"https://restapi.helios.pl/api/cinema/{cinema_uuid}/screening?dateTimeFrom={date_from}&dateTimeTo={date_to}"
+                    events_url = f"https://restapi.helios.pl/api/cinema/{cinema_uuid}/event?dateTimeFrom={date_from}&dateTimeTo={date_to}"
+                    v1_screenings_url = f"https://api.helios.pl/api/v1/cinemas/{cinema_int_id}/screenings"
+                    
+                    scr_resp, ev_resp, v1_resp = await asyncio.gather(
+                        client.get(screenings_url, timeout=30.0),
+                        client.get(events_url, timeout=30.0),
+                        client.get(v1_screenings_url, timeout=30.0)
+                    )
+                    
+                    if scr_resp.status_code == 200: screenings_data = scr_resp.json()
+                    if ev_resp.status_code == 200: events_data = ev_resp.json()
+                    if v1_resp.status_code == 200: v1_screenings_data = v1_resp.json()
                 except Exception as e:
-                    print(f"Błąd pobierania seansów dla kina {cinema_name}: {e}")
-                    screenings_data = []
-                
-                # --- POBIERANIE WYDARZEŃ (SEANSÓW SPECJALNYCH) Z REST API ---
-                now = datetime.now(ZoneInfo("Europe/Warsaw"))
-                date_from = now.strftime("%Y-%m-%dT00:00:00.000")
-                date_to = (now + timedelta(days=14)).strftime("%Y-%m-%dT23:59:59.999")
-                events_url = f"https://restapi.helios.pl/api/cinema/{cinema_source_id}/event?dateTimeFrom={date_from}&dateTimeTo={date_to}"
-                try:
-                    events_resp = await client.get(events_url, timeout=30.0)
-                    events_data = events_resp.json() if events_resp.status_code == 200 else []
-                except Exception as e:
-                    print(f"Błąd pobierania wydarzeń dla kina {cinema_name}: {e}")
-                    events_data = []
+                    print(f"Błąd pobierania harmonogramu: {e}")
 
                 if not screenings_data and not events_data:
-                    print(f"Brak seansów dla kina {cinema_name}.")
+                    print(f"Brak seansów dla {cinema_name}.")
                     continue
 
-                print("Zapisywanie filmów do bazy...")
+                # 3. Rozwiązanie brakujących tytułów filmów ze zwykłych seansów i wydarzeń
+                unique_movie_ids = {s.get("movieId") for s in screenings_data if s.get("movieId")}
+                for ev in events_data:
+                    items = ev.get("items", [])
+                    if items and items[0].get("movieId"):
+                        unique_movie_ids.add(items[0].get("movieId"))
+                        
+                missing_movie_ids = {mid for mid in unique_movie_ids if mid not in global_movie_details_cache}
+                if missing_movie_ids:
+                    fetch_tasks = [fetch_movie_details(client, mid, sem) for mid in missing_movie_ids]
+                    movie_details_results = await asyncio.gather(*fetch_tasks)
+                    global_movie_details_cache.update(dict(movie_details_results))
 
-                if movies_to_upsert:
-                    updated_cache = upsert_movies_batch(supabase, movies_to_upsert)
-                    movies_cache.update(updated_cache)
-
-                print("Przetwarzanie i zapisywanie seansów do bazy...")
-                new_screenings = {}
+                # 4. Tworzenie mapowania sourceId (UUID) -> movie_type na podstawie API v1
+                v1_movie_types = {}
+                v1_data = v1_screenings_data.get("data", {})
                 
-                # 1. Zwykłe seanse
-                for scr in screenings_data:
-                    movie_id_api = scr.get("movieId")
-                    title = api_id_to_title.get(movie_id_api)
+                for category in ["events", "movies"]:
+                    for item_id, details in v1_data.get(category, {}).items():
+                        if not isinstance(details, dict):
+                            continue
+                        
+                        source_id = details.get("sourceId")
+                        if not source_id:
+                            continue
+                            
+                        flags = details.get("flags", [])
+                        flags_upper = [f.upper() if isinstance(f, str) else f.get("name", "").upper() for f in flags]
+                        genres = [g.get("name", "").lower() for g in details.get("genres", [])]
+                        
+                        movie_type = None
+                        if "HELIOS NA SCENIE" in flags_upper:
+                            movie_type = "CYRK" if "wydarzenie cyrkowe" in genres else "KONCERT" 
+                        elif "HELIOS SPORT" in flags_upper: movie_type = "SPORT"
+                        elif "MARATON FILMOWY" in flags_upper: movie_type = "MARATON"
+                        elif "HELIOS REPLAY" in flags_upper: movie_type = "KULTOWE"
+                        elif "KINO KOBIET" in flags_upper: movie_type = "LADIES NIGHT/KNO"
+                        elif "HELIOS ANIME" in flags_upper: movie_type = "ANIME"
+                        elif "WERSJA JĘZYKOWA UA" in flags_upper: movie_type = "UKRAIŃSKI DUBBING"
+                            
+                        if movie_type:
+                            v1_movie_types[source_id] = movie_type
+
+                # 5. Upsertowanie filmów z events i screenings
+                movies_to_upsert = {}
+                event_titles = {}
+                
+                for ev in events_data:
+                    movie_info = {}
+                    items = ev.get("items", [])
+                    if items and items[0].get("movieId"):
+                        movie_info = global_movie_details_cache.get(items[0].get("movieId"), {})
+                        
+                    movie_type = None
+                    event_tags = [
+                        t.get("symbol", "").upper() 
+                        for tg in ev.get("tagGroups", []) 
+                        for t in tg.get("tags", [])
+                    ]
+                    event_genres = [g.get("name", "").lower() for g in ev.get("genres", [])]
+                    
+                    if "HELIOS NA SCENIE" in event_tags:
+                        movie_type = "CYRK" if "wydarzenie cyrkowe" in event_genres else "KONCERT"
+                    elif "HELIOS SPORT" in event_tags: movie_type = "SPORT"
+                    elif "MARATON FILMOWY" in event_tags: movie_type = "MARATON"
+                    elif "HELIOS REPLAY" in event_tags: movie_type = "KULTOWE"
+                    elif "KINO KOBIET" in event_tags: movie_type = "LADIES NIGHT/KNO"
+                    elif "HELIOS ANIME" in event_tags: movie_type = "ANIME"
+                    elif "HELIOS DLA DZIECI" in event_tags: movie_type = "DLA DZIECI"
+
+                    event_source_id = ev.get("id")
+                    if not movie_type:
+                        movie_type = v1_movie_types.get(event_source_id)
+                        
+                    # Ustalanie czystego tytułu (usuwanie dopisków dla specjalnych pokazów)
+                    if movie_type in ["MARATON", "SPORT", "LADIES NIGHT/KNO"]:
+                        title = ev.get("name")
+                    else:
+                        title = movie_info.get("title") or (items[0].get("movieName") if items else None) or ev.get("name")
+                        
                     if not title:
                         continue
                         
-                    db_movie_id = movies_cache.get(title)
-                    
-                    start_time_raw = scr.get("screeningTimeFrom")
-                    scr_id = scr.get("id")
-                    
-                    if not db_movie_id or not start_time_raw or not scr_id:
+                    scr_id = ev.get("screeningId") or ev.get("id")
+                    if scr_id:
+                        event_titles[scr_id] = title
+                        
+                    if title in db_movies_cache or title in movies_to_upsert:
                         continue
                         
-                    start_time = parse_start_time(start_time_raw)
-                        
-                    screen_id = scr.get("screenId")
-                    room_name = screens_mapping.get(screen_id, "") if screen_id else ""
+                    posters = ev.get("posters") or movie_info.get("posters") or []
                     
-                    max_occupancy = scr.get("maxOccupancy") or 0
-                    audience = scr.get("audience") or 0
-                    availability_ratio = round(max(0.0, (max_occupancy - audience) / max_occupancy), 2) if max_occupancy > 0 else 1.0
-
-                    lang = scr.get("speakingType", "").upper() if scr.get("speakingType") else None
-
-                    screening_key = (db_movie_id, db_cinema_id, start_time, room_name)
-                    new_screenings[screening_key] = {
-                        "movie_id": db_movie_id,
-                        "cinema_id": db_cinema_id,
-                        "start_time": start_time,
-                        "room_name": room_name,
-                        "booking_link": f"https://bilety.helios.pl/screen/{scr_id}?cinemaId={cinema_source_id}",
-                        "lang": lang,
-                        "availability_ratio": availability_ratio
+                    movies_to_upsert[title] = {
+                        "title": title,
+                        "movie_type_helios": movie_type,
+                        "length_helios": ev.get("duration") or movie_info.get("duration"),
+                        "poster_helios": posters[0] if posters else None,
+                        "release_year_helios": movie_info.get("yearOfProduction"),
+                        "director_helios": movie_info.get("director")
                     }
-                            
-                # 2. Seanse wydarzeń specjalnych
-                for event in events_data:
-                    orig_title = event.get("name")
-                    title = orig_title_to_title.get(orig_title) or orig_title
+
+                for scr in screenings_data:
+                    scr_movie_id = scr.get("movieId")
+                    movie_info = global_movie_details_cache.get(scr_movie_id, {})
+                    title = movie_info.get("title")
                     
-                    db_movie_id = movies_cache.get(title)
-                    
-                    start_time_raw = event.get("timeFrom")
-                    scr_id = event.get("screeningId")
-                    
-                    if not db_movie_id or not start_time_raw or not scr_id:
+                    if not title or title in db_movies_cache or title in movies_to_upsert:
                         continue
+                    
+                    movie_type = v1_movie_types.get(scr_movie_id)
+                    posters = movie_info.get("posters") or []
+
+                    movies_to_upsert[title] = {
+                        "title": title,
+                        "movie_type_helios": movie_type,
+                        "length_helios": movie_info.get("duration"),
+                        "poster_helios": posters[0] if posters else None,
+                        "release_year_helios": movie_info.get("yearOfProduction"),
+                        "director_helios": movie_info.get("director")
+                    }
+
+                if movies_to_upsert:
+                    updated_db_cache = upsert_movies_batch(supabase, movies_to_upsert)
+                    db_movies_cache.update(updated_db_cache)
+
+                # 5. Generowanie seansów
+                new_screenings = {}
+                all_sessions = screenings_data + events_data
+
+                for session in all_sessions:
+                    scr_id = session.get("screeningId") or session.get("id")
+                    
+                    # Odkodowanie odpowiedniego tytułu dla seansu
+                    if "items" in session:
+                        title = event_titles.get(scr_id)
+                    else:
+                        title = global_movie_details_cache.get(session.get("movieId"), {}).get("title")
                         
+                    start_time_raw = session.get("timeFrom") or session.get("screeningTimeFrom")
+
+                    if not title or not start_time_raw or not scr_id:
+                        continue
+
+                    db_movie_id = db_movies_cache.get(title)
+                    if not db_movie_id:
+                        continue
+
                     start_time = parse_start_time(start_time_raw)
-                        
-                    screen_id = event.get("screenId")
+                    screen_id = session.get("screenId")
                     room_name = screens_mapping.get(screen_id, "") if screen_id else ""
-                        
-                    max_occupancy = event.get("maxOccupancy") or 0
-                    audience = event.get("audience") or 0
-                    availability_ratio = round(max(0.0, (max_occupancy - audience) / max_occupancy), 2) if max_occupancy > 0 else 1.0
 
-                    lang_raw = None
-                    items = event.get("items", [])
-                    if items and items[0].get("speakingType"):
-                        lang_raw = items[0].get("speakingType")
-                    elif event.get("release") and "/" in event.get("release"):
-                        lang_raw = event.get("release").split("/")[1]
+                    max_occ = session.get("maxOccupancy") or 0
+                    aud = session.get("audience") or 0
+                    avail_ratio = round(max(0.0, (max_occ - aud) / max_occ), 2) if max_occ > 0 else 1.0
 
+                    # Pobieranie języka
+                    lang_raw = session.get("speakingType")
+                    if not lang_raw and session.get("items") and len(session.get("items")) > 0:
+                        lang_raw = session.get("items")[0].get("speakingType")
+                    
                     lang = lang_raw.upper() if lang_raw else None
 
                     screening_key = (db_movie_id, db_cinema_id, start_time, room_name)
@@ -314,11 +277,11 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "cinema_id": db_cinema_id,
                         "start_time": start_time,
                         "room_name": room_name,
-                        "booking_link": f"https://bilety.helios.pl/screen/{scr_id}?cinemaId={cinema_source_id}",
+                        "booking_link": f"https://bilety.helios.pl/screen/{scr_id}?cinemaId={cinema_uuid}",
                         "lang": lang,
-                        "availability_ratio": availability_ratio
+                        "availability_ratio": avail_ratio
                     }
-                            
+
                 if new_screenings:
                     upsert_screenings_chunked(supabase, new_screenings, cinema_name)
 
