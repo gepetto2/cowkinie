@@ -1,9 +1,17 @@
+import re
 import asyncio
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from utils import parse_start_time
 from database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
+
+def clean_title(title: str) -> str:
+    if not title:
+        return ""
+    # Usuwa dopisek w stylu " 40. Rocznica" lub ". 30. Rocznica"
+    title = re.sub(r'(?:\.\s*)?\s*\d+\.?\s*[Rr]ocznica\b.*$', '', title, flags=re.IGNORECASE)
+    return title.strip()
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Helios z API v1 i filtruje te z wybranych miast."""
@@ -189,6 +197,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     else:
                         title = movie_info.get("title") or (items[0].get("movieName") if items else None) or ev.get("name")
                         
+                    title = clean_title(title)
+
                     if not title:
                         continue
                         
@@ -214,6 +224,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     scr_movie_id = scr.get("movieId")
                     movie_info = global_movie_details_cache.get(scr_movie_id, {})
                     title = movie_info.get("title")
+                    title = clean_title(title)
                     
                     if not title or title in db_movies_cache or title in movies_to_upsert:
                         continue
@@ -246,6 +257,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         title = event_titles.get(scr_id)
                     else:
                         title = global_movie_details_cache.get(session.get("movieId"), {}).get("title")
+                        title = clean_title(title)
                         
                     start_time_raw = session.get("timeFrom") or session.get("screeningTimeFrom")
 
