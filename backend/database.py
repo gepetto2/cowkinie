@@ -44,7 +44,7 @@ def consolidate_movie_data(supabase):
         "id, title, release_year, movie_type, director, "
         "release_year_cc, release_year_multikino, release_year_helios, "
         "movie_type_cc, movie_type_multikino, movie_type_helios, "
-        "director_multikino, director_helios, director_tmdb, director_filmweb"
+        "director_multikino, director_helios, director_cc"
     ).or_("release_year.is.null,movie_type.is.null,director.is.null").execute()
     movies = response.data
     
@@ -89,7 +89,8 @@ def consolidate_movie_data(supabase):
                 if len(unique_directors) > 1:
                     print(f"  Uwaga: Niezgodność reżyserów dla filmu '{movie.get('title')}': {unique_directors}")
                 
-                update_data["director"] = valid_directors[0]
+                # Wybieramy najdłuższą z dostępnych wartości
+                update_data["director"] = max(valid_directors, key=len)
                 
         if update_data:
             supabase.table("movies").update(update_data).eq("id", movie["id"]).execute()

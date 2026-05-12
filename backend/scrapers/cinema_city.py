@@ -47,6 +47,20 @@ async def fetch_events_for_date(client: requests.AsyncSession, cinema_id_api, da
             print(f"   Błąd pobierania dnia {date}: {e}")
         return date, None
 
+async def fetch_film_details(client: requests.AsyncSession, api_film_id: str, headers: dict, sem: asyncio.Semaphore):
+    """Pobiera dodatkowe informacje o filmie z Cinema City (reżyser, oryginalny tytuł)."""
+    async with sem:
+        details_url = f"https://www.cinema-city.pl/pl/data-api-service/v1/10103/films/byDistributorCode/{api_film_id}"
+        try:
+            response = await client.get(details_url, headers=headers, timeout=30.0)
+            if response.status_code == 200:
+                data = response.json()
+                film_details = data.get("body", {}).get("filmDetails", {})
+                return api_film_id, film_details
+        except Exception as e:
+            print(f"   Błąd pobierania szczegółów filmu {api_film_id}: {e}")
+        return api_film_id, None
+
 async def scrape_cinema_city(supabase, cities=["Poznań"]):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
@@ -61,6 +75,7 @@ async def scrape_cinema_city(supabase, cities=["Poznań"]):
                 return
 
             movies_cache = {}  # Pamięć podręczna dla pobranych/dodanych filmów z bazy
+            global_film_details_cache = {}  # Pamięć dla szczegółów z API (reżyser itp.)
             
             sem = asyncio.Semaphore(10)  # Ograniczenie do max. 10 jednoczesnych połączeń
 
@@ -115,10 +130,26 @@ async def scrape_cinema_city(supabase, cities=["Poznań"]):
                     all_films_api_list.extend(body.get("films", []))
                     all_events_api_list.extend(body.get("events", []))
 
-                for film in all_films_api_list:
+                # Filtrowanie unikalnych filmów i pobieranie brakujących szczegółów
+                unique_films = {f["id"]: f for f in all_films_api_list if f.get("id")}.values()
+                missing_details_ids = [f["id"] for f in unique_films if f["id"] not in global_film_details_cache]
+                
+                if missing_details_ids:
+                    print(f"  Pobieranie dodatkowych szczegółów dla {len(missing_details_ids)} filmów...")
+                    details_tasks = [fetch_film_details(client, film_id, headers, sem) for film_id in missing_details_ids]
+                    details_results = await asyncio.gather(*details_tasks)
+                    
+                    for film_id, details in details_results:
+                        if details is not None:
+                            global_film_details_cache[film_id] = details
+
+                for film in unique_films:
                     # Zabezpieczenie w przypadku braku 'name' w filmie
                     title = (film.get("name") or "").strip()
                     if title and title not in movies_cache and title not in all_movies_to_upsert:
+                        api_film_id = film.get("id")
+                        details = global_film_details_cache.get(api_film_id, {})
+
                         attribute_ids = film.get("attributeIds", [])
                         type_mapping = {
                             "marathon": "MARATON",
@@ -138,7 +169,9 @@ async def scrape_cinema_city(supabase, cities=["Poznań"]):
                             "movie_type_cc": movie_type,
                             "length_cc": film.get("length"),
                             "poster_cc": film.get("posterLink"),
-                            "release_year_cc": release_year
+                            "release_year_cc": release_year,
+                            "director_cc": details.get("directors"),
+                            "original_title_cc": details.get("originalName")
                         }
                         
                 # Zbiorczy Upsert wszystkich nowych filmów ze wszystkich dni
@@ -148,7 +181,7 @@ async def scrape_cinema_city(supabase, cities=["Poznań"]):
 
                 # Utworzenie mapy z API ID do BAZA ID
                 film_id_map = {}
-                for film in all_films_api_list:
+                for film in unique_films:
                     api_film_id = film.get("id")
                     title = (film.get("name") or "").strip()
                     if api_film_id and title in movies_cache:
