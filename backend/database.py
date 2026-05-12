@@ -36,16 +36,17 @@ def upsert_screenings_chunked(supabase, screenings_dict: dict, cinema_name: str,
     print(f"Zapisano {len(screenings_list)} seansów do bazy dla kina {cinema_name}.")
 
 def consolidate_movie_data(supabase):
-    """Wypełnia główne kolumny release_year, movie_type i director na podstawie danych z poszczególnych źródeł."""
-    print("\nKonsolidacja danych o filmach (release_year, movie_type, director)...")
+    """Wypełnia główne kolumny release_year, movie_type, director i original_title na podstawie danych z poszczególnych źródeł."""
+    print("\nKonsolidacja danych o filmach (release_year, movie_type, director, original_title)...")
     
-    # Pobieramy filmy, które nie mają jeszcze głównego release_year, movie_type lub director
+    # Pobieramy filmy, które nie mają jeszcze głównego release_year, movie_type, director lub original_title
     response = supabase.table("movies").select(
-        "id, title, release_year, movie_type, director, "
+        "id, title, release_year, movie_type, director, original_title, "
         "release_year_cc, release_year_multikino, release_year_helios, "
         "movie_type_cc, movie_type_multikino, movie_type_helios, "
-        "director_multikino, director_helios, director_cc"
-    ).or_("release_year.is.null,movie_type.is.null,director.is.null").execute()
+        "director_multikino, director_helios, director_cc, "
+        "original_title_cc, original_title_helios"
+    ).or_("release_year.is.null,movie_type.is.null,director.is.null,original_title.is.null").execute()
     movies = response.data
     
     if not movies:
@@ -91,6 +92,21 @@ def consolidate_movie_data(supabase):
                 
                 # Wybieramy najdłuższą z dostępnych wartości
                 update_data["director"] = max(valid_directors, key=len)
+                
+        if movie.get("original_title") is None:
+            original_titles = [
+                movie.get("original_title_helios"),
+                movie.get("original_title_cc")
+            ]
+            valid_titles = [t for t in original_titles if t]
+            
+            if valid_titles:
+                unique_titles = list(set(valid_titles))
+                if len(unique_titles) > 1:
+                    print(f"  Uwaga: Niezgodność oryginalnych tytułów dla filmu '{movie.get('title')}': {unique_titles}")
+                
+                # Preferujemy tytuł z Heliosa, w drugiej kolejności z Cinema City
+                update_data["original_title"] = movie.get("original_title_helios") or movie.get("original_title_cc")
                 
         if update_data:
             supabase.table("movies").update(update_data).eq("id", movie["id"]).execute()
