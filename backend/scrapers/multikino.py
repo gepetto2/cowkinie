@@ -100,6 +100,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                             movie_type = None
                         if movie_type == "KNO":
                             movie_type = "LADIES NIGHT/KNO"
+                        if movie_type == "WIDOWISKO":
+                            movie_type = "CYRK"
 
                     # Sprawdzenie, czy któryś z seansów ma atrybut "KULTOWE KINO"
                     if any(
