@@ -217,7 +217,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "length_helios": ev.get("duration") or movie_info.get("duration"),
                         "poster_helios": posters[0] if posters else None,
                         "release_year_helios": movie_info.get("yearOfProduction"),
-                        "director_helios": movie_info.get("director")
+                        "director_helios": movie_info.get("director"),
+                        "original_title_helios": movie_info.get("originalTitle")
                     }
 
                 for scr in screenings_data:
@@ -238,7 +239,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "length_helios": movie_info.get("duration"),
                         "poster_helios": posters[0] if posters else None,
                         "release_year_helios": movie_info.get("yearOfProduction"),
-                        "director_helios": movie_info.get("director")
+                        "director_helios": movie_info.get("director"),
+                        "original_title_helios": movie_info.get("originalTitle")
                     }
 
                 if movies_to_upsert:
