@@ -112,7 +112,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     ):
                         movie_type = "KULTOWE"
 
-                    if title.startswith("Maraton:") or title.startswith("Minimaraton"):
+                    if title.startswith("Maraton:") or title.startswith("Minimaraton") or title.startswith("NMF"):
                         movie_type = "MARATON"
 
                     release_date = film.get("releaseDate")

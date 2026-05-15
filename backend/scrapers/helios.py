@@ -185,7 +185,6 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     elif "HELIOS REPLAY" in event_tags: movie_type = "KULTOWE"
                     elif "KINO KOBIET" in event_tags: movie_type = "LADIES NIGHT/KNO"
                     elif "HELIOS ANIME" in event_tags: movie_type = "ANIME"
-                    elif "HELIOS DLA DZIECI" in event_tags: movie_type = "DLA DZIECI"
 
                     event_source_id = ev.get("id")
                     if not movie_type:
