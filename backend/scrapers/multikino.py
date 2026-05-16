@@ -1,6 +1,13 @@
+import re
 from curl_cffi import requests
 from utils import parse_start_time
 from database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
+
+def clean_title(title: str) -> str:
+    if not title:
+        return ""
+    title = re.sub(r'^(?:NMF|NT Live)[:\s\-]+', '', title, flags=re.IGNORECASE)
+    return title.strip()
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Multikino i filtruje te z wybranych miast."""
@@ -115,6 +122,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     if title.startswith("Maraton:") or title.startswith("Minimaraton") or title.startswith("NMF"):
                         movie_type = "MARATON"
 
+                    title = clean_title(title)
+
                     release_date = film.get("releaseDate")
                     release_year = release_date[:4] if release_date else None
 
@@ -137,6 +146,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 new_screenings = {}
                 for film in films_list:
                     title = film.get("filmTitle", "").strip()
+                    title = clean_title(title)
                     movie_id = movies_cache.get(title)
                     if not movie_id:
                         continue

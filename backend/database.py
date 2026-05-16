@@ -86,7 +86,7 @@ def consolidate_movie_data(supabase):
             valid_directors = [d for d in directors if d]
             
             if valid_directors:
-                unique_directors = list(set(valid_directors))
+                unique_directors = list({d.lower(): d for d in valid_directors}.values())
                 if len(unique_directors) > 1:
                     print(f"  Uwaga: Niezgodność reżyserów dla filmu '{movie.get('title')}': {unique_directors}")
                 

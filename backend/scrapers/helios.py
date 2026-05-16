@@ -9,6 +9,8 @@ from database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunk
 def clean_title(title: str) -> str:
     if not title:
         return ""
+    # Usuwa przedrostek w stylu "NT Live: "
+    title = re.sub(r'^NT Live:\s*', '', title, flags=re.IGNORECASE)
     # Usuwa dopisek w stylu " 40. Rocznica" lub ". 30. Rocznica"
     title = re.sub(r'(?:\.\s*)?\s*\d+\.?\s*[Rr]ocznica\b.*$', '', title, flags=re.IGNORECASE)
     return title.strip()
@@ -149,7 +151,12 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         
                         movie_type = None
                         if "HELIOS NA SCENIE" in flags_upper:
-                            movie_type = "CYRK" if "wydarzenie cyrkowe" in genres else "KONCERT" 
+                            if "wydarzenie cyrkowe" in genres:
+                                movie_type = "CYRK"
+                            elif "spektakl teatralny" in genres:
+                                movie_type = "TEATR"
+                            else:
+                                movie_type = "KONCERT"
                         elif "HELIOS SPORT" in flags_upper: movie_type = "SPORT"
                         elif "MARATON FILMOWY" in flags_upper: movie_type = "MARATON"
                         elif "HELIOS REPLAY" in flags_upper: movie_type = "KULTOWE"
@@ -179,7 +186,12 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     event_genres = [g.get("name", "").lower() for g in ev.get("genres", [])]
                     
                     if "HELIOS NA SCENIE" in event_tags:
-                        movie_type = "CYRK" if "wydarzenie cyrkowe" in event_genres else "KONCERT"
+                        if "wydarzenie cyrkowe" in event_genres:
+                            movie_type = "CYRK"
+                        elif "spektakl teatralny" in event_genres:
+                            movie_type = "TEATR"
+                        else:
+                            movie_type = "KONCERT"
                     elif "HELIOS SPORT" in event_tags: movie_type = "SPORT"
                     elif "MARATON FILMOWY" in event_tags: movie_type = "MARATON"
                     elif "HELIOS REPLAY" in event_tags: movie_type = "KULTOWE"

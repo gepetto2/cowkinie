@@ -1,3 +1,4 @@
 backend/.env
 backend/__pycache__/
 backend/scrapers/__pycache__/
+backend/view_movie_sources.py

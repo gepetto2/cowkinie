@@ -146,12 +146,19 @@ async def scrape_cinema_city(supabase, cities=["Poznań"]):
                 for film in unique_films:
                     # Zabezpieczenie w przypadku braku 'name' w filmie
                     title = (film.get("name") or "").strip()
+                    
+                    movie_type_override = None
+                    if title.endswith(" - National Theatre Live 2026"):
+                        title = title.removesuffix(" - National Theatre Live 2026").strip()
+                        movie_type_override = "TEATR"
+
                     if title and title not in movies_cache and title not in all_movies_to_upsert:
                         api_film_id = film.get("id")
                         details = global_film_details_cache.get(api_film_id, {})
 
                         attribute_ids = film.get("attributeIds", [])
                         type_mapping = {
+                            "opera": "OPERA",
                             "marathon": "MARATON",
                             "music-event": "KONCERT",
                             "sport-event": "SPORT",
@@ -159,7 +166,7 @@ async def scrape_cinema_city(supabase, cities=["Poznań"]):
                             "dubbed-lang-uk": "UKRAIŃSKI DUBBING",
                             "ladies-night": "LADIES NIGHT/KNO"
                         }
-                        movie_type = next((val for key, val in type_mapping.items() if key in attribute_ids), None)
+                        movie_type = movie_type_override or next((val for key, val in type_mapping.items() if key in attribute_ids), None)
 
                         raw_release_year = film.get("releaseYear")
                         release_year = str(raw_release_year).replace('/', ',').split(',')[0].strip() if raw_release_year else None
@@ -184,6 +191,10 @@ async def scrape_cinema_city(supabase, cities=["Poznań"]):
                 for film in unique_films:
                     api_film_id = film.get("id")
                     title = (film.get("name") or "").strip()
+                    
+                    if title.endswith(" - National Theatre Live 2026"):
+                        title = title.removesuffix(" - National Theatre Live 2026").strip()
+                        
                     if api_film_id and title in movies_cache:
                         film_id_map[api_film_id] = movies_cache[title]
                 
