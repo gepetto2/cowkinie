@@ -18,7 +18,7 @@ except Exception as e:
 
 # Importujemy funkcje scrapujące z naszych plików
 from scrapers.multikino import scrape_and_save as scrape_multikina
-from scrapers.cinema_city import scrape_cinema_city
+from scrapers.cinema_city import scrape_and_save as scrape_cinema_city
 from scrapers.helios import scrape_and_save as scrape_helios
 from database import consolidate_movie_data
 from enrich_movies import enrich_movies_data

@@ -3,17 +3,8 @@ import asyncio
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from utils import parse_start_time
+from utils import parse_start_time, clean_title
 from database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
-
-def clean_title(title: str) -> str:
-    if not title:
-        return ""
-    # Usuwa przedrostek w stylu "NT Live: "
-    title = re.sub(r'^NT Live:\s*', '', title, flags=re.IGNORECASE)
-    # Usuwa dopisek w stylu " 40. Rocznica" lub ". 30. Rocznica"
-    title = re.sub(r'(?:\.\s*)?\s*\d+\.?\s*[Rr]ocznica\b.*$', '', title, flags=re.IGNORECASE)
-    return title.strip()
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Helios z API v1 i filtruje te z wybranych miast."""

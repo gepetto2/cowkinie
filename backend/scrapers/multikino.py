@@ -1,13 +1,7 @@
 import re
 from curl_cffi import requests
-from utils import parse_start_time
+from utils import parse_start_time, clean_title
 from database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
-
-def clean_title(title: str) -> str:
-    if not title:
-        return ""
-    title = re.sub(r'^(?:NMF|NT Live)[:\s\-]+', '', title, flags=re.IGNORECASE)
-    return title.strip()
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Multikino i filtruje te z wybranych miast."""

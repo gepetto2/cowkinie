@@ -2,7 +2,7 @@ import asyncio
 import json
 from curl_cffi import requests
 from datetime import datetime, timedelta
-from utils import parse_start_time
+from utils import parse_start_time, clean_title
 from database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
@@ -61,7 +61,7 @@ async def fetch_film_details(client: requests.AsyncSession, api_film_id: str, he
             print(f"   Błąd pobierania szczegółów filmu {api_film_id}: {e}")
         return api_film_id, None
 
-async def scrape_cinema_city(supabase, cities=["Poznań"]):
+async def scrape_and_save(supabase, cities=["Poznań"]):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             # KROK 1: Inicjalizacja sesji i pobranie ciasteczek
@@ -149,8 +149,8 @@ async def scrape_cinema_city(supabase, cities=["Poznań"]):
                     
                     movie_type_override = None
                     if title.endswith(" - National Theatre Live 2026"):
-                        title = title.removesuffix(" - National Theatre Live 2026").strip()
                         movie_type_override = "TEATR"
+                    title = clean_title(title)
 
                     if title and title not in movies_cache and title not in all_movies_to_upsert:
                         api_film_id = film.get("id")
