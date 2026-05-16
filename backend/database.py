@@ -88,7 +88,9 @@ def consolidate_movie_data(supabase):
             if valid_directors:
                 unique_directors = list({d.lower(): d for d in valid_directors}.values())
                 if len(unique_directors) > 1:
-                    print(f"  Uwaga: Niezgodność reżyserów dla filmu '{movie.get('title')}': {unique_directors}")
+                    longest_director_lower = max(unique_directors, key=len).lower()
+                    if not all(d.lower() in longest_director_lower for d in unique_directors):
+                        print(f"  Uwaga: Niezgodność reżyserów dla filmu '{movie.get('title')}': {unique_directors}")
                 
                 # Wybieramy najdłuższą z dostępnych wartości
                 update_data["director"] = max(valid_directors, key=len)
