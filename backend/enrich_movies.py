@@ -30,9 +30,6 @@ async def enrich_movies_data(supabase: Client):
             db_year_raw = movie.get("release_year")
             db_director = movie.get("director")
             
-            # Modyfikacja tytułu przed wyszukiwaniem
-            search_title = db_title.replace("cz.", "część").replace("Cz.", "Część")
-            
             search_year = None
             if db_year_raw:
                 try:
@@ -41,10 +38,10 @@ async def enrich_movies_data(supabase: Client):
                 except ValueError:
                     pass
             
-            print(f"[{i}/{len(movies)}] Uzupełnianie: '{db_title}' -> szukane jako '{search_title}'")
+            print(f"[{i}/{len(movies)}] Uzupełnianie: '{db_title}'")
             
-            tmdb_task = get_tmdb_movie_details(search_title, search_year, db_director, session)
-            filmweb_task = search_movie_details(search_title, search_year, session)
+            tmdb_task = get_tmdb_movie_details(db_title, search_year, db_director, session)
+            filmweb_task = search_movie_details(db_title, search_year, session)
             
             tmdb_data, filmweb_data = await asyncio.gather(tmdb_task, filmweb_task)
             update_data = {}

@@ -17,10 +17,24 @@ def parse_start_time(start_time_raw: str) -> str:
 def clean_title(title: str) -> str:
     if not title:
         return ""
+    
+    original_title = title
+
+    # Ujednolicenie myślników (półpauza i pauza na zwykły dywiz)
+    title = title.replace("–", "-").replace("—", "-")
     # Usuwa przedrostki kinowe
     title = re.sub(r'^(?:NMF|NT Live)[:\s\-]+', '', title, flags=re.IGNORECASE)
-    # Usuwa rocznice np. " 40. Rocznica"
-    title = re.sub(r'(?:\.\s*)?\s*\d+\.?\s*[Rr]ocznica\b.*$', '', title, flags=re.IGNORECASE)
+    # Usuwa rocznice np. " 40. Rocznica", " 40th Anniversary"
+    title = re.sub(r'(?:\.\s*)?\s*\d+(?:\.|st|nd|rd|th)?\s*(?:[Rr]ocznica|Anniversary)\b.*$', '', title, flags=re.IGNORECASE)
     # Usuwa typowy dopisek CC
     title = title.replace(" - National Theatre Live 2026", "")
-    return title.strip()
+    title = title.removesuffix(" - wersja oryginalna")
+    title = title.removesuffix(". Wersja zremasterowana")
+    # Zamiana skrótu na pełne słowo (np. "Diuna: cz. 2" -> "Diuna: część 2")
+    title = title.replace("cz.", "część").replace("Cz.", "Część")
+    
+    cleaned_title = title.strip()
+    if original_title != cleaned_title:
+        print(f"Zmieniono tytuł: '{original_title}' -> '{cleaned_title}'")
+        
+    return cleaned_title

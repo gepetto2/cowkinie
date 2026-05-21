@@ -177,8 +177,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                             "length_cc": film.get("length"),
                             "poster_cc": film.get("posterLink"),
                             "release_year_cc": release_year,
-                            "director_cc": details.get("directors"),
-                            "original_title_cc": details.get("originalName")
+                            "director_cc": details.get("directors")
                         }
                         
                 # Zbiorczy Upsert wszystkich nowych filmów ze wszystkich dni
@@ -195,6 +194,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     if title.endswith(" - National Theatre Live 2026"):
                         title = title.removesuffix(" - National Theatre Live 2026").strip()
                         
+                    title = clean_title(title)
+
                     if api_film_id and title in movies_cache:
                         film_id_map[api_film_id] = movies_cache[title]
                 
