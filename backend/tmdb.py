@@ -38,15 +38,26 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
 
     async def get_movie_details(movie_id: int):
         details_url = f"https://api.themoviedb.org/3/movie/{movie_id}"
-        details_params = {
-            "api_key": TMDB_API_KEY,
-            "language": "pl-PL",
-            "append_to_response": "credits"
-        }
-        async with session.get(details_url, params=details_params) as resp:
-            if resp.status == 200:
-                return await resp.json()
-            return None
+        details_params = {"api_key": TMDB_API_KEY, "language": "pl-PL"}
+        
+        credits_url = f"https://api.themoviedb.org/3/movie/{movie_id}/credits"
+        credits_params = {"api_key": TMDB_API_KEY, "language": "en-US"}
+
+        async def fetch(url, params):
+            async with session.get(url, params=params) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+                return None
+
+        movie_data, credits_data = await asyncio.gather(
+            fetch(details_url, details_params),
+            fetch(credits_url, credits_params)
+        )
+
+        if movie_data:
+            movie_data["credits"] = credits_data or {}
+            return movie_data
+        return None
 
     def extract_directors(tmdb_movie):
         dirs = []
