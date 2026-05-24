@@ -1,4 +1,5 @@
 import { getCities, getMovies } from '@/lib/supabase/queries';
+import MovieCard from '@/components/MovieCard';
 
 export default async function Home() {
   const cities = await getCities();
@@ -23,17 +24,7 @@ export default async function Home() {
         <h2 className="text-lg font-semibold mb-4 text-slate-300">Dostępne filmy:</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
           {movies.map((movie) => (
-            <div key={movie.id} className="flex flex-col group cursor-pointer">
-              <div className="relative w-full aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-3 shadow-sm group-hover:shadow-md transition-shadow">
-                {movie.poster ? (
-                  <img src={movie.poster} alt={movie.title} className="object-cover w-full h-full" />
-                ) : (
-                  <div className="flex items-center justify-center w-full h-full text-slate-500 text-xs text-center p-2">Brak plakatu</div>
-                )}
-              </div>
-              <h3 className="font-semibold text-sm leading-tight text-slate-100 line-clamp-2">{movie.title}</h3>
-              <p className="text-xs text-slate-400 mt-1">{movie.release_year || ''}</p>
-            </div>
+            <MovieCard key={movie.id} movie={movie} />
           ))}
         </div>
       </section>
