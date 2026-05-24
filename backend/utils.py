@@ -30,6 +30,7 @@ def clean_title(title: str) -> str:
     title = title.replace(" - National Theatre Live 2026", "")
     title = title.removesuffix(" - wersja oryginalna")
     title = title.removesuffix(". Wersja zremasterowana")
+    title = title.removesuffix("- powrót do kin")
     # Zamiana skrótu na pełne słowo (np. "Diuna: cz. 2" -> "Diuna: część 2")
     title = title.replace("cz.", "część").replace("Cz.", "Część")
     
