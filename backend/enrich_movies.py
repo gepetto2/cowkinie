@@ -10,7 +10,7 @@ async def enrich_movies_data(supabase: Client):
     print("\nRozpoczynamy wzbogacanie danych o filmach z TMDB i Filmweb...")
     
     # Pobieramy filmy, które nie mają jeszcze danych z TMDB (zabezpieczenie przed ponownym pobieraniem)
-    response = supabase.table("movies").select("id, title, release_year, movie_type, director").is_("title_tmdb", "null").execute()
+    response = supabase.table("movies").select("id, title, original_title, release_year, movie_type, director").is_("title_tmdb", "null").execute()
     movies = response.data
 
     # Pomijamy filmy typu SPORT i MARATON
@@ -27,6 +27,7 @@ async def enrich_movies_data(supabase: Client):
         for i, movie in enumerate(movies, 1):
             db_id = movie.get("id")
             db_title = movie.get("title")
+            db_original_title = movie.get("original_title")
             db_year_raw = movie.get("release_year")
             db_director = movie.get("director")
             
@@ -40,7 +41,7 @@ async def enrich_movies_data(supabase: Client):
             
             print(f"[{i}/{len(movies)}] Uzupełnianie: '{db_title}'")
             
-            tmdb_task = get_tmdb_movie_details(db_title, search_year, db_director, session)
+            tmdb_task = get_tmdb_movie_details(db_title, search_year, db_director, db_original_title, session)
             filmweb_task = search_movie_details(db_title, search_year, session)
             
             tmdb_data, filmweb_data = await asyncio.gather(tmdb_task, filmweb_task)

@@ -8,7 +8,7 @@ load_dotenv()
 
 TMDB_API_KEY = os.environ.get("TMDB_API_KEY")
 
-async def get_tmdb_movie_details(title: str, year: Optional[int] = None, director: Optional[str] = None, session: Optional[aiohttp.ClientSession] = None):
+async def get_tmdb_movie_details(title: str, year: Optional[int] = None, director: Optional[str] = None, original_title: Optional[str] = None, session: Optional[aiohttp.ClientSession] = None):
     """
     Wyszukuje film w bazie TMDB na podstawie tytułu i (opcjonalnie) roku premiery,
     a następnie zwraca jego szczegóły.
@@ -21,18 +21,18 @@ async def get_tmdb_movie_details(title: str, year: Optional[int] = None, directo
     # Używamy przekazanej sesji lub tworzymy własną
     if session is None:
         async with aiohttp.ClientSession() as new_session:
-            return await _fetch_and_extract(new_session, title, year, director)
+            return await _fetch_and_extract(new_session, title, year, director, original_title)
     else:
-        return await _fetch_and_extract(session, title, year, director)
+        return await _fetch_and_extract(session, title, year, director, original_title)
 
-async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: Optional[int], director: Optional[str]):
+async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: Optional[int], director: Optional[str], original_title: Optional[str] = None):
     search_url = "https://api.themoviedb.org/3/search/movie"
     
     lower_title = title.lower()
+    lower_original_title = original_title.lower() if original_title else None
             
-    params = {
+    base_params = {
         "api_key": TMDB_API_KEY,
-        "query": title,
         "language": "pl-PL"
     }
 
@@ -81,54 +81,64 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
                 return _format_tmdb_response(tmdb_movie, dirs)
         return None
 
-    # KROK 1: Wyszukiwanie z rokiem (używając parametru 'year' zamiast 'primary_release_year')
-    results_with_year = []
-    if year:
-        params_year = params.copy()
-        params_year["year"] = str(year)
-        async with session.get(search_url, params=params_year) as response:
+    async def perform_search(query: str, search_year: Optional[int] = None):
+        p = base_params.copy()
+        p["query"] = query
+        if search_year:
+            p["year"] = str(search_year)
+        async with session.get(search_url, params=p) as response:
             if response.status == 200:
                 json_data = await response.json()
-                results_with_year = json_data.get("results", [])
-                if results_with_year:
-                    print(f"  [TMDB] Znaleziono wyniki dla zapytania: '{title}' ({year})")
+                results = json_data.get("results", [])
+                if results:
+                    year_str = f" (rok: {search_year})" if search_year else " (bez roku)"
+                    print(f"  [TMDB] Znaleziono wyniki dla zapytania: '{query}'{year_str}")
+                return results
+            return []
 
-    # KROK 2: Sprawdzenie reżysera w wynikach z rokiem
-    match = None
-    if results_with_year and director:
-        match = await check_director_in_results(results_with_year)
-
-    # KROK 3: Jeśli nie ma dopasowania, szukamy bez roku
-    results_without_year = []
-    if not match:
-        async with session.get(search_url, params=params) as response:
-            if response.status == 200:
-                json_data = await response.json()
-                results_without_year = json_data.get("results", [])
-                if results_without_year:
-                    print(f"  [TMDB] Znaleziono wyniki dla zapytania: '{title}' (bez roku)")
+    search_strategies = [
+        {"query": title, "year": year},
+    ]
+    if original_title and original_title.strip() and original_title != title:
+        search_strategies.append({"query": original_title, "year": year})
         
-        if results_without_year and director:
-            match = await check_director_in_results(results_without_year)
+    search_strategies.append({"query": title, "year": None})
+    
+    if original_title and original_title.strip() and original_title != title:
+        search_strategies.append({"query": original_title, "year": None})
+        
+    all_results = []
+    
+    for strategy in search_strategies:
+        results = await perform_search(strategy["query"], strategy["year"])
+        if results:
+            all_results.extend(results)
+            if director:
+                match = await check_director_in_results(results)
+                if match:
+                    return match
 
-    if match:
-        return match
-
-    # KROK 4: Fallback (zapasowe dopasowanie)
-    final_results = results_with_year if results_with_year else results_without_year
-    if not final_results:
+    if not all_results:
         return None
 
+    # Usuwamy duplikaty, zachowując kolejność
+    unique_results = []
+    seen_ids = set()
+    for res in all_results:
+        if res["id"] not in seen_ids:
+            unique_results.append(res)
+            seen_ids.add(res["id"])
+
     best_match = None
-    for result in final_results:
+    for result in unique_results:
         res_title = result.get("title", "").lower()
         res_orig = result.get("original_title", "").lower()
-        if res_title == lower_title or res_orig == lower_title:
+        if res_title == lower_title or res_orig == lower_title or (lower_original_title and (res_title == lower_original_title or res_orig == lower_original_title)):
             best_match = result
             break
             
     if not best_match:
-        best_match = final_results[0]
+        best_match = unique_results[0]
         
     tmdb_movie = await get_movie_details(best_match["id"])
     if not tmdb_movie:
