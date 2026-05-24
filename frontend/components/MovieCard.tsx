@@ -11,7 +11,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Film } from "lucide-react";
 
 type Movie = Database["public"]["Tables"]["movies"]["Row"];
 type Screening = Database["public"]["Tables"]["screenings"]["Row"] & {
@@ -22,17 +21,12 @@ export default function MovieCard({ movie }: { movie: Movie }) {
   const [isOpen, setIsOpen] = useState(false);
   const [screenings, setScreenings] = useState<Screening[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
-  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
-    // Jeśli okienko jest zamknięte LUB już pobraliśmy dane - nie odpytujemy bazy ponownie
-    if (!isOpen || hasFetched) return;
+    if (!isOpen) return;
 
     async function fetchScreenings() {
       setIsLoading(true);
-      const now = new Date().toISOString();
-      
       // Pobieramy wszystkie seanse dla wybranego filmu, nie filtrujemy po mieście
       const { data, error } = await supabase
         .from("screenings")
@@ -41,18 +35,16 @@ export default function MovieCard({ movie }: { movie: Movie }) {
           cinemas(name, city)
         `)
         .eq("movie_id", movie.id)
-        .gte("start_time", now) // Filtrujemy tylko przyszłe i trwające seanse
         .order("start_time", { ascending: true });
 
       if (!error && data) {
         setScreenings(data as unknown as Screening[]);
       }
       setIsLoading(false);
-      setHasFetched(true);
     }
 
     fetchScreenings();
-  }, [isOpen, movie.id, hasFetched]);
+  }, [isOpen, movie.id]);
 
   // Grupujemy seanse po kinie, ale dodajemy w nawiasie miasto (np. "Multikino (Warszawa)")
   const groupedScreenings = screenings.reduce((acc, screening) => {
@@ -70,18 +62,10 @@ export default function MovieCard({ movie }: { movie: Movie }) {
       <DialogTrigger asChild>
         <div className="flex flex-col group cursor-pointer">
           <div className="relative w-full aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-3 shadow-sm group-hover:shadow-md transition-shadow">
-            {movie.poster && !imgError ? (
-              <img 
-                src={movie.poster} 
-                alt={movie.title} 
-                className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105" 
-                onError={() => setImgError(true)}
-              />
+            {movie.poster ? (
+              <img src={movie.poster} alt={movie.title} className="object-cover w-full h-full" />
             ) : (
-              <div className="flex flex-col items-center justify-center w-full h-full text-slate-500 bg-slate-800/50 p-2">
-                <Film className="w-8 h-8 mb-2 opacity-40" />
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-center opacity-40">Brak plakatu</span>
-              </div>
+              <div className="flex items-center justify-center w-full h-full text-slate-500 text-xs text-center p-2">Brak plakatu</div>
             )}
           </div>
           <h3 className="font-semibold text-sm leading-tight text-slate-100 line-clamp-2">{movie.title}</h3>
@@ -94,18 +78,10 @@ export default function MovieCard({ movie }: { movie: Movie }) {
         
         {/* Lewa kolumna z plakatem */}
         <div className="hidden sm:block w-[300px] shrink-0 bg-slate-900 relative">
-          {movie.poster && !imgError ? (
-            <img 
-              src={movie.poster} 
-              alt={movie.title} 
-              className="object-contain w-full h-full absolute inset-0" 
-              onError={() => setImgError(true)}
-            />
+          {movie.poster ? (
+            <img src={movie.poster} alt={movie.title} className="object-cover w-full h-full absolute inset-0" />
           ) : (
-            <div className="flex flex-col items-center justify-center w-full h-full text-slate-500 bg-slate-900 absolute inset-0">
-              <Film className="w-16 h-16 mb-4 opacity-20" />
-              <span className="text-sm uppercase tracking-wider font-semibold opacity-30">Brak plakatu</span>
-            </div>
+            <div className="flex items-center justify-center w-full h-full text-slate-500 text-sm p-4 text-center absolute inset-0">Brak plakatu</div>
           )}
         </div>
         
