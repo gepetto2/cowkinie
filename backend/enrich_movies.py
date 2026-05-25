@@ -21,7 +21,14 @@ async def enrich_movies_data(supabase: Client):
         return
 
     print(f"Znaleziono {len(movies)} filmów do uzupełnienia.\n")
-    current_year = datetime.now().year
+
+    # --- NOWE: Pobieramy już wzbogacone filmy z bazy, aby wiedzieć jakie tmdb_id już posiadamy ---
+    try:
+        enriched_response = supabase.table("movies").select("id, tmdb_id, title, movie_type").not_.is_("tmdb_id", "null").execute()
+        seen_tmdb_ids = {m["tmdb_id"]: {"id": m["id"], "title": m["title"]} for m in enriched_response.data if m.get("tmdb_id") and m.get("movie_type") not in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING")}
+    except Exception as e:
+        print(f"Uwaga: Nie udało się pobrać istniejących tmdb_id (upewnij się, że kolumna 'tmdb_id' istnieje w tabeli 'movies'): {e}")
+        seen_tmdb_ids = {}
 
     async with aiohttp.ClientSession() as session:
         for i, movie in enumerate(movies, 1):
@@ -48,6 +55,34 @@ async def enrich_movies_data(supabase: Client):
             update_data = {}
             
             if tmdb_data:
+                tmdb_id = tmdb_data.get("tmdb_id")
+                
+                # --- MERGE LOGIC: Jeśli znaleźliśmy ten sam film w TMDB, robimy scalenie ---
+                if tmdb_id:
+                    if movie.get("movie_type") not in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING"):
+                        if tmdb_id in seen_tmdb_ids:
+                            target_movie = seen_tmdb_ids[tmdb_id]
+                            target_movie_id = target_movie["id"]
+                            target_movie_title = target_movie.get("title", "Nieznany tytuł")
+                            print(f"  -> [Merge] Znaleziono duplikat! Łączenie: '{db_title}' -> '{target_movie_title}' (TMDB ID {tmdb_id}).")
+                            
+                            try:
+                                # 1. Przepięcie seansów z duplikatu na główny film
+                                supabase.table("screenings").update({"movie_id": target_movie_id}).eq("movie_id", db_id).execute()
+                                # 2. Usunięcie zduplikowanego filmu
+                                supabase.table("movies").delete().eq("id", db_id).execute()
+                                print(f"  -> [Merge] Pomyślnie przeniesiono seanse i usunięto zduplikowany wpis.")
+                            except Exception as e:
+                                print(f"  -> [Merge] Błąd podczas łączenia duplikatów: {e}")
+                                
+                            # Przerywamy dalszą aktualizację dla usuniętego filmu
+                            continue
+                        else:
+                            # Zapisujemy w pamięci, aby kolejne duplikaty w tej samej pętli mogły zostać połączone
+                            seen_tmdb_ids[tmdb_id] = {"id": db_id, "title": db_title}
+                    
+                    update_data["tmdb_id"] = tmdb_id
+
                 poster_path = tmdb_data.get("poster_path")
                 poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None
                 

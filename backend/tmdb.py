@@ -156,6 +156,7 @@ def _format_tmdb_response(tmdb_movie, dirs):
     return {
         "tmdb_id": tmdb_movie.get("id"),
         "title": tmdb_movie.get("title"),
+        "original_title": tmdb_movie.get("original_title"),
         "release_year": release_year,
         "length": runtime if runtime and runtime > 0 else None,
         "director": director_str,
