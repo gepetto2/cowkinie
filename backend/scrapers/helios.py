@@ -71,6 +71,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 if not cinema_uuid or not cinema_name:
                     continue
                     
+                cinema_name = cinema_name.replace("Helios", "").strip()
+
                 print(f"\n--- Rozpoczynam scraping dla: {cinema_name} ---")
                 
                 # Zapis kina do bazy

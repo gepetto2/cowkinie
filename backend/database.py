@@ -113,8 +113,8 @@ def consolidate_movie_data(supabase):
                 
         if movie.get("poster") is None:
             posters = [
-                movie.get("poster_helios"),
                 movie.get("poster_cc"),
+                movie.get("poster_helios"),
                 movie.get("poster_multikino")
             ]
             valid_posters = [p for p in posters if p]

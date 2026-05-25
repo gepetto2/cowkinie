@@ -71,7 +71,7 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
         if not director:
             return None
         director_lower = director.lower()
-        for candidate in results_list[:5]:
+        for candidate in results_list[:20]:
             tmdb_movie = await get_movie_details(candidate["id"])
             if not tmdb_movie:
                 continue
@@ -158,6 +158,7 @@ def _format_tmdb_response(tmdb_movie, dirs):
         "title": tmdb_movie.get("title"),
         "original_title": tmdb_movie.get("original_title"),
         "release_year": release_year,
+        "release_date": release_date if release_date else None,
         "length": runtime if runtime and runtime > 0 else None,
         "director": director_str,
         "poster_path": tmdb_movie.get("poster_path"),
