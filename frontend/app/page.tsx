@@ -1,11 +1,24 @@
 import { getCities, getMovies } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
+import { supabase } from '@/lib/supabase/client';
 
 export const revalidate = 0;
 
 export default async function Home() {
   const cities = await getCities();
   const movies = await getMovies();
+
+  // Wykorzystanie widoku SQL do zliczenia seansów i pobrania top 10 wyników prosto z bazy
+  const { data: topScreenings } = await supabase
+    .from('movie_screening_counts')
+    .select('*')
+    .order('screening_count', { ascending: false })
+    .limit(10);
+
+  // Dopasowanie pobranych idków do pełnych danych filmów
+  const topMovies = (topScreenings || [])
+    .map((ts: any) => movies.find((m) => m.id === ts.movie_id))
+    .filter(Boolean) as typeof movies;
 
   // Grupowanie filmów po typie
   const groupedMovies = movies.reduce((acc, movie) => {
@@ -42,6 +55,26 @@ export default async function Home() {
       </section>
 
       <div className="space-y-10">
+        {/* Karuzela "Najwięcej seansów" */}
+        {topMovies.length > 0 && (
+          <section className="flex flex-col">
+            <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-amber-500 rounded-sm">
+              Najwięcej seansów
+            </h2>
+            
+            <div 
+              className="flex overflow-x-auto gap-5 pb-6 snap-x -mx-4 px-4 sm:mx-0 sm:px-0" 
+              style={{ scrollbarWidth: 'thin' }}
+            >
+              {topMovies.map((movie) => (
+                <div key={`top-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
+                  <MovieCard movie={movie} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {sortedCategories.map((category) => (
           <section key={category} className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-indigo-500 rounded-sm">
