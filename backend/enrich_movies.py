@@ -5,6 +5,7 @@ from supabase import Client
 
 from tmdb import get_tmdb_movie_details
 from filmweb import search_movie_details
+from merge_movies import check_and_merge_movie
 
 async def enrich_movies_data(supabase: Client):
     print("\nRozpoczynamy wzbogacanie danych o filmach z TMDB i Filmweb...")
@@ -59,27 +60,11 @@ async def enrich_movies_data(supabase: Client):
                 
                 # --- MERGE LOGIC: Jeśli znaleźliśmy ten sam film w TMDB, robimy scalenie ---
                 if tmdb_id:
-                    if movie.get("movie_type") not in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING"):
-                        if tmdb_id in seen_tmdb_ids:
-                            target_movie = seen_tmdb_ids[tmdb_id]
-                            target_movie_id = target_movie["id"]
-                            target_movie_title = target_movie.get("title", "Nieznany tytuł")
-                            print(f"  -> [Merge] Znaleziono duplikat! Łączenie: '{db_title}' -> '{target_movie_title}' (TMDB ID {tmdb_id}).")
-                            
-                            try:
-                                # 1. Przepięcie seansów z duplikatu na główny film
-                                supabase.table("screenings").update({"movie_id": target_movie_id}).eq("movie_id", db_id).execute()
-                                # 2. Usunięcie zduplikowanego filmu
-                                supabase.table("movies").delete().eq("id", db_id).execute()
-                                print(f"  -> [Merge] Pomyślnie przeniesiono seanse i usunięto zduplikowany wpis.")
-                            except Exception as e:
-                                print(f"  -> [Merge] Błąd podczas łączenia duplikatów: {e}")
-                                
-                            # Przerywamy dalszą aktualizację dla usuniętego filmu
-                            continue
-                        else:
-                            # Zapisujemy w pamięci, aby kolejne duplikaty w tej samej pętli mogły zostać połączone
-                            seen_tmdb_ids[tmdb_id] = {"id": db_id, "title": db_title}
+                    tmdb_title = tmdb_data.get("title", "")
+                    is_duplicate = check_and_merge_movie(supabase, movie, tmdb_id, seen_tmdb_ids, tmdb_title)
+                    if is_duplicate:
+                        # Przerywamy dalszą aktualizację dla usuniętego filmu
+                        continue
                     
                     update_data["tmdb_id"] = tmdb_id
 

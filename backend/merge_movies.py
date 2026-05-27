@@ -1,0 +1,80 @@
+import difflib
+from supabase import Client
+
+def get_similarity(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    return difflib.SequenceMatcher(None, str(a).lower(), str(b).lower()).ratio()
+
+def check_and_merge_movie(supabase: Client, current_movie: dict, tmdb_id: int, seen_tmdb_ids: dict, tmdb_title: str) -> bool:
+    """
+    Sprawdza czy film o danym tmdb_id już istnieje (w seen_tmdb_ids).
+    Jeśli tak, porównuje oba tytuły do tytułu z TMDB i wybiera bardziej zbliżony.
+    Przepina seanse na wybrany film główny i usuwa ten gorszy.
+    Zwraca True jeśli film był duplikatem (i został usunięty), w przeciwnym razie False.
+    """
+    if current_movie.get("movie_type") in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING"):
+        return False
+        
+    if tmdb_id in seen_tmdb_ids:
+        seen_movie = seen_tmdb_ids[tmdb_id]
+        seen_movie_id = seen_movie["id"]
+        seen_movie_title = seen_movie.get("title", "Nieznany tytuł")
+        
+        current_movie_id = current_movie.get("id")
+        current_movie_title = current_movie.get("title", "Nieznany tytuł")
+        
+        # Obliczamy podobieństwo tytułów do tytułu z TMDB
+        sim_seen = get_similarity(seen_movie_title, tmdb_title)
+        sim_current = get_similarity(current_movie_title, tmdb_title)
+        
+        if sim_seen >= sim_current:
+            # Zostawiamy dotychczasowy film (seen), usuwamy obecny (current)
+            source_id, source_title = current_movie_id, current_movie_title
+            target_id, target_title = seen_movie_id, seen_movie_title
+            current_is_duplicate = True
+        else:
+            # Zostawiamy obecny film (current), usuwamy dotychczasowy (seen)
+            source_id, source_title = seen_movie_id, seen_movie_title
+            target_id, target_title = current_movie_id, current_movie_title
+            current_is_duplicate = False
+            
+        print(f"  -> [Merge] Znaleziono duplikat! Łączenie: '{source_title}' -> '{target_title}' (TMDB ID {tmdb_id}).")
+        print(f"     Podobieństwo do '{tmdb_title}': '{seen_movie_title}' ({sim_seen:.2f}) vs '{current_movie_title}' ({sim_current:.2f})")
+        
+        try:
+            # 1. Scalenie danych z obu rekordów (np. scraperów), aby nie utracić informacji
+            source_res = supabase.table("movies").select("*").eq("id", source_id).execute()
+            target_res = supabase.table("movies").select("*").eq("id", target_id).execute()
+            
+            if source_res.data and target_res.data:
+                source_data = source_res.data[0]
+                target_data = target_res.data[0]
+                
+                update_payload = {}
+                # Przenosimy tylko niepuste wartości z usuwanego filmu w puste miejsca pozostawianego
+                for key, value in source_data.items():
+                    if key not in ("id", "created_at") and target_data.get(key) is None and value is not None:
+                        update_payload[key] = value
+                        
+                if update_payload:
+                    supabase.table("movies").update(update_payload).eq("id", target_id).execute()
+
+            # 2. Przepięcie seansów z duplikatu na główny film
+            supabase.table("screenings").update({"movie_id": target_id}).eq("movie_id", source_id).execute()
+            # 3. Usunięcie zduplikowanego filmu
+            supabase.table("movies").delete().eq("id", source_id).execute()
+            print(f"  -> [Merge] Pomyślnie przeniesiono seanse, scalono brakujące dane i usunięto zduplikowany wpis.")
+            
+            # Aktualizacja pamięci, jeśli nowym głównym filmem został ten obecnie przetwarzany
+            if not current_is_duplicate:
+                seen_tmdb_ids[tmdb_id] = {"id": target_id, "title": target_title}
+                
+        except Exception as e:
+            print(f"  -> [Merge] Błąd podczas łączenia duplikatów: {e}")
+            
+        return current_is_duplicate
+    else:
+        # Zapisujemy w pamięci, aby kolejne duplikaty w tej samej pętli mogły zostać połączone
+        seen_tmdb_ids[tmdb_id] = {"id": current_movie.get("id"), "title": current_movie.get("title")}
+        return False
