@@ -102,10 +102,11 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
     if original_title and original_title.strip() and original_title != title:
         search_strategies.append({"query": original_title, "year": year})
         
-    search_strategies.append({"query": title, "year": None})
-    
-    if original_title and original_title.strip() and original_title != title:
-        search_strategies.append({"query": original_title, "year": None})
+    if year is not None:
+        search_strategies.append({"query": title, "year": None})
+        
+        if original_title and original_title.strip() and original_title != title:
+            search_strategies.append({"query": original_title, "year": None})
         
     all_results = []
     

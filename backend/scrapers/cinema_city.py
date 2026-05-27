@@ -3,7 +3,7 @@ import json
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from utils import parse_start_time, clean_title
-from database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
+from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Cinema City i filtruje te z wybranych miast."""

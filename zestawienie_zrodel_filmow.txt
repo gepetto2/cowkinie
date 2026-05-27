@@ -1,0 +1,2493 @@
+Pobrano 97 filmów. Zestawienie źródeł:
+
+================================================================================
+FILM [1]: Pan Ryba
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Ricard Cussó, Rio Harrington
+    - Tytuł oryginalny: The Pout-Pout Fish
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Czas (min): 112
+    - Rok: 2025
+    - Reżyser: Ricard Cussó, Rio Harrington
+    - Tytuł oryginalny: The Pout-Pout Fish
+  [TMDB]
+    - Tytuł: Pan Ryba
+    - Czas (min): 92
+    - Rok: 2026
+    - Reżyser: Ricard Cussó
+  [FILMWEB]
+    - Tytuł: Pan Ryba
+    - Czas (min): 92
+    - Rok: 2026
+    - Reżyser: Ricard Cussó
+
+
+================================================================================
+FILM [2]: Północ
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Bente Lohne
+    - Tytuł oryginalny: Reisen mot nord
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Czas (min): 105
+    - Rok: 2025
+    - Reżyser: Bente Lohne
+    - Tytuł oryginalny: Reisen mot nord
+  [TMDB]
+    - Tytuł: Reisen mot Nord
+    - Czas (min): 85
+    - Rok: 2025
+    - Reżyser: Bente Lohne
+  [FILMWEB]
+    - Tytuł: Północ
+    - Czas (min): 103
+    - Rok: 2020
+    - Reżyser: Oh-seung Kwon
+
+
+================================================================================
+FILM [3]: Oblicze Jezusa
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2023
+    - Tytuł oryginalny: Oblicze Jezusa
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Czas (min): 75
+    - Rok: 2023
+    - Reżyser: 
+    - Tytuł oryginalny: Oblicze Jezusa
+  [TMDB]
+    - Tytuł: Oblicze Jezusa
+    - Czas (min): 75
+    - Rok: 2023
+    - Reżyser: Jarosław Rędziak
+  [FILMWEB]
+    - Tytuł: Oblicze Jezusa
+    - Czas (min): 75
+    - Rok: 2023
+    - Reżyser: Jarosław Rędziak
+
+
+================================================================================
+FILM [4]: Tafiti
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Timo Berg, Nina Wels
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Czas (min): 81
+    - Rok: 2025
+    - Reżyser: Timo Berg, Nina Wels
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Tafiti - Ab durch die Wüste
+    - Czas (min): 82
+    - Rok: 2025
+    - Reżyser: Nina Wels
+  [FILMWEB]
+    - Tytuł: Tafiti
+    - Czas (min): 81
+    - Rok: 2025
+    - Reżyser: Nina Wels
+
+
+================================================================================
+FILM [5]: Nie martw się, nic mi nie jest
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2024
+    - Reżyser: Solange Cicurel
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Czas (min): 82
+    - Rok: 2024
+    - Reżyser: Solange Cicurel
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Nie martw się, nic mi nie jest
+    - Czas (min): 82
+    - Rok: 2024
+    - Reżyser: Solange Cicurel
+  [FILMWEB]
+    - Tytuł: Nie martw się, nic mi nie jest
+    - Czas (min): 82
+    - Rok: 2024
+    - Reżyser: Solange Cicurel
+
+
+================================================================================
+FILM [6]: Liga Mistrzów UEFA - Finał - PSG - Arsenal Londyn
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: SPORT
+    - Rok: 2026
+    - Tytuł oryginalny: Liga Mistrzów UEFA - Finał
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Typ: SPORT
+    - Czas (min): 180
+    - Rok: 2026
+    - Reżyser: 
+    - Tytuł oryginalny: Liga Mistrzów UEFA - Finał
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [7]: BTS World Tour ‘ARIRANG’ in Busan: Live Viewing
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KONCERT
+    - Rok: 2026
+    - Reżyser: Jungjae HA
+  [MULTIKINO]
+    - Typ: KONCERT
+    - Czas (min): 180
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY]
+    - Typ: KONCERT
+    - Czas (min): 195
+    - Rok: 2026
+    - Reżyser: Jungjae Ha
+  [HELIOS]
+    - Typ: KONCERT
+    - Czas (min): 195
+    - Rok: 2026
+    - Reżyser: Jungjae HA
+    - Tytuł oryginalny: 
+  [TMDB]
+    - Tytuł: BTS World Tour ‘Arirang’ in Busan: Live Viewing
+    - Rok: 2026
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [8]: Drugie życie - Kino Kobiet
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: LADIES NIGHT/KNO
+    - Rok: 2025
+    - Reżyser: Maryam Touzani
+    - Tytuł oryginalny: Calle Malaga
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Typ: LADIES NIGHT/KNO
+    - Czas (min): 176
+    - Rok: 2025
+    - Reżyser: Maryam Touzani
+    - Tytuł oryginalny: Calle Malaga
+  [TMDB]
+    - Tytuł: Drugie życie
+    - Czas (min): 116
+    - Rok: 2025
+    - Reżyser: Maryam Touzani
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [9]: Mandalorets' i Grogu - UA
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: UKRAIŃSKI DUBBING
+    - Rok: 2025
+    - Reżyser: Джон Фавро
+    - Tytuł oryginalny: The Mandalorian & Grogu
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Typ: UKRAIŃSKI DUBBING
+    - Czas (min): 132
+    - Rok: 2025
+    - Reżyser: Джон Фавро
+    - Tytuł oryginalny: The Mandalorian & Grogu
+  [TMDB]
+    - Tytuł: Gwiezdne wojny: Mandalorian i Grogu
+    - Czas (min): 132
+    - Rok: 2026
+    - Reżyser: Jon Favreau
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [10]: Willow i tajemniczy las
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Mike Marzuk
+    - Tytuł oryginalny: Ein Mädchen namens Willow
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Czas (min): 100
+    - Rok: 2026
+    - Reżyser: Mike Marzuk
+  [HELIOS]
+    - Czas (min): 120
+    - Rok: 2026
+    - Reżyser: Mike Marzuk
+    - Tytuł oryginalny: Ein Mädchen namens Willow
+  [TMDB]
+    - Tytuł: Dziewczyna o imieniu Willow
+    - Czas (min): 99
+    - Rok: 2025
+    - Reżyser: Mike Marzuk
+  [FILMWEB]
+    - Tytuł: Willow i tajemniczy las
+    - Czas (min): 100
+    - Rok: 2025
+    - Reżyser: Mike Marzuk	 	 
+
+
+================================================================================
+FILM [11]: O dziewczynie skaczącej przez czas
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2006
+    - Reżyser: Mamoru Hosoda
+    - Tytuł oryginalny: Toki o Kakeru Shōjo
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Czas (min): 108
+    - Rok: 2006
+    - Reżyser: Mamoru Hosoda
+    - Tytuł oryginalny: Toki o Kakeru Shōjo
+  [TMDB]
+    - Tytuł: O dziewczynie skaczącej przez czas
+    - Czas (min): 98
+    - Rok: 2006
+    - Reżyser: Mamoru Hosoda
+  [FILMWEB]
+    - Tytuł: O dziewczynie skaczącej przez czas
+    - Czas (min): 98
+    - Rok: 2006
+    - Reżyser: Mamoru Hosoda
+
+
+================================================================================
+FILM [12]: Felek i Tola ratują las
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2024
+    - Reżyser: M. Halberstad
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Czas (min): 91
+    - Rok: 2024
+    - Reżyser: M. Halberstad
+    - Tytuł oryginalny: 
+  [TMDB]
+    - Tytuł: Felek i Tola ratują las
+    - Czas (min): 72
+    - Rok: 2024
+    - Reżyser: Mascha Halberstad
+  [FILMWEB]
+    - Tytuł: Felek i Tola ratują las
+    - Czas (min): 71
+    - Rok: 2024
+    - Reżyser: Mascha Halberstad
+
+
+================================================================================
+FILM [13]: Pianista
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 2002
+    - Reżyser: Roman Polański
+    - Tytuł oryginalny: The Pianist (re-release)
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Typ: KULTOWE
+    - Czas (min): 159
+    - Rok: 2002
+    - Reżyser: Roman Polański
+    - Tytuł oryginalny: The Pianist (re-release)
+  [TMDB]
+    - Tytuł: Pianista
+    - Czas (min): 150
+    - Rok: 2002
+    - Reżyser: Roman Polanski
+  [FILMWEB]
+    - Tytuł: Pianista
+    - Czas (min): 150
+    - Rok: 2002
+    - Reżyser: Roman Polański
+
+
+================================================================================
+FILM [14]: Ścieżki życia
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2024
+    - Reżyser: Marianne Elliott
+    - Tytuł oryginalny: The Salt Path
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Czas (min): 146
+    - Rok: 2024
+    - Reżyser: Marianne Elliott
+    - Tytuł oryginalny: The Salt Path
+  [TMDB]
+    - Tytuł: Ścieżki życia
+    - Czas (min): 115
+    - Rok: 2025
+    - Reżyser: Marianne Elliott
+  [FILMWEB]
+    - Tytuł: Ścieżki życia
+    - Czas (min): 115
+    - Rok: 2024
+    - Reżyser: Marianne Elliott
+
+
+================================================================================
+FILM [15]: Roland Garros - Finał Singla Kobiet w Helios Sport
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: SPORT
+    - Rok: 2026
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Typ: SPORT
+    - Czas (min): 195
+    - Rok: 2026
+    - Reżyser: 
+    - Tytuł oryginalny: 
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [16]: All You Need Is Killl
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Ken'ichirô Akimoto
+    - Tytuł oryginalny: All You Need Is Killl
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Czas (min): 93
+    - Rok: 2026
+    - Reżyser: Ken'ichirô Akimoto
+    - Tytuł oryginalny: All You Need Is Killl
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [17]: Młode matki
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Jean-Pierre Dardenne, Luc Dardenne
+    - Tytuł oryginalny: Jeunes mères
+  [MULTIKINO] Brak danych
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Czas (min): 114
+    - Rok: 2025
+    - Reżyser: Jean-Pierre Dardenne, Luc Dardenne
+    - Tytuł oryginalny: Jeunes mères
+  [TMDB]
+    - Tytuł: Młode matki
+    - Czas (min): 104
+    - Rok: 2025
+    - Reżyser: Jean-Pierre Dardenne, Luc Dardenne
+  [FILMWEB]
+    - Tytuł: Młode matki
+    - Czas (min): 105
+    - Rok: 2025
+    - Reżyser: Jean-Pierre Dardenne, Luc Dardenne
+
+
+================================================================================
+FILM [18]: Iron Maiden: Burning Ambition
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Malcolm Venville
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Czas (min): 105
+    - Rok: 2026
+    - Reżyser: Malcolm Venville
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Iron Maiden: Burning Ambition
+    - Czas (min): 105
+    - Rok: 2026
+    - Reżyser: Malcolm Venville
+  [FILMWEB]
+    - Tytuł: Iron Maiden: Burning Ambition
+    - Czas (min): 106
+    - Rok: 2026
+    - Reżyser: Malcolm Venville
+
+
+================================================================================
+FILM [19]: Chłopiec na krańcach świata
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Grzegorz Wacławek, Marta Szymańska
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Czas (min): 88
+    - Rok: 2025
+    - Reżyser: Grzegorz Wacławek, Marta Szymańska
+  [HELIOS]
+    - Czas (min): 108
+    - Rok: 2026
+    - Reżyser: Grzegorz Wacławek, Marta Szymańska
+    - Tytuł oryginalny: 
+  [TMDB]
+    - Tytuł: Chłopiec na krańcach świata
+    - Czas (min): 88
+    - Rok: 2026
+    - Reżyser: Grzegorz Wacławek, Marta Szymańska
+  [FILMWEB]
+    - Tytuł: Chłopiec na krańcach świata
+    - Czas (min): 88
+    - Rok: 2025
+    - Reżyser: Grzegorz Wacławek, Marta Szymańska
+
+
+================================================================================
+FILM [20]: Niezwykły chłopak
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Javier Ruiz Caldera
+    - Tytuł oryginalny: Wolfgang (extraordinari)
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Czas (min): 110
+    - Rok: 2026
+    - Reżyser: Javier Ruiz Caldera
+  [HELIOS]
+    - Czas (min): 130
+    - Rok: 2025
+    - Reżyser: Javier Ruiz Caldera
+    - Tytuł oryginalny: Wolfgang (extraordinari)
+  [TMDB]
+    - Tytuł: Wolfgang
+    - Czas (min): 110
+    - Rok: 2025
+    - Reżyser: Javier Ruiz Caldera
+  [FILMWEB]
+    - Tytuł: Niezwykły chłopak
+    - Czas (min): 110
+    - Rok: 2025
+    - Reżyser: Javier Ruiz Caldera
+
+
+================================================================================
+FILM [21]: Sabotażysta 5
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Rok: 2026
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [22]: Erupcja
+================================================================================
+  [BAZA GŁÓWNA]
+    - Reżyser: Pete Ohs
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Czas (min): 71
+    - Reżyser: Pete Ohs
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Erupcja
+    - Czas (min): 71
+    - Rok: 2026
+    - Reżyser: Pete Ohs
+  [FILMWEB]
+    - Tytuł: Erupcja
+    - Czas (min): 71
+    - Rok: 2025
+    - Reżyser: Pete Ohs
+
+
+================================================================================
+FILM [23]: Gwiezdne Wojny: Mandalorian i Grogu
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Jon Favreau
+    - Tytuł oryginalny: The Mandalorian & Grogu
+  [MULTIKINO]
+    - Czas (min): 132
+    - Rok: 2026
+    - Reżyser: Jon Favreau
+    - Obsada: Pedro Pascal, Sigourney Weaver, Jeremy Allen White
+  [CINEMA CITY]
+    - Czas (min): 132
+    - Rok: 2026
+    - Reżyser: Jon Favreau
+  [HELIOS]
+    - Czas (min): 167
+    - Rok: 2025
+    - Reżyser: Jon Favreau
+    - Tytuł oryginalny: The Mandalorian & Grogu
+  [TMDB]
+    - Tytuł: Gwiezdne wojny: Mandalorian i Grogu
+    - Czas (min): 132
+    - Rok: 2026
+    - Reżyser: Jon Favreau
+  [FILMWEB]
+    - Tytuł: Gwiezdne wojny: Mandalorian i Grogu
+    - Czas (min): 132
+    - Rok: 2026
+    - Reżyser: Jon Favreau
+
+
+================================================================================
+FILM [24]: Mortal Kombat II
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Simon McQuoid
+    - Tytuł oryginalny: Mortal Kombat II
+  [MULTIKINO]
+    - Czas (min): 116
+    - Rok: 2026
+    - Reżyser: Simon McQuoid
+    - Obsada: Karl Urban, Adeline Rudolph, Lewis Tan, Jessica McNamee
+  [CINEMA CITY]
+    - Czas (min): 116
+    - Rok: 2026
+    - Reżyser: SIMON MCQUOID
+  [HELIOS]
+    - Czas (min): 116
+    - Rok: 2025
+    - Reżyser: Simon McQuoid
+    - Tytuł oryginalny: Mortal Kombat II
+  [TMDB]
+    - Tytuł: Mortal Kombat II
+    - Czas (min): 116
+    - Rok: 2026
+    - Reżyser: Simon McQuoid
+  [FILMWEB]
+    - Tytuł: Mortal Kombat II
+    - Czas (min): 116
+    - Rok: 2026
+    - Reżyser: Simon McQuoid
+
+
+================================================================================
+FILM [25]: Przepis na morderstwo
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: John Patton Ford
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Czas (min): 105
+    - Rok: 2026
+    - Reżyser: John Patton Ford
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Przepis na morderstwo
+    - Czas (min): 105
+    - Rok: 2026
+    - Reżyser: John Patton Ford
+  [FILMWEB]
+    - Tytuł: Przepis na morderstwo
+    - Czas (min): 105
+    - Rok: 2026
+    - Reżyser: John Patton Ford
+
+
+================================================================================
+FILM [26]: Hopnięci
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Daniel Chong
+    - Tytuł oryginalny: Hoppers
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Czas (min): 104
+    - Rok: 2026
+    - Reżyser: Daniel Chong
+  [HELIOS]
+    - Czas (min): 126
+    - Rok: 2025
+    - Reżyser: Daniel Chong
+    - Tytuł oryginalny: Hoppers
+  [TMDB]
+    - Tytuł: Hopnięci
+    - Czas (min): 105
+    - Rok: 2026
+    - Reżyser: Daniel Chong
+  [FILMWEB]
+    - Tytuł: Hopnięci
+    - Czas (min): 105
+    - Rok: 2026
+    - Reżyser: Daniel Chong
+
+
+================================================================================
+FILM [27]: Gwiezdne Wojny: Mandalorian i Grogu - ukraiński dubbing
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: UKRAIŃSKI DUBBING
+    - Rok: 2026
+    - Reżyser: Jon Favreau
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Typ: UKRAIŃSKI DUBBING
+    - Czas (min): 132
+    - Rok: 2026
+    - Reżyser: Jon Favreau
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [28]: K-popowe łowczynie demonów
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KONCERT
+    - Rok: 2025
+    - Reżyser: Chris Appelhans, Maggie Kang
+    - Tytuł oryginalny: K-Pop Demon Hunters
+  [MULTIKINO]
+    - Czas (min): 96
+    - Rok: 2026
+    - Reżyser: Chris Appelhans, Maggie Kang
+    - Obsada: Arden Cho, May Hong, Ji-young Yoo, Ahn Hyo-seop, Yunjin Kim, Ken Jeong, Lee Byung-hun, Daniel Dae Kim, Liza Koshy
+  [CINEMA CITY]
+    - Typ: KONCERT
+    - Czas (min): 96
+    - Rok: 2025
+    - Reżyser: Chris Appelhans, Maggie Kang
+  [HELIOS]
+    - Typ: KONCERT
+    - Czas (min): 106
+    - Rok: 2025
+    - Reżyser: Maggie Kang, Chris Appelhans
+    - Tytuł oryginalny: K-Pop Demon Hunters
+  [TMDB]
+    - Tytuł: K-popowe łowczynie demonów
+    - Czas (min): 96
+    - Rok: 2025
+    - Reżyser: Chris Appelhans, Maggie Kang
+  [FILMWEB]
+    - Tytuł: K-popowe łowczynie demonów
+    - Czas (min): 99
+    - Rok: 2025
+    - Reżyser: Chris Appelhans, Maggie Kang
+
+
+================================================================================
+FILM [29]: La Traviata Verdiego z Arena di Verona
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: OPERA
+    - Rok: 2021
+    - Reżyser: Michele Olcese (reżyser), Francesco Ivan Ciampa (dyrygent)
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Typ: OPERA
+    - Czas (min): 160
+    - Rok: 2021
+    - Reżyser: Michele Olcese (reżyser), Francesco Ivan Ciampa (dyrygent)
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [30]: Dzień objawienia ukraiński dubbing
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: UKRAIŃSKI DUBBING
+    - Rok: 2026
+    - Reżyser: Steven Spielberg
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Typ: UKRAIŃSKI DUBBING
+    - Czas (min): 145
+    - Rok: 2026
+    - Reżyser: Steven Spielberg
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [31]: Ladies Night - Narodziny gwiazdy
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: LADIES NIGHT/KNO
+    - Rok: 2018
+    - Reżyser: Bradley Cooper
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Typ: LADIES NIGHT/KNO
+    - Czas (min): 135
+    - Rok: 2018
+    - Reżyser: Bradley Cooper
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [32]: 90. urodziny Pavarottiego - Koncert gwiazd z Arena di Verona
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KONCERT
+    - Rok: 2025
+    - Reżyser: Luigi Antonini (reżyser), Matteo Parmeggiani (dyrygent)
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Typ: KONCERT
+    - Czas (min): 92
+    - Rok: 2025
+    - Reżyser: Luigi Antonini (reżyser), Matteo Parmeggiani (dyrygent)
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [33]: Sing
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2016
+    - Reżyser: Garth Jennings
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Czas (min): 110
+    - Rok: 2016
+    - Reżyser: Garth Jennings
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Sing
+    - Czas (min): 110
+    - Rok: 2016
+    - Reżyser: Garth Jennings
+  [FILMWEB]
+    - Tytuł: Sing
+    - Czas (min): 110
+    - Rok: 2016
+    - Reżyser: Garth Jennings
+
+
+================================================================================
+FILM [34]: Liga Mistrzów UEFA - Finał
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: SPORT
+    - Rok: 2026
+  [MULTIKINO] Brak danych
+  [CINEMA CITY]
+    - Typ: SPORT
+    - Czas (min): 140
+    - Rok: 2026
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [35]: Kino na obcasach: Zaproszenie
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: LADIES NIGHT/KNO
+    - Rok: 2026
+  [MULTIKINO]
+    - Typ: LADIES NIGHT/KNO
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [36]: Piep*zyć Mickiewicza 3
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Sara Bustamante-Drozdek
+    - Tytuł oryginalny: Piep*zyć Mickiewicza 3
+  [MULTIKINO]
+    - Rok: 2026
+    - Reżyser: Sara Bustamante-Drozdek
+    - Obsada: Hugo Tarres, Wiktoria Koprowska, Karol Rota, Igor Pawłowski
+  [CINEMA CITY]
+    - Czas (min): 89
+    - Rok: 2026
+    - Reżyser: Sara Bustamante-Drozdek
+  [HELIOS]
+    - Czas (min): 112
+    - Rok: 2025
+    - Reżyser: Sara Bustamente-Drozdek
+    - Tytuł oryginalny: Piep*zyć Mickiewicza 3
+  [TMDB]
+    - Tytuł: Piep*zyć Mickiewicza 3
+    - Czas (min): 85
+    - Rok: 2026
+    - Reżyser: Sara Bustamante-Drozdek
+  [FILMWEB]
+    - Tytuł: Piep*zyć Mickiewicza 3
+    - Czas (min): 92
+    - Rok: 2026
+    - Reżyser: Sara Bustamante-Drozdek
+
+
+================================================================================
+FILM [37]: Kino na obcasach: Drugie życie
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: LADIES NIGHT/KNO
+    - Rok: 2026
+    - Reżyser: Maryam Touzani
+  [MULTIKINO]
+    - Typ: LADIES NIGHT/KNO
+    - Czas (min): 116
+    - Rok: 2026
+    - Reżyser: Maryam Touzani
+    - Obsada: Carmen Maura, Marta Etura, Ahmed Boulane, María Alfonsa Rosso
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [38]: Bajki z Polski Sekrety przyrody i wspólne przygody
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2024
+  [MULTIKINO]
+    - Czas (min): 60
+    - Rok: 2024
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [39]: Art Beats: Nenufary Moneta - cuda z wody i światła
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: WYSTAWY
+    - Rok: 2026
+    - Reżyser: Giovanni Troilo
+  [MULTIKINO]
+    - Typ: WYSTAWY
+    - Czas (min): 95
+    - Rok: 2026
+    - Reżyser: Giovanni Troilo
+    - Obsada: Elisa Lasowski
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [40]: Art Beats: Rafael. Młody geniusz
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: WYSTAWY
+    - Rok: 2026
+    - Reżyser: Massimo Ferrari
+  [MULTIKINO]
+    - Typ: WYSTAWY
+    - Czas (min): 80
+    - Rok: 2026
+    - Reżyser: Massimo Ferrari
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [41]: Zaplątani
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Nathan Greno, Byron Howard
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Nathan Greno, Byron Howard
+    - Obsada: Mandy Moore, Zachary Levi, Donna Murphy, Ron Perlman
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Zaplątani
+    - Czas (min): 100
+    - Rok: 2010
+    - Reżyser: Byron Howard, Nathan Greno
+  [FILMWEB]
+    - Tytuł: Zaplątani
+    - Czas (min): 96
+    - Rok: 2010
+    - Reżyser: Nathan Greno, Byron Howard
+
+
+================================================================================
+FILM [42]: Maraton: Powrót do przyszłości
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: MARATON
+    - Rok: 2026
+  [MULTIKINO]
+    - Typ: MARATON
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [43]: All You Need Is Kill
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+  [MULTIKINO]
+    - Czas (min): 83
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: ALL YOU NEED IS KILL
+    - Czas (min): 82
+    - Rok: 2026
+    - Reżyser: Kenichiro Akimoto
+  [FILMWEB]
+    - Tytuł: Na skraju jutra
+    - Czas (min): 113
+    - Rok: 2014
+    - Reżyser: Doug Liman
+
+
+================================================================================
+FILM [44]: FANTASTYCZNE ZWIERZĘTA: ZBRODNIE GRINDELWALDA
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 2026
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Fantastyczne zwierzęta: Zbrodnie Grindelwalda
+    - Czas (min): 134
+    - Rok: 2018
+    - Reżyser: David Yates
+  [FILMWEB]
+    - Tytuł: Fantastyczne zwierzęta: Zbrodnie Grindelwalda
+    - Czas (min): 134
+    - Rok: 2018
+    - Reżyser: David Yates
+
+
+================================================================================
+FILM [45]: Cirque du Soleil: Kooza
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: CYRK
+    - Rok: 2026
+    - Reżyser: Mario Janelle, David Shiner
+  [MULTIKINO]
+    - Typ: CYRK
+    - Czas (min): 90
+    - Rok: 2026
+    - Reżyser: Mario Janelle, David Shiner
+    - Obsada: Cirque du Soleil
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Typ: CYRK
+    - Czas (min): 100
+    - Rok: 2026
+    - Reżyser: Mario Janelle, David Shiner
+    - Tytuł oryginalny: 
+  [TMDB]
+    - Tytuł: Cirque du Soleil: Kooza
+    - Rok: 2008
+    - Reżyser: Mario Janelle
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [46]: Caravaggio. Arcydzieła niepokornego geniusza
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: WYSTAWY
+    - Rok: 2026
+    - Reżyser: David Bickerstaff, Phil Grabsky
+  [MULTIKINO]
+    - Typ: WYSTAWY
+    - Czas (min): 100
+    - Rok: 2026
+    - Reżyser: David Bickerstaff, Phil Grabsky
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [47]: Cirque du Soleil: Kurios - Gabinet osobliwości
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: CYRK
+    - Rok: 2026
+    - Reżyser: Michel Laprise
+  [MULTIKINO]
+    - Typ: CYRK
+    - Czas (min): 89
+    - Rok: 2026
+    - Reżyser: Michel Laprise
+    - Obsada: Cirque du Soleil
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [48]: Powrót do przyszłości II
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 1989
+    - Reżyser: Robert Zemeckis
+    - Tytuł oryginalny: Back to the Future Part II
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Robert Zemeckis
+    - Obsada: Michael J. Fox, Christopher Lloyd, Lea Thompson, Tom Wilson
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Typ: KULTOWE
+    - Czas (min): 118
+    - Rok: 1989
+    - Reżyser: Robert Zemeckis
+    - Tytuł oryginalny: Back to the Future Part II
+  [TMDB]
+    - Tytuł: Powrót do przyszłości II
+    - Czas (min): 108
+    - Rok: 1989
+    - Reżyser: Robert Zemeckis
+  [FILMWEB]
+    - Tytuł: Powrót do przyszłości II
+    - Czas (min): 108
+    - Rok: 1989
+    - Reżyser: Robert Zemeckis
+
+
+================================================================================
+FILM [49]: Powrót do przyszłości
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 1985
+    - Reżyser: Robert Zemeckis
+    - Tytuł oryginalny: Back to the Future
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Robert Zemeckis
+    - Obsada: Michael J. Fox, Christopher Lloyd, Lea Thompson, Crispin Glover
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Typ: KULTOWE
+    - Czas (min): 126
+    - Rok: 1985
+    - Reżyser: Robert Zemeckis
+    - Tytuł oryginalny: Back to the Future
+  [TMDB]
+    - Tytuł: Powrót do przyszłości
+    - Czas (min): 116
+    - Rok: 1985
+    - Reżyser: Robert Zemeckis
+  [FILMWEB]
+    - Tytuł: Powrót do przyszłości
+    - Czas (min): 116
+    - Rok: 1985
+    - Reżyser: Robert Zemeckis
+
+
+================================================================================
+FILM [50]: Obsesja
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Curry Barker
+    - Tytuł oryginalny: Obsession
+  [MULTIKINO]
+    - Czas (min): 109
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: Michael Johnson, Inde Navarrette
+  [CINEMA CITY]
+    - Czas (min): 109
+    - Rok: 2025
+    - Reżyser: Curry Barker
+  [HELIOS]
+    - Czas (min): 109
+    - Rok: 2026
+    - Reżyser: Curry Barker
+    - Tytuł oryginalny: Obsession
+  [TMDB]
+    - Tytuł: Obsesja
+    - Czas (min): 100
+    - Rok: 2026
+    - Reżyser: Curry Barker
+  [FILMWEB]
+    - Tytuł: Obsesja
+    - Czas (min): 108
+    - Rok: 2025
+    - Reżyser: Curry Barker
+
+
+================================================================================
+FILM [51]: Romeo i Julia
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Baz Luhrmann
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Baz Luhrmann
+    - Obsada: Leonardo DiCaprio, Claire Danes, John Leguizamo, Harold Perrineau
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Romeo i Julia
+    - Czas (min): 120
+    - Rok: 1996
+    - Reżyser: Baz Luhrmann
+  [FILMWEB]
+    - Tytuł: Romeo i Julia
+    - Czas (min): 120
+    - Rok: 1996
+    - Reżyser: Baz Luhrmann
+
+
+================================================================================
+FILM [52]: Odlot
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Pete Docter, Bob Peterson
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Pete Docter, Bob Peterson
+    - Obsada: Edward Asner, Christopher Plummer, Jordan Nagai, Bob Peterson
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Odlot
+    - Czas (min): 96
+    - Rok: 2009
+    - Reżyser: Pete Docter
+  [FILMWEB]
+    - Tytuł: Odlot
+    - Czas (min): 96
+    - Rok: 2009
+    - Reżyser: Bob Peterson, Pete Docter
+
+
+================================================================================
+FILM [53]: Drama
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Kristoffer Borgli
+  [MULTIKINO]
+    - Czas (min): 106
+    - Rok: 2026
+    - Reżyser: Kristoffer Borgli
+    - Obsada: Robert Pattinson , Zendaya, Alana Haim, Hailey Gates
+  [CINEMA CITY]
+    - Czas (min): 106
+    - Rok: 2026
+    - Reżyser: Kristoffer Borgli
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Drama
+    - Czas (min): 106
+    - Rok: 2026
+    - Reżyser: Kristoffer Borgli
+  [FILMWEB]
+    - Tytuł: Drama
+    - Czas (min): 105
+    - Rok: 2026
+    - Reżyser: Kristoffer Borgli
+
+
+================================================================================
+FILM [54]: Ojczyzna
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Paweł Pawlikowski
+  [MULTIKINO]
+    - Czas (min): 82
+    - Rok: 2026
+    - Reżyser: Paweł Pawlikowski
+    - Obsada: Hanns Zischler, Sandra Hüller
+  [CINEMA CITY]
+    - Czas (min): 82
+    - Rok: 2026
+    - Reżyser: Paweł Pawlikowski
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Ojczyzna
+    - Czas (min): 82
+    - Rok: 2026
+    - Reżyser: Paweł Pawlikowski
+  [FILMWEB]
+    - Tytuł: Ojczyzna
+    - Czas (min): 82
+    - Rok: 2026
+    - Reżyser: Paweł Pawlikowski
+
+
+================================================================================
+FILM [55]: Bluey w kinie: Kolekcja Zabawy z przyjaciółmi
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Joe Brumm
+  [MULTIKINO]
+    - Czas (min): 55
+    - Rok: 2026
+    - Reżyser: Joe Brumm
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [56]: Żywot Briana Grupy Monty Pythona
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Terry Jones
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Czas (min): 94
+    - Rok: 2026
+    - Reżyser: Terry Jones
+    - Obsada: Graham Chapman, John Cleese, Terry Gilliam, Eric Idle
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [57]: Werdykt
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: David Merriman, Jim Sheridan
+  [MULTIKINO]
+    - Rok: 2026
+    - Reżyser: David Merriman, Jim Sheridan
+    - Obsada: Vicky Krieps, Jim Sheridan, John Connors, Colm Meaney
+  [CINEMA CITY]
+    - Czas (min): 89
+    - Rok: 2025
+    - Reżyser: JIM SHERIDAN
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Werdykt
+    - Czas (min): 89
+    - Rok: 2025
+    - Reżyser: Jim Sheridan, David Merriman
+  [FILMWEB]
+    - Tytuł: Werdykt
+    - Czas (min): 89
+    - Rok: 2025
+    - Reżyser: David Merriman, Jim Sheridan
+
+
+================================================================================
+FILM [58]: Maraton Horrorów 19 czerwca 2026
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: MARATON
+    - Rok: 2026
+  [MULTIKINO]
+    - Typ: MARATON
+    - Czas (min): 444
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [59]: Klątwa doliny węży -  z autorską narracją Łony
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Marek Piestrak
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Marek Piestrak
+    - Obsada: Roman Wilhelmi, Krzysztof Kolberger, Henryk Bista, Leon Niemczyk
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [60]: 90. urodziny Pavarottiego
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KONCERT
+    - Rok: 2026
+    - Reżyser: Luigi Antonini, Matteo Parmeggiani
+  [MULTIKINO]
+    - Typ: KONCERT
+    - Czas (min): 95
+    - Rok: 2026
+    - Reżyser: Luigi Antonini, Matteo Parmeggiani
+    - Obsada: Andrea Bocelli, Jonathan Tetelman, Placido Domingo, Jose Carreras, Angela Gheorghiu,  Il Volo, Stjepan Hauser
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [61]: LIGA MISTRZÓW UEFA - FINAŁ 2026: Paris Saint-Germain - Arsenal FC
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: SPORT
+    - Rok: 2026
+  [MULTIKINO]
+    - Typ: SPORT
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [62]: The Amazing Digital Circus: Ostatni Akt
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Gooseworx
+  [MULTIKINO]
+    - Czas (min): 93
+    - Rok: 2026
+    - Reżyser: Gooseworx
+    - Obsada: Lizzie Freeman, Michael Kovach, Marissa Lenti, Ashley Nichols
+  [CINEMA CITY]
+    - Czas (min): 93
+    - Rok: 2026
+    - Reżyser: Gooseworx
+  [HELIOS]
+    - Czas (min): 103
+    - Rok: 2026
+    - Reżyser: Gooseworx
+    - Tytuł oryginalny: 
+  [TMDB]
+    - Tytuł: The Amazing Digital Circus: Ostatni akt
+    - Czas (min): 93
+    - Rok: 2026
+    - Reżyser: Gooseworx
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [63]: Michael
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Antoine Fuqua
+    - Tytuł oryginalny: Michael
+  [MULTIKINO]
+    - Czas (min): 127
+    - Rok: 2026
+    - Reżyser: Antoine Fuqua
+    - Obsada: Jaafar Jackson
+  [CINEMA CITY]
+    - Czas (min): 127
+    - Rok: 2026
+    - Reżyser: John Logan
+  [HELIOS]
+    - Czas (min): 158
+    - Rok: 2026
+    - Reżyser: Antoine Fuqua
+    - Tytuł oryginalny: Michael
+  [TMDB]
+    - Tytuł: Michael
+    - Czas (min): 127
+    - Rok: 2026
+    - Reżyser: Antoine Fuqua
+  [FILMWEB]
+    - Tytuł: Michael
+    - Czas (min): 127
+    - Rok: 2026
+    - Reżyser: Antoine Fuqua
+
+
+================================================================================
+FILM [64]: Wszyscy moi synowie
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: TEATR
+    - Rok: 2026
+  [MULTIKINO]
+    - Typ: TEATR
+    - Czas (min): 130
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB]
+    - Tytuł: Wszyscy moi synowie
+    - Rok: 1986
+    - Reżyser: Jack O'Brien
+
+
+================================================================================
+FILM [65]: Playboy zachodniego świata
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: TEATR
+    - Rok: 2026
+    - Reżyser: Caitríona McLaughlin
+  [MULTIKINO]
+    - Typ: TEATR
+    - Czas (min): 150
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY]
+    - Typ: TEATR
+    - Czas (min): 150
+    - Rok: 2026
+    - Reżyser: Caitríona McLaughlin
+  [HELIOS]
+    - Typ: TEATR
+    - Czas (min): 160
+    - Rok: 2026
+    - Reżyser: Caitríona McLaughlin
+    - Tytuł oryginalny: 
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [66]: Kolekcja Mamoru Hosody: O dziewczynie skaczącej przez czas
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2006
+    - Reżyser: Mamoru Hosoda
+  [MULTIKINO]
+    - Czas (min): 98
+    - Rok: 2026
+    - Reżyser: Mamoru Hosoda
+    - Obsada: Riisa Naka, Mitsutaka Itakura, Takuya Ishida, Ayami Kakiuchi
+  [CINEMA CITY]
+    - Czas (min): 98
+    - Rok: 2006
+    - Reżyser: Mamoru Hosoda
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [67]: Tom i Jerry: Przygoda w muzeum
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Gang Zhang
+    - Tytuł oryginalny: Tom and Jerry: Forbidden Compass
+  [MULTIKINO]
+    - Czas (min): 104
+    - Rok: 2026
+    - Reżyser: Gang Zhang
+    - Obsada: 
+  [CINEMA CITY]
+    - Czas (min): 104
+    - Rok: 2026
+    - Reżyser: Gang Zhang
+  [HELIOS]
+    - Czas (min): 139
+    - Rok: 2026
+    - Reżyser: Gang Zhang
+    - Tytuł oryginalny: Tom and Jerry: Forbidden Compass
+  [TMDB]
+    - Tytuł: Tom i Jerry: Przygoda w muzeum
+    - Czas (min): 99
+    - Rok: 2025
+    - Reżyser: Zhang Gang
+  [FILMWEB]
+    - Tytuł: Tom i Jerry: Przygoda w muzeum
+    - Czas (min): 104
+    - Rok: 2025
+    - Reżyser: 
+
+
+================================================================================
+FILM [68]: Milcząca przyjaciółka
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Ildikó Enyedidr
+  [MULTIKINO]
+    - Czas (min): 147
+    - Rok: 2026
+    - Reżyser: Ildikó Enyedi
+    - Obsada: Tony Leung, Luna Wedler, Enzo Brumm, Sylvester Groth
+  [CINEMA CITY]
+    - Czas (min): 145
+    - Rok: 2025
+    - Reżyser: Ildikó Enyedidr
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Milcząca przyjaciółka
+    - Czas (min): 147
+    - Rok: 2026
+    - Reżyser: Ildikó Enyedi
+  [FILMWEB]
+    - Tytuł: Milcząca przyjaciółka
+    - Czas (min): 145
+    - Rok: 2025
+    - Reżyser: Ildikó Enyedi
+
+
+================================================================================
+FILM [69]: Projekt Hail Mary
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Phil Lord, Christopher Miller
+    - Tytuł oryginalny: Project Hail Mary
+  [MULTIKINO]
+    - Czas (min): 157
+    - Rok: 2026
+    - Reżyser: Phil Lord, Christopher Miller
+    - Obsada: Ryan Gosling
+  [CINEMA CITY]
+    - Czas (min): 156
+    - Rok: 2026
+    - Reżyser: Phil Lord, Christopher Miller
+  [HELIOS]
+    - Czas (min): 157
+    - Rok: 2026
+    - Reżyser: Christopher Miller, Phil Lord
+    - Tytuł oryginalny: Project Hail Mary
+  [TMDB]
+    - Tytuł: Projekt Hail Mary
+    - Czas (min): 157
+    - Rok: 2026
+    - Reżyser: Phil Lord, Christopher Miller
+  [FILMWEB]
+    - Tytuł: Projekt Hail Mary
+    - Czas (min): 156
+    - Rok: 2026
+    - Reżyser: Phil Lord, Christopher Miller
+
+
+================================================================================
+FILM [70]: Straszny film
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Michael Tiddes
+    - Tytuł oryginalny: Scary Movie
+  [MULTIKINO]
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY]
+    - Czas (min): 94
+    - Rok: 2026
+    - Reżyser: Michael Tiddes
+  [HELIOS]
+    - Czas (min): 96
+    - Rok: 2026
+    - Reżyser: Michael Tiddes
+    - Tytuł oryginalny: Scary Movie
+  [TMDB]
+    - Tytuł: Straszny film
+    - Czas (min): 95
+    - Rok: 2026
+    - Reżyser: Michael Tiddes
+  [FILMWEB]
+    - Tytuł: Straszny film
+    - Czas (min): 95
+    - Rok: 2026
+    - Reżyser: Michael Tiddes
+
+
+================================================================================
+FILM [71]: Kurozając i Świątynia Świstaka
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Benjamin Mousquet
+    - Tytuł oryginalny: Hopper et le secret de la marmotte
+  [MULTIKINO]
+    - Czas (min): 89
+    - Rok: 2026
+    - Reżyser: Benjamin Mousquet
+    - Obsada: 
+  [CINEMA CITY]
+    - Czas (min): 88
+    - Rok: 2026
+    - Reżyser: Benjamin Mousquet
+  [HELIOS]
+    - Czas (min): 108
+    - Rok: 2025
+    - Reżyser: Benjamin Mousquet
+    - Tytuł oryginalny: Hopper et le secret de la marmotte
+  [TMDB]
+    - Tytuł: Hopper et le Secret de la Marmotte
+    - Czas (min): 88
+    - Rok: 2025
+    - Reżyser: Benjamin Mousquet
+  [FILMWEB]
+    - Tytuł: Kurozając i świątynia Świstaka
+    - Czas (min): 88
+    - Rok: 2025
+    - Reżyser: Benjamin Mousquet
+
+
+================================================================================
+FILM [72]: Za duży na bajki 3
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Kristoffer Rus
+    - Tytuł oryginalny: Za duży na bajki 3
+  [MULTIKINO]
+    - Rok: 2026
+    - Reżyser: Kristoffer Rus
+    - Obsada: Maciej Karaś, Amelia Fijałkowska, Patryka Siemek, Karolina Gruszka
+  [CINEMA CITY]
+    - Czas (min): 90
+    - Rok: 2026
+    - Reżyser: Kristoffer Rus
+  [HELIOS]
+    - Czas (min): 110
+    - Rok: 2026
+    - Reżyser: Kristoffer Rus
+    - Tytuł oryginalny: Za duży na bajki 3
+  [TMDB]
+    - Tytuł: Za duży na bajki 3
+    - Czas (min): 90
+    - Rok: 2026
+    - Reżyser: Kristoffer Rus
+  [FILMWEB]
+    - Tytuł: Za duży na bajki 3
+    - Czas (min): 90
+    - Rok: 2026
+    - Reżyser: Kristoffer Rus
+
+
+================================================================================
+FILM [73]: Posłani
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Dariusz Walusiak
+  [MULTIKINO]
+    - Czas (min): 83
+    - Rok: 2026
+    - Reżyser: Dariusz Walusiak
+    - Obsada: 
+  [CINEMA CITY]
+    - Czas (min): 83
+    - Rok: 2026
+    - Reżyser: Dariusz Walusiak
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Posłani
+    - Czas (min): 83
+    - Rok: 2026
+    - Reżyser: Dariusz Walusiak
+  [FILMWEB]
+    - Tytuł: Posłani
+    - Czas (min): 83
+    - Rok: 2026
+    - Reżyser: Dariusz Walusiak
+
+
+================================================================================
+FILM [74]: Pasażer
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: André Øvredal
+    - Tytuł oryginalny: Passenger
+  [MULTIKINO]
+    - Rok: 2026
+    - Reżyser: André Øvredal
+    - Obsada: Jacob Scipio, Lou Llobell, Melissa Leo
+  [CINEMA CITY]
+    - Czas (min): 94
+    - Rok: 2026
+    - Reżyser: André Øvredal
+  [HELIOS]
+    - Czas (min): 94
+    - Rok: 2026
+    - Reżyser: André Øvredal
+    - Tytuł oryginalny: Passenger
+  [TMDB]
+    - Tytuł: Passenger
+    - Czas (min): 94
+    - Rok: 2026
+    - Reżyser: André Øvredal
+  [FILMWEB]
+    - Tytuł: Pasażer
+    - Czas (min): 94
+    - Rok: 2026
+    - Reżyser: André Øvredal
+
+
+================================================================================
+FILM [75]: Drzewo magii
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Ben Gregor
+    - Tytuł oryginalny: The Magic Faraway Tree
+  [MULTIKINO]
+    - Czas (min): 110
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: Andrew Garfield, Claire Foy, Nicola Coughlan, Rebecca Ferguson 
+  [CINEMA CITY]
+    - Czas (min): 110
+    - Rok: 2025
+    - Reżyser: Ben Gregor
+  [HELIOS]
+    - Czas (min): 130
+    - Rok: 2026
+    - Reżyser: Ben Gregor
+    - Tytuł oryginalny: The Magic Faraway Tree
+  [TMDB]
+    - Tytuł: Drzewo magii
+    - Czas (min): 110
+    - Rok: 2026
+    - Reżyser: Ben Gregor
+  [FILMWEB]
+    - Tytuł: Drzewo magii
+    - Czas (min): 110
+    - Rok: 2026
+    - Reżyser: 
+
+
+================================================================================
+FILM [76]: Dzień objawienia
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Steven Spielberg
+    - Tytuł oryginalny: Disclosure Day
+  [MULTIKINO]
+    - Czas (min): 146
+    - Rok: 2026
+    - Reżyser: Steven Spielberg
+    - Obsada: Emily Blunt, Josh O’Connor, Colin Firth, Eve Hewson
+  [CINEMA CITY]
+    - Czas (min): 145
+    - Rok: 2026
+    - Reżyser: Steven Spielberg
+  [HELIOS]
+    - Czas (min): 146
+    - Rok: 2026
+    - Reżyser: Steven Spielberg
+    - Tytuł oryginalny: Disclosure Day
+  [TMDB]
+    - Tytuł: Dzień objawienia
+    - Czas (min): 145
+    - Rok: 2026
+    - Reżyser: Steven Spielberg
+  [FILMWEB]
+    - Tytuł: Dzień objawienia
+    - Czas (min): 145
+    - Rok: 2026
+    - Reżyser: Steven Spielberg
+
+
+================================================================================
+FILM [77]: Niebezpieczne związki
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: TEATR
+    - Rok: 2026
+    - Reżyser: Marianne Elliott
+  [MULTIKINO]
+    - Typ: TEATR
+    - Czas (min): 150
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY]
+    - Typ: TEATR
+    - Czas (min): 150
+    - Rok: 2026
+    - Reżyser: Marianne Elliott
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Niebezpieczne związki
+    - Czas (min): 88
+    - Rok: 2019
+    - Reżyser: Roland Joffé
+  [FILMWEB]
+    - Tytuł: Niebezpieczne związki
+    - Czas (min): 119
+    - Rok: 1988
+    - Reżyser: Stephen Frears
+
+
+================================================================================
+FILM [78]: Zawodowcy
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Guy Ritchie
+    - Tytuł oryginalny: In the Grey
+  [MULTIKINO]
+    - Czas (min): 98
+    - Rok: 2026
+    - Reżyser: Guy Ritchie
+    - Obsada: Jake Gyllenhaal, Henry Cavill, Eiza Gonzalez, Rosamund Pike
+  [CINEMA CITY]
+    - Czas (min): 98
+    - Rok: 2025
+    - Reżyser: Guy Ritchie
+  [HELIOS]
+    - Czas (min): 98
+    - Rok: 2026
+    - Reżyser: Guy Ritchie
+    - Tytuł oryginalny: In the Grey
+  [TMDB]
+    - Tytuł: Zawodowcy
+    - Czas (min): 98
+    - Rok: 2026
+    - Reżyser: Guy Ritchie
+  [FILMWEB]
+    - Tytuł: Zawodowcy
+    - Czas (min): 98
+    - Rok: 2026
+    - Reżyser: Guy Ritchie
+
+
+================================================================================
+FILM [79]: Milczenie owiec
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 1991
+    - Reżyser: Jonathan Demme
+    - Tytuł oryginalny: The Silence of the Lambs
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Jonathan Demme
+    - Obsada: Anthony Hopkins, Jodie Foster, Ted Levine, Kasi Lemmons
+  [CINEMA CITY]
+    - Czas (min): 118
+    - Rok: 1991
+    - Reżyser: Jonathan Demme
+  [HELIOS]
+    - Typ: KULTOWE
+    - Czas (min): 128
+    - Rok: 1991
+    - Reżyser: Jonathan Demme
+    - Tytuł oryginalny: The Silence of the Lambs
+  [TMDB]
+    - Tytuł: Milczenie owiec
+    - Czas (min): 118
+    - Rok: 1991
+    - Reżyser: Jonathan Demme
+  [FILMWEB]
+    - Tytuł: Milczenie owiec
+    - Czas (min): 118
+    - Rok: 1991
+    - Reżyser: Jonathan Demme
+
+
+================================================================================
+FILM [80]: Kosmiczny mecz
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 1996
+    - Reżyser: Joe Pytka
+    - Tytuł oryginalny: Space Jam. 30th Anniversary
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Joe Pytka
+    - Obsada: Michael Jordan, Wayne Knight, Theresa Randle, Manner Washington
+  [CINEMA CITY]
+    - Czas (min): 88
+    - Rok: 1996
+    - Reżyser: Joe Pytka
+  [HELIOS]
+    - Typ: KULTOWE
+    - Czas (min): 98
+    - Rok: 1996
+    - Reżyser: Joe Pytka
+    - Tytuł oryginalny: Space Jam. 30th Anniversary
+  [TMDB]
+    - Tytuł: Kosmiczny mecz
+    - Czas (min): 88
+    - Rok: 1996
+    - Reżyser: Joe Pytka
+  [FILMWEB]
+    - Tytuł: Kosmiczny mecz
+    - Czas (min): 88
+    - Rok: 1996
+    - Reżyser: Joe Pytka
+
+
+================================================================================
+FILM [81]: Super Mario Galaxy Film
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Aaron Horvath, Michael Jelenic
+    - Tytuł oryginalny: Super Mario Galaxy Movie
+  [MULTIKINO]
+    - Czas (min): 100
+    - Rok: 2026
+    - Reżyser: Aaron Horvath, Michael Jelenic
+    - Obsada: 
+  [CINEMA CITY]
+    - Czas (min): 98
+    - Rok: 2026
+    - Reżyser: Aaron Horvath, Michael Jelenic
+  [HELIOS]
+    - Czas (min): 120
+    - Rok: 2026
+    - Reżyser: Aaron Horvath, Michael Jelenic
+    - Tytuł oryginalny: Super Mario Galaxy Movie
+  [TMDB]
+    - Tytuł: Super Mario  Galaxy Film
+    - Czas (min): 98
+    - Rok: 2026
+    - Reżyser: Michael Jelenic, Aaron Horvath
+  [FILMWEB]
+    - Tytuł: Super Mario Galaxy Film
+    - Czas (min): 98
+    - Rok: 2026
+    - Reżyser: Michael Jelenic, Aaron Horvath
+
+
+================================================================================
+FILM [82]: Art Beats: Lotto i Berenson - splecione losy. Śladami renesansowego mistrza
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: WYSTAWY
+    - Rok: 2026
+    - Reżyser: Simona Risi
+  [MULTIKINO]
+    - Typ: WYSTAWY
+    - Czas (min): 80
+    - Rok: 2026
+    - Reżyser: Simona Risi
+    - Obsada: Alessandro Sperduti
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [83]: Spirited Away: W krainie bogów
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 2024
+    - Reżyser: Hayao Miyazaki
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2024
+    - Reżyser: Hayao Miyazaki
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Spirited Away: W krainie Bogów
+    - Czas (min): 125
+    - Rok: 2001
+    - Reżyser: Hayao Miyazaki
+  [FILMWEB]
+    - Tytuł: Spirited Away: W krainie Bogów
+    - Czas (min): 125
+    - Rok: 2001
+    - Reżyser: Hayao Miyazaki
+
+
+================================================================================
+FILM [84]: Audiencja
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: TEATR
+    - Rok: 2026
+    - Reżyser: Stephen Daldry
+  [MULTIKINO]
+    - Typ: TEATR
+    - Czas (min): 180
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY]
+    - Typ: TEATR
+    - Czas (min): 165
+    - Rok: 2026
+    - Reżyser: Stephen Daldry
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB]
+    - Tytuł: Audiencja
+    - Czas (min): 114
+    - Rok: 1971
+    - Reżyser: Marco Ferreri
+
+
+================================================================================
+FILM [85]: Podziemny krąg
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 1999
+    - Reżyser: David Fincher
+    - Tytuł oryginalny: Fight Club
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: David Fincher
+    - Obsada: Edward Norton, Brad Pitt, Helena Bonham Carter, Meat Loaf
+  [CINEMA CITY]
+    - Czas (min): 139
+    - Rok: 1999
+    - Reżyser: David Fincher
+  [HELIOS]
+    - Typ: KULTOWE
+    - Czas (min): 150
+    - Rok: 2026
+    - Reżyser: David Fincher
+    - Tytuł oryginalny: Fight Club
+  [TMDB]
+    - Tytuł: Podziemny krąg
+    - Czas (min): 139
+    - Rok: 1999
+    - Reżyser: David Fincher
+  [FILMWEB]
+    - Tytuł: Podziemny krąg
+    - Czas (min): 139
+    - Rok: 1999
+    - Reżyser: David Fincher
+
+
+================================================================================
+FILM [86]: Sprawiedliwość owiec
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Kyle Balda
+    - Tytuł oryginalny: The Sheep Detectives
+  [MULTIKINO]
+    - Czas (min): 109
+    - Rok: 2026
+    - Reżyser: Kyle Balda
+    - Obsada: Hugh Jackman, Nicholas Galitzine, Molly Gordon, Julia Louis-Dreyfus
+  [CINEMA CITY]
+    - Czas (min): 109
+    - Rok: 2026
+    - Reżyser: Kyle Balda
+  [HELIOS]
+    - Czas (min): 129
+    - Rok: 2026
+    - Reżyser: Kyle Balda
+    - Tytuł oryginalny: The Sheep Detectives
+  [TMDB]
+    - Tytuł: Sprawiedliwość owiec
+    - Czas (min): 109
+    - Rok: 2026
+    - Reżyser: Kyle Balda
+  [FILMWEB]
+    - Tytuł: Sprawiedliwość owiec
+    - Czas (min): 109
+    - Rok: 2026
+    - Reżyser: Kyle Balda
+
+
+================================================================================
+FILM [87]: Władcy wszechświata
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Travis Knight
+    - Tytuł oryginalny: Masters of the Universe
+  [MULTIKINO]
+    - Rok: 2026
+    - Reżyser: Travis Knight
+    - Obsada: Nicholas Galitzine, Camila Mendes, Alison Brie
+  [CINEMA CITY]
+    - Czas (min): 141
+    - Rok: 2026
+    - Reżyser: Travis Knight
+  [HELIOS]
+    - Czas (min): 141
+    - Rok: 2026
+    - Reżyser: Travis Knight
+    - Tytuł oryginalny: Masters of the Universe
+  [TMDB]
+    - Tytuł: Władcy Wszechświata
+    - Czas (min): 141
+    - Rok: 2026
+    - Reżyser: Travis Knight
+  [FILMWEB]
+    - Tytuł: Władcy Wszechświata
+    - Czas (min): 132
+    - Rok: 2026
+    - Reżyser: Travis Knight
+
+
+================================================================================
+FILM [88]: Diabeł ubiera się u Prady 2
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: David Frankel
+    - Tytuł oryginalny: The Devil Wears Prada 2
+  [MULTIKINO]
+    - Czas (min): 120
+    - Rok: 2026
+    - Reżyser: David Frankel
+    - Obsada: Meryl Streep, Anne Hathaway, Emily Blunt, Stanley Tucci
+  [CINEMA CITY]
+    - Czas (min): 119
+    - Rok: 2026
+    - Reżyser: David Frankel
+  [HELIOS]
+    - Czas (min): 120
+    - Rok: 2026
+    - Reżyser: David Frankel
+    - Tytuł oryginalny: The Devil Wears Prada 2
+  [TMDB]
+    - Tytuł: Diabeł ubiera się u Prady 2
+    - Czas (min): 119
+    - Rok: 2026
+    - Reżyser: David Frankel
+  [FILMWEB]
+    - Tytuł: Diabeł ubiera się u Prady 2
+    - Czas (min): 120
+    - Rok: 2026
+    - Reżyser: David Frankel
+
+
+================================================================================
+FILM [89]: Pucio
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Marta Stróżycka; Anna Błaszczyk, Dominik Litwiniak
+  [MULTIKINO]
+    - Czas (min): 45
+    - Rok: 2026
+    - Reżyser: Marta Stróżycka
+    - Obsada: 
+  [CINEMA CITY]
+    - Czas (min): 45
+    - Rok: 2026
+    - Reżyser: Marta Stróżycka; Anna Błaszczyk, Dominik Litwiniak
+  [HELIOS]
+    - Czas (min): 45
+    - Rok: 2026
+    - Reżyser: Marta Stróżycka
+    - Tytuł oryginalny: 
+  [TMDB]
+    - Tytuł: Pucio
+    - Czas (min): 45
+    - Rok: 2026
+    - Reżyser: Anna Błaszczyk, Dominik Litwiniak, Marta Stróżycka
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [90]: Niesamowite przygody skarpetek 3. Ale kosmos!
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2026
+    - Reżyser: Elżbieta Wąsik, Janusz Martyn , Piotr Giersz, Barbara Koniecka, Agata Mikina, Anna Wróblewska-Dzwoniarek, Paweł Wendroff, Karolina Sława
+    - Tytuł oryginalny: Niesamowite przygody skarpetek 3. Ale kosmos!
+  [MULTIKINO]
+    - Czas (min): 55
+    - Rok: 2026
+    - Reżyser: Elżbieta Wąsik, Paweł Wendorff
+    - Obsada: 
+  [CINEMA CITY]
+    - Czas (min): 55
+    - Rok: 2026
+    - Reżyser: Paweł Wendorff, Elżbieta Wąsik; Jarosław Szyszko, Barbara Koniecka, Mateusz Kmieć, Natalia Bartska-Kmieć
+  [HELIOS]
+    - Czas (min): 75
+    - Rok: 2026
+    - Reżyser: Elżbieta Wąsik, Janusz Martyn , Piotr Giersz, Barbara Koniecka, Agata Mikina, Anna Wróblewska-Dzwoniarek, Paweł Wendroff, Karolina Sława
+    - Tytuł oryginalny: Niesamowite przygody skarpetek 3. Ale kosmos!
+  [TMDB]
+    - Tytuł: Niesamowite przygody skarpetek 3. Ale kosmos!
+    - Rok: 2026
+    - Reżyser: Elżbieta Wąsik, Paweł Wendorff, Jarosław Szyszko, Barbara Koniecka, Mateusz Kmieć, Natalia Bartska-Kmieć
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [91]: Fantastyczne zwierzęta: Tajemnice Dumbledorea
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: David Yates
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Czas (min): 142
+    - Rok: 2026
+    - Reżyser: David Yates
+    - Obsada: Eddie Redmayne, Jude Law, Mads Mikkelsen, Ezra Miller
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Fantastyczne zwierzęta: Tajemnice Dumbledore'a
+    - Czas (min): 142
+    - Rok: 2022
+    - Reżyser: David Yates
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [92]: Powrót do przyszłości III
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 1990
+    - Reżyser: Robert Zemeckis
+    - Tytuł oryginalny: Back to the Future Part III
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: Robert Zemeckis
+    - Obsada: Michael J. Fox, Christopher Lloyd, Elisabeth Shue, Mary Steenburgen
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Typ: KULTOWE
+    - Czas (min): 128
+    - Rok: 1990
+    - Reżyser: Robert Zemeckis
+    - Tytuł oryginalny: Back to the Future Part III
+  [TMDB]
+    - Tytuł: Powrót do przyszłości III
+    - Czas (min): 118
+    - Rok: 1990
+    - Reżyser: Robert Zemeckis
+  [FILMWEB]
+    - Tytuł: Powrót do przyszłości III
+    - Czas (min): 118
+    - Rok: 1990
+    - Reżyser: Robert Zemeckis
+
+
+================================================================================
+FILM [93]: FANTASTYCZNE ZWIERZĘTA I JAK JE ZNALEŹĆ
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: David Yates
+  [MULTIKINO]
+    - Typ: KULTOWE
+    - Rok: 2026
+    - Reżyser: David Yates
+    - Obsada: Eddie Redmayne, Katherine Waterston, Dan Fogler, Colin Farrell
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Fantastyczne zwierzęta i jak je znaleźć
+    - Czas (min): 133
+    - Rok: 2016
+    - Reżyser: David Yates
+  [FILMWEB]
+    - Tytuł: Fantastyczne zwierzęta i jak je znaleźć
+    - Czas (min): 133
+    - Rok: 2016
+    - Reżyser: David Yates
+
+
+================================================================================
+FILM [94]: John Williams - A Tribute
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KONCERT
+    - Rok: 2026
+    - Reżyser: Antony Hermus
+  [MULTIKINO]
+    - Typ: KONCERT
+    - Czas (min): 83
+    - Rok: 2026
+    - Reżyser: Antony Hermus
+    - Obsada: John Williams, Duńska Narodowa Orkiestra Symfoniczna, Anna Agafia Egholm, Christine Nonbo Anderson
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: John Williams - A Tribute – The Danish National Symphony Orchestra
+    - Rok: 2025
+  [FILMWEB] Brak danych
+
+
+================================================================================
+FILM [95]: Drugie życie
+================================================================================
+  [BAZA GŁÓWNA]
+    - Rok: 2025
+    - Reżyser: Maryam Touzani
+  [MULTIKINO]
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY]
+    - Czas (min): 116
+    - Rok: 2025
+    - Reżyser: Maryam Touzani
+  [HELIOS] Brak danych
+  [TMDB]
+    - Tytuł: Drugie życie
+    - Czas (min): 116
+    - Rok: 2025
+    - Reżyser: Maryam Touzani
+  [FILMWEB]
+    - Tytuł: Drugie życie
+    - Czas (min): 116
+    - Rok: 2025
+    - Reżyser: Maryam Touzani
+
+
+================================================================================
+FILM [96]: Zawieście czerwone latarnie
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: KULTOWE
+    - Rok: 1991
+    - Reżyser: Yimou Zhang
+    - Tytuł oryginalny: Da hong denglong gaogao gua
+  [MULTIKINO]
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS]
+    - Typ: KULTOWE
+    - Czas (min): 135
+    - Rok: 1991
+    - Reżyser: Yimou Zhang
+    - Tytuł oryginalny: Da hong denglong gaogao gua
+  [TMDB]
+    - Tytuł: Zawieście czerwone latarnie
+    - Czas (min): 125
+    - Rok: 1991
+    - Reżyser: Zhang Yimou
+  [FILMWEB]
+    - Tytuł: Zawieście czerwone latarnie
+    - Czas (min): 125
+    - Rok: 1991
+    - Reżyser: Yimou Zhang
+
+
+================================================================================
+FILM [97]: Noc Władcy Pierścieni (wersje rozszerzone)
+================================================================================
+  [BAZA GŁÓWNA]
+    - Typ: MARATON
+    - Rok: 2026
+  [MULTIKINO]
+    - Typ: MARATON
+    - Czas (min): 720
+    - Rok: 2026
+    - Reżyser: 
+    - Obsada: 
+  [CINEMA CITY] Brak danych
+  [HELIOS] Brak danych
+  [TMDB] Brak danych
+  [FILMWEB] Brak danych
+
+

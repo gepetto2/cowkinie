@@ -3,9 +3,9 @@ import aiohttp
 from datetime import datetime
 from supabase import Client
 
-from tmdb import get_tmdb_movie_details
-from filmweb import search_movie_details
-from merge_movies import check_and_merge_movie
+from api.tmdb import get_tmdb_movie_details
+from api.filmweb import search_movie_details
+from core.merge_movies import check_and_merge_movie
 
 async def enrich_movies_data(supabase: Client):
     print("\nRozpoczynamy wzbogacanie danych o filmach z TMDB i Filmweb...")

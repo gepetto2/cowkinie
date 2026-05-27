@@ -1,10 +1,9 @@
-import re
 import asyncio
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from utils import parse_start_time, clean_title
-from database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
+from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Helios z API v1 i filtruje te z wybranych miast."""

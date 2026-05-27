@@ -65,8 +65,10 @@ async def get_filmweb_movie_details(movie_id: int, session: aiohttp.ClientSessio
             directors_list = data.get("directors", [])
             directors = ", ".join([d.get("name") for d in directors_list if d.get("name")])
             
-            # Wyciąganie tytułu - fallback na 'originalTitle', jeśli 'title' nie istnieje
-            film_title = data.get("title", {}).get("title") or data.get("originalTitle", {}).get("title")
+            # Wyciąganie tytułu - fallback na 'originalTitle', jeśli 'title' nie istnieje lub jest null
+            title_obj = data.get("title") or {}
+            orig_title_obj = data.get("originalTitle") or {}
+            film_title = title_obj.get("title") or orig_title_obj.get("title")
             
             return {
                 "title": film_title,

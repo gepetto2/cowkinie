@@ -1,27 +1,12 @@
-import os
 import asyncio
-from supabase import create_client, Client
-from dotenv import load_dotenv
-
-# Załadowanie zmiennych z pliku .env do środowiska
-load_dotenv()
-
-# Ustawienia Supabase
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "twoj-url-z-supabase")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "twoj-klucz-z-supabase")
-
-try:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-except Exception as e:
-    print(f"Błąd inicjalizacji klienta Supabase: {e}")
-    exit(1)
+from config import supabase
 
 # Importujemy funkcje scrapujące z naszych plików
 from scrapers.multikino import scrape_and_save as scrape_multikina
 from scrapers.cinema_city import scrape_and_save as scrape_cinema_city
 from scrapers.helios import scrape_and_save as scrape_helios
-from database import consolidate_movie_data
-from enrich_movies import enrich_movies_data
+from db.database import consolidate_movie_data
+from core.enrich_movies import enrich_movies_data
 
 async def run_all():
     cities_to_scrape = ["Poznań", "Bydgoszcz"]
