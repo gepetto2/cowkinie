@@ -15,7 +15,7 @@ async def enrich_movies_data(supabase: Client):
     movies = response.data
 
     # Pomijamy filmy typu SPORT i MARATON
-    movies = [m for m in movies if m.get("movie_type") not in ("SPORT", "MARATON")]
+    movies = [m for m in movies if m.get("movie_type") not in ("SPORT", "MARATON", "TEATR", "CYRK")]
 
     if not movies:
         print("Wszystkie filmy mają już pobrane informacje z baz zewnętrznych.")

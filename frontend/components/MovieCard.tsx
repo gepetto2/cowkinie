@@ -17,13 +17,27 @@ type Screening = Database["public"]["Tables"]["screenings"]["Row"] & {
   cinemas: { name: string; city: string } | null;
 };
 
+const formatScreeningsCount = (count: number) => {
+  if (count === 1) return "1 seans";
+  const lastDigit = count % 10;
+  const lastTwoDigits = count % 100;
+  if (lastDigit >= 2 && lastDigit <= 4 && (lastTwoDigits < 12 || lastTwoDigits > 14)) {
+    return `${count} seanse`;
+  }
+  return `${count} seansów`;
+};
+
 export default function MovieCard({ movie }: { movie: Movie }) {
   const [isOpen, setIsOpen] = useState(false);
   const [screenings, setScreenings] = useState<Screening[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setSelectedDate(null);
+      return;
+    }
 
     async function fetchScreenings() {
       setIsLoading(true);
@@ -46,15 +60,27 @@ export default function MovieCard({ movie }: { movie: Movie }) {
     fetchScreenings();
   }, [isOpen, movie.id]);
 
-  // Grupujemy seanse po kinie, ale dodajemy w nawiasie miasto (np. "Multikino (Warszawa)")
-  const groupedScreenings = screenings.reduce((acc, screening) => {
-    const cinemaLocation = screening.cinemas 
-      ? `${screening.cinemas.name} (${screening.cinemas.city})` 
-      : "Nieznane kino";
-    if (!acc[cinemaLocation]) acc[cinemaLocation] = [];
-    acc[cinemaLocation].push(screening);
+  // Wyodrębnienie unikalnych dat seansów i zliczenie ich ilości (lokalnie dla strefy czasowej przeglądarki)
+  const screeningsPerDay = screenings.reduce((acc, s) => {
+    const d = new Date(s.start_time);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    acc[dateStr] = (acc[dateStr] || 0) + 1;
     return acc;
-  }, {} as Record<string, Screening[]>);
+  }, {} as Record<string, number>);
+
+  const uniqueDays = Object.keys(screeningsPerDay).sort();
+
+  // Filtrowanie po wybranej dacie
+  const filteredScreenings = screenings.filter(s => {
+    const d = new Date(s.start_time);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return dateStr === selectedDate;
+  });
+
+  const formatDateLabel = (dateString: string) => {
+    const d = new Date(dateString);
+    return d.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -90,7 +116,7 @@ export default function MovieCard({ movie }: { movie: Movie }) {
           <DialogHeader className="mb-4 shrink-0">
             <DialogTitle className="text-2xl">{movie.title}</DialogTitle>
             <DialogDescription className="text-slate-400">
-              {movie.director ? `Reżyseria: ${movie.director}` : 'Godziny seansów we wszystkich kinach.'}
+              {movie.director ? `Reżyseria: ${movie.director}` : 'Wybierz datę, aby zobaczyć godziny seansów.'}
             </DialogDescription>
           </DialogHeader>
           
@@ -101,15 +127,42 @@ export default function MovieCard({ movie }: { movie: Movie }) {
               <div className="text-sm text-slate-400 text-center py-8">
                 Brak zaplanowanych seansów dla tego filmu w naszej bazie.
               </div>
+            ) : !selectedDate ? (
+              <div className="flex flex-col gap-2 pb-4">
+                {uniqueDays.map(date => {
+                  const count = screeningsPerDay[date];
+                  return (
+                    <button
+                      key={date}
+                      onClick={() => setSelectedDate(date)}
+                      className="group w-full bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-colors rounded-lg p-4 text-left flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-200 capitalize">{formatDateLabel(date)}</span>
+                        <span className="text-sm text-slate-400 group-hover:text-indigo-200 transition-colors">({formatScreeningsCount(count)})</span>
+                      </div>
+                      <span className="text-slate-500 group-hover:text-slate-200 transition-colors">&rarr;</span>
+                    </button>
+                  );
+                })}
+              </div>
             ) : (
-              Object.entries(groupedScreenings).map(([cinemaLocation, cinemaScreenings]) => (
-                <div key={cinemaLocation} className="mb-4 bg-slate-900/50 p-3 rounded-lg border border-slate-800">
-                  <h4 className="font-semibold text-indigo-400 mb-3">{cinemaLocation}</h4>
+              <div className="flex flex-col gap-4">
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  className="self-start text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mb-2"
+                >
+                  &larr; Wróć do wyboru daty
+                </button>
+                <h3 className="text-lg font-bold text-slate-200 capitalize border-b border-slate-800 pb-2 mb-2">
+                  {formatDateLabel(selectedDate)}
+                </h3>
+                <div className="mb-4 bg-slate-900/50 p-3 rounded-lg border border-slate-800">
                   <div className="flex flex-wrap gap-2">
-                    {cinemaScreenings.map((s) => {
+                    {filteredScreenings.map((s) => {
                       const dateObj = new Date(s.start_time);
                       const time = dateObj.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
-                      const date = dateObj.toLocaleDateString("pl-PL", { day: "numeric", month: "short" });
+                      const cinemaName = s.cinemas?.name || "Nieznane kino";
                       
                       return (
                         <a
@@ -117,17 +170,17 @@ export default function MovieCard({ movie }: { movie: Movie }) {
                           href={s.booking_link || "#"}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="group flex flex-col items-center justify-center bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-colors rounded-md p-2 text-xs text-slate-200 min-w-[64px]"
+                          className="group flex flex-col items-center justify-center bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-colors rounded-md p-2 text-xs text-slate-200 min-w-[72px]"
                         >
                           <span className="font-bold text-sm mb-0.5">{time}</span>
-                          <span className="text-[10px] text-slate-400 group-hover:text-slate-200">{date}</span>
+                          <span className="text-[10px] text-slate-400 group-hover:text-indigo-100 text-center leading-tight mb-0.5">{cinemaName}</span>
                           {s.lang && <span className="text-[9px] uppercase mt-0.5 opacity-70 bg-slate-950/50 px-1 rounded">{s.lang}</span>}
                         </a>
                       );
                     })}
                   </div>
                 </div>
-              ))
+              </div>
             )}
           </div>
         </div>
