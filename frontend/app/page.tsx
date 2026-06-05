@@ -1,10 +1,20 @@
+import { Suspense } from 'react';
 import { getCities, getMovies } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
 import { supabase } from '@/lib/supabase/client';
+import SearchBar from '@/components/SearchBar';
 
 export const revalidate = 0;
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: { [key: string]: string | string[] | undefined };
+}) {
+  // Używamy Promise.resolve dla bezpiecznej kompatybilności wstecz i wprzód (Next.js 15 wymaga Promise)
+  const params = await Promise.resolve(searchParams);
+  const query = typeof params?.q === 'string' ? params.q.toLowerCase() : '';
+
   const cities = await getCities();
   const movies = await getMovies();
 
@@ -16,13 +26,23 @@ export default async function Home() {
     .limit(10);
 
   // Dopasowanie pobranych idków do pełnych danych filmów
-  const topMovies = (topScreenings || [])
+  let topMovies = (topScreenings || [])
     .map((ts: any) => movies.find((m) => m.id === ts.movie_id))
     .filter(Boolean) as typeof movies;
 
+  let filteredMovies = movies;
+
+  // Odfiltrowanie filmów w przypadku aktywnego wyszukiwania
+  if (query) {
+    filteredMovies = movies.filter((movie) =>
+      movie.title.toLowerCase().includes(query)
+    );
+    topMovies = []; // Wyszukiwanie nadpisuje osobną sekcję "Najwięcej seansów"
+  }
+
   // Grupowanie filmów po typie
-  const groupedMovies = movies.reduce((acc, movie) => {
-    const type = movie.movie_type || 'STANDARD';
+  const groupedMovies = filteredMovies.reduce((acc, movie) => {
+    const type = query ? 'Wyniki wyszukiwania' : (movie.movie_type || 'STANDARD');
 
     if (!acc[type]) {
       acc[type] = [];
@@ -31,8 +51,8 @@ export default async function Home() {
     return acc;
   }, {} as Record<string, typeof movies>);
 
-  // Wymuszamy, by "STANDARD" było na samej górze
-  const mainCategory = "STANDARD";
+  // Wymuszamy, by główna kategoria była na samej górze
+  const mainCategory = query ? 'Wyniki wyszukiwania' : 'STANDARD';
   const sortedCategories = Object.keys(groupedMovies).sort((a, b) => {
     if (a === mainCategory) return -1;
     if (b === mainCategory) return 1;
@@ -42,6 +62,10 @@ export default async function Home() {
   return (
     <main className="container mx-auto p-4 pt-8 pb-16 overflow-hidden">
       <h1 className="text-4xl font-extrabold mb-8 text-slate-100 tracking-tight">Repertuar Kin</h1>
+
+      <Suspense fallback={<div className="h-10 bg-slate-900 animate-pulse rounded-lg mb-8 max-w-2xl"></div>}>
+        <SearchBar />
+      </Suspense>
 
       <section className="mb-10">
         <h2 className="text-lg font-semibold mb-3 text-slate-300">Wybierz miasto:</h2>
@@ -55,6 +79,13 @@ export default async function Home() {
       </section>
 
       <div className="space-y-10">
+        {/* Komunikat o braku wyników */}
+        {sortedCategories.length === 0 && topMovies.length === 0 && (
+          <div className="text-center text-slate-400 py-16 bg-slate-900/30 rounded-xl border border-slate-800">
+            Brak filmów pasujących do frazy <span className="text-slate-200">"{query}"</span>.
+          </div>
+        )}
+
         {/* Karuzela "Najwięcej seansów" */}
         {topMovies.length > 0 && (
           <section className="flex flex-col">
@@ -81,10 +112,10 @@ export default async function Home() {
               {category}
             </h2>
             
-            {/* Kontener dla karuzeli */}
+            {/* Kontener dla karuzeli lub siatki dla wyników */}
             <div 
-              className="flex overflow-x-auto gap-5 pb-6 snap-x -mx-4 px-4 sm:mx-0 sm:px-0" 
-              style={{ scrollbarWidth: 'thin' }}
+              className={`flex gap-5 pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 ${query ? 'flex-wrap' : 'overflow-x-auto snap-x'}`}
+              style={query ? undefined : { scrollbarWidth: 'thin' }}
             >
               {groupedMovies[category].map((movie) => (
                 <div key={movie.id} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
