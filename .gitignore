@@ -3,4 +3,3 @@ backend/view_movie_sources.py
 frontend/supabase/.temp/
 __pycache__/
 *.pyc
-frontend/app/movies-info/
