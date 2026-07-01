@@ -38,6 +38,8 @@ const PosterImage = ({ src, source }: { src: string | null; source: string }) =>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img 
         src={src} 
+        width={128}
+        height={192}
         alt={`Plakat z ${source}`} 
         className="w-32 h-48 object-cover rounded-lg shadow-md border border-slate-700/50 bg-slate-900" 
         loading="lazy" 
