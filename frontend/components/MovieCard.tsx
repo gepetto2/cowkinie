@@ -12,7 +12,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-type Movie = Database["public"]["Tables"]["movies"]["Row"];
+type Movie = Database["public"]["Tables"]["movies"]["Row"] & {
+  available_cities?: string[];
+  available_franchises?: string[];
+};
 type Screening = Database["public"]["Tables"]["screenings"]["Row"] & {
   cinemas: { name: string; city: string } | null;
 };
@@ -92,6 +95,41 @@ export default function MovieCard({ movie }: { movie: Movie }) {
               <img src={movie.poster} alt={movie.title} className="object-cover w-full h-full" />
             ) : (
               <div className="flex items-center justify-center w-full h-full text-slate-500 text-xs text-center p-2">Brak plakatu</div>
+            )}
+            
+            {/* Ikony kin */}
+            {movie.available_franchises && movie.available_franchises.length > 0 && (
+              <div className="absolute bottom-2 right-2 flex flex-row gap-1.5 z-10">
+                {movie.available_franchises.map(franchise => {
+                  let bgColor = 'bg-slate-800';
+                  let textColor = 'text-white';
+                  const lower = franchise.toLowerCase();
+                  
+                  if (lower.includes('cinema') && lower.includes('city')) {
+                    bgColor = 'bg-orange-500';
+                  } else if (lower.includes('multikino')) {
+                    bgColor = 'bg-red-600';
+                  } else if (lower.includes('helios')) {
+                    bgColor = 'bg-blue-600';
+                  } else if (lower.includes('studyjne')) {
+                    bgColor = 'bg-indigo-600';
+                  }
+                  
+                  // Inicjał dla ikony
+                  let initial = franchise.charAt(0).toUpperCase();
+                  if (lower.includes('cinema') && lower.includes('city')) initial = 'CC';
+                  
+                  return (
+                    <div 
+                      key={franchise} 
+                      className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md border border-slate-900/50 ${bgColor} ${textColor} hover:scale-110 transition-transform`} 
+                      title={franchise}
+                    >
+                      {initial}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
           <h3 className="font-semibold text-sm leading-tight text-slate-100 line-clamp-2">{movie.title}</h3>

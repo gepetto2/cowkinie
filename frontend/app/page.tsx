@@ -15,26 +15,47 @@ export default async function Home({
   const params = await Promise.resolve(searchParams);
   const query = typeof params?.q === 'string' ? params.q.toLowerCase() : '';
 
-  const cities = await getCities();
-  const movies = await getMovies();
+  // Zrównoleglenie pobierania wszystkich danych
+  const [
+    cities,
+    movies,
+    { data: cinemaAvailabilities },
+    { data: topScreenings }
+  ] = await Promise.all([
+    getCities(),
+    getMovies(),
+    supabase.from('movie_cinemas_view').select('*'),
+    supabase.from('movie_screening_counts').select('*').order('screening_count', { ascending: false }).limit(10)
+  ]);
 
-  // Wykorzystanie widoku SQL do zliczenia seansów i pobrania top 10 wyników prosto z bazy
-  const { data: topScreenings } = await supabase
-    .from('movie_screening_counts')
-    .select('*')
-    .order('screening_count', { ascending: false })
-    .limit(10);
+  // Optymalizacja O(1) do szybkiego wyszukiwania dostępności kin dla filmu
+  const availabilitiesMap = new Map(
+    cinemaAvailabilities?.map(a => [a.movie_id, a]) || []
+  );
+
+  // Wzbogacenie obiektów filmów o dane o kinach
+  const enhancedMovies = movies.map(movie => {
+    const availability = availabilitiesMap.get(movie.id);
+    return {
+      ...movie,
+      available_cities: availability?.cities || [],
+      available_franchises: availability?.franchises || [],
+    };
+  });
+
+  // Optymalizacja O(1) do szybkiego wyszukiwania pełnych danych filmu po id
+  const moviesMap = new Map(enhancedMovies.map(m => [m.id, m]));
 
   // Dopasowanie pobranych idków do pełnych danych filmów
   let topMovies = (topScreenings || [])
-    .map((ts: any) => movies.find((m) => m.id === ts.movie_id))
-    .filter(Boolean) as typeof movies;
+    .map((ts: any) => moviesMap.get(ts.movie_id))
+    .filter(Boolean) as typeof enhancedMovies;
 
-  let filteredMovies = movies;
+  let filteredMovies = enhancedMovies;
 
   // Odfiltrowanie filmów w przypadku aktywnego wyszukiwania
   if (query) {
-    filteredMovies = movies.filter((movie) =>
+    filteredMovies = enhancedMovies.filter((movie) =>
       movie.title.toLowerCase().includes(query)
     );
     topMovies = []; // Wyszukiwanie nadpisuje osobną sekcję "Najwięcej seansów"
@@ -49,7 +70,7 @@ export default async function Home({
     }
     acc[type].push(movie);
     return acc;
-  }, {} as Record<string, typeof movies>);
+  }, {} as Record<string, typeof enhancedMovies>);
 
   // Wymuszamy, by główna kategoria była na samej górze
   const mainCategory = query ? 'Wyniki wyszukiwania' : 'STANDARD';
