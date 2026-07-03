@@ -2,13 +2,14 @@ import asyncio
 import json
 from curl_cffi import requests
 from datetime import datetime, timedelta
-from utils import parse_start_time, clean_title
+from zoneinfo import ZoneInfo
+from utils import parse_start_time, clean_title, get_valid_poster
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Cinema City i filtruje te z wybranych miast."""
     # Używamy daty daleko w przyszłości, aby mieć pewność, że dostaniemy wszystkie kina, które mają jakiekolwiek wydarzenia
-    until_date = (datetime.now() + timedelta(days=365*2)).strftime("%Y-%m-%d")
+    until_date = (datetime.now(ZoneInfo("Europe/Warsaw")) + timedelta(days=365*2)).strftime("%Y-%m-%d")
     cinemas_url = f"https://www.cinema-city.pl/pl/data-api-service/v1/quickbook/10103/cinemas/with-event/until/{until_date}"
 
     print("Pobieranie listy kin z Cinema City...")
@@ -94,7 +95,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 db_cinema_id = upsert_cinema(supabase, cinema_name, cinema_city, "Cinema City")
 
                 # Pobranie dostępnych dat
-                until_date = (datetime.now() + timedelta(days=365)).strftime("%Y-%m-%d")
+                until_date = (datetime.now(ZoneInfo("Europe/Warsaw")) + timedelta(days=365)).strftime("%Y-%m-%d")
                 dates_url = f"https://www.cinema-city.pl/pl/data-api-service/v1/quickbook/10103/dates/in-cinema/{cinema_id_api}/until/{until_date}"
 
                 print("Pobieranie dostępnych dat...")
@@ -175,7 +176,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                             "title": title, 
                             "movie_type_cc": movie_type,
                             "length_cc": film.get("length"),
-                            "poster_cc": film.get("posterLink"),
+                            "poster_cc": get_valid_poster(film.get("posterLink")),
                             "release_year_cc": release_year,
                             "director_cc": details.get("directors")
                         }

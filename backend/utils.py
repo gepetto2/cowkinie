@@ -39,3 +39,17 @@ def clean_title(title: str) -> str:
         print(f"Zmieniono tytuł: '{original_title}' -> '{cleaned_title}'")
         
     return cleaned_title
+
+def get_valid_poster(poster_data):
+    """
+    Wyciąga i weryfikuje poprawność linku do plakatu. 
+    Obsługuje zarówno listy (Helios) jak i pojedyncze stringi (Cinema City / Multikino).
+    """
+    if not poster_data:
+        return None
+        
+    poster = poster_data[0] if isinstance(poster_data, list) else poster_data
+    
+    if isinstance(poster, str) and poster.startswith("http"):
+        return poster
+    return None

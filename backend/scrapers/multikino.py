@@ -1,6 +1,6 @@
 import re
 from curl_cffi import requests
-from utils import parse_start_time, clean_title
+from utils import parse_start_time, clean_title, get_valid_poster
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
@@ -125,7 +125,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "title": title,
                         "movie_type_multikino": movie_type,
                         "length_multikino": film.get("runningTime") if film.get("runningTime") and film.get("runningTime") > 0 else None,
-                        "poster_multikino": film.get("posterImageSrc"),
+                        "poster_multikino": get_valid_poster(film.get("posterImageSrc")),
                         "release_year_multikino": release_year,
                         "description_multikino": film.get("synopsisShort"),
                         "director_multikino": film.get("director").strip(),
