@@ -17,17 +17,23 @@ export default function SearchBar() {
       return;
     }
 
+    // Zabezpieczenie przed "infinite loop" - jeśli nowa wartość jest taka sama jak w URL, nie rób nic
+    const currentQ = searchParams.get("q") || "";
+    if (query === currentQ) {
+      return;
+    }
+
     // Ustawienie debouncingu (opóźnienia) na 300ms
     const timer = setTimeout(() => {
       const params = new URLSearchParams(searchParams.toString());
-      
+
       if (query.trim()) {
         params.set("q", query.trim());
       } else {
         params.delete("q");
       }
-      
-      router.push(`/?${params.toString()}`);
+
+      router.push(`/?${params.toString()}`, { scroll: false });
     }, 300);
 
     // Czyszczenie timera, jeśli użytkownik wpisze kolejny znak przed upływem 300ms
