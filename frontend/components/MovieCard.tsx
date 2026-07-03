@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Database } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
 import {
@@ -105,7 +106,7 @@ export default function MovieCard({ movie }: { movie: Movie }) {
         <div className="flex flex-col group cursor-pointer">
           <div className="relative w-full aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-3 shadow-sm group-hover:shadow-md transition-shadow">
             {movie.poster ? (
-              <img src={movie.poster} alt={movie.title} className="object-cover w-full h-full" />
+              <Image src={movie.poster} alt={movie.title} fill sizes="(max-width: 640px) 140px, (max-width: 1024px) 160px, 180px" className="object-cover" />
             ) : (
               <div className="flex items-center justify-center w-full h-full text-slate-500 text-xs text-center p-2">Brak plakatu</div>
             )}
@@ -156,7 +157,7 @@ export default function MovieCard({ movie }: { movie: Movie }) {
         {/* Lewa kolumna z plakatem */}
         <div className="hidden sm:block w-[300px] shrink-0 bg-slate-900 relative">
           {movie.poster ? (
-            <img src={movie.poster} alt={movie.title} className="object-cover w-full h-full absolute inset-0" />
+            <Image src={movie.poster} alt={movie.title} fill sizes="300px" className="object-cover" />
           ) : (
             <div className="flex items-center justify-center w-full h-full text-slate-500 text-sm p-4 text-center absolute inset-0">Brak plakatu</div>
           )}

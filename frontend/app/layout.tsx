@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "Sprawdź aktualny repertuar i dostępność biletów w Twoich ulubionych kinach.",
 };
 
+import NextTopLoader from 'nextjs-toploader';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,7 +29,10 @@ export default function RootLayout({
       lang="pl"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-950 text-slate-50">{children}</body>
+      <body className="min-h-full flex flex-col bg-slate-950 text-slate-50">
+        <NextTopLoader color="#4f46e5" showSpinner={false} shadow="0 0 10px #4f46e5,0 0 5px #4f46e5" />
+        {children}
+      </body>
     </html>
   );
 }

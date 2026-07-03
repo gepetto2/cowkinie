@@ -5,6 +5,14 @@ from zoneinfo import ZoneInfo
 from utils import parse_start_time, clean_title
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
+def get_valid_poster(posters):
+    if not posters:
+        return None
+    poster = posters[0]
+    if isinstance(poster, str) and poster.startswith("http"):
+        return poster
+    return None
+
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Helios z API v1 i filtruje te z wybranych miast."""
     cinemas_url = "https://api.helios.pl/api/v1/cinemas"
@@ -216,7 +224,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "title": title,
                         "movie_type_helios": movie_type,
                         "length_helios": ev.get("duration") or movie_info.get("duration"),
-                        "poster_helios": posters[0] if posters else None,
+                        "poster_helios": get_valid_poster(posters),
                         "release_year_helios": movie_info.get("yearOfProduction"),
                         "director_helios": movie_info.get("director"),
                         "original_title_helios": movie_info.get("originalTitle")
@@ -238,7 +246,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "title": title,
                         "movie_type_helios": movie_type,
                         "length_helios": movie_info.get("duration"),
-                        "poster_helios": posters[0] if posters else None,
+                        "poster_helios": get_valid_poster(posters),
                         "release_year_helios": movie_info.get("yearOfProduction"),
                         "director_helios": movie_info.get("director"),
                         "original_title_helios": movie_info.get("originalTitle")
