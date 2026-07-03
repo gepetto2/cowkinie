@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import Link from 'next/link';
 import { getCities, getMovies } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
 import { supabase } from '@/lib/supabase/client';
@@ -14,6 +15,7 @@ export default async function Home({
   // Używamy Promise.resolve dla bezpiecznej kompatybilności wstecz i wprzód (Next.js 15 wymaga Promise)
   const params = await Promise.resolve(searchParams);
   const query = typeof params?.q === 'string' ? params.q.toLowerCase() : '';
+  const cityQuery = typeof params?.city === 'string' ? params.city : '';
 
   // Zrównoleglenie pobierania wszystkich danych
   const [
@@ -53,6 +55,16 @@ export default async function Home({
 
   let filteredMovies = enhancedMovies;
 
+  // Filtrowanie po wybranym mieście
+  if (cityQuery) {
+    filteredMovies = filteredMovies.filter((movie) =>
+      movie.available_cities.includes(cityQuery)
+    );
+    topMovies = topMovies.filter((movie) =>
+      movie.available_cities.includes(cityQuery)
+    );
+  }
+
   // Odfiltrowanie filmów w przypadku aktywnego wyszukiwania
   if (query) {
     filteredMovies = enhancedMovies.filter((movie) =>
@@ -91,11 +103,37 @@ export default async function Home({
       <section className="mb-10">
         <h2 className="text-lg font-semibold mb-3 text-slate-300">Wybierz miasto:</h2>
         <div className="flex overflow-x-auto gap-2 pb-2 snap-x" style={{ scrollbarWidth: 'none' }}>
-          {cities.map((city) => (
-            <button key={city} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0">
-              {city}
-            </button>
-          ))}
+          <Link 
+            href={query ? `/?q=${encodeURIComponent(query)}` : "/"}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 ${
+              !cityQuery
+                ? 'bg-indigo-600 text-white shadow-md' 
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+            }`}
+          >
+            Wszystkie
+          </Link>
+          
+          {cities.map((city) => {
+            const isActive = city === cityQuery;
+            const urlParams = new URLSearchParams();
+            if (query) urlParams.set('q', query);
+            urlParams.set('city', city);
+            
+            return (
+              <Link 
+                key={city} 
+                href={`/?${urlParams.toString()}`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 ${
+                  isActive 
+                    ? 'bg-indigo-600 text-white shadow-md' 
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                }`}
+              >
+                {city}
+              </Link>
+            );
+          })}
         </div>
       </section>
 
@@ -103,7 +141,7 @@ export default async function Home({
         {/* Komunikat o braku wyników */}
         {sortedCategories.length === 0 && topMovies.length === 0 && (
           <div className="text-center text-slate-400 py-16 bg-slate-900/30 rounded-xl border border-slate-800">
-            Brak filmów pasujących do frazy <span className="text-slate-200">"{query}"</span>.
+            Brak filmów pasujących do podanych kryteriów.
           </div>
         )}
 

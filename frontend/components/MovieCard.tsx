@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Database } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
 import {
@@ -31,6 +32,9 @@ const formatScreeningsCount = (count: number) => {
 };
 
 export default function MovieCard({ movie }: { movie: Movie }) {
+  const searchParams = useSearchParams();
+  const cityQuery = searchParams.get("city");
+
   const [isOpen, setIsOpen] = useState(false);
   const [screenings, setScreenings] = useState<Screening[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,13 +59,22 @@ export default function MovieCard({ movie }: { movie: Movie }) {
         .order("start_time", { ascending: true });
 
       if (!error && data) {
-        setScreenings(data as unknown as Screening[]);
+        let fetchedScreenings = data as unknown as Screening[];
+        
+        // Filtrowanie po wybranym mieście
+        if (cityQuery) {
+          fetchedScreenings = fetchedScreenings.filter(
+            (s) => s.cinemas?.city === cityQuery
+          );
+        }
+        
+        setScreenings(fetchedScreenings);
       }
       setIsLoading(false);
     }
 
     fetchScreenings();
-  }, [isOpen, movie.id]);
+  }, [isOpen, movie.id, cityQuery]);
 
   // Wyodrębnienie unikalnych dat seansów i zliczenie ich ilości (lokalnie dla strefy czasowej przeglądarki)
   const screeningsPerDay = screenings.reduce((acc, s) => {
