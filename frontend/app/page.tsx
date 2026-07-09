@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { getCities, getMovies } from '@/lib/supabase/queries';
+import { getCities, getMovies, getAvailableDates, getMovieIdsByDateAndCity } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
 import { supabase } from '@/lib/supabase/client';
 import SearchBar from '@/components/SearchBar';
@@ -16,18 +16,23 @@ export default async function Home({
   const params = await Promise.resolve(searchParams);
   const query = typeof params?.q === 'string' ? params.q.toLowerCase() : '';
   const cityQuery = typeof params?.city === 'string' ? params.city : '';
+  const dateQuery = typeof params?.date === 'string' ? params.date : '';
 
   // Zrównoleglenie pobierania wszystkich danych
   const [
     cities,
     movies,
     { data: cinemaAvailabilities },
-    { data: topScreenings }
+    { data: topScreenings },
+    availableDates,
+    moviesOnDate
   ] = await Promise.all([
     getCities(),
     getMovies(),
     supabase.from('movie_cinemas_view').select('*'),
-    supabase.from('movie_screening_counts').select('*').order('screening_count', { ascending: false }).limit(10)
+    supabase.from('movie_screening_counts').select('*').order('screening_count', { ascending: false }).limit(10),
+    Promise.resolve(getAvailableDates(7)), // 7 najbliższych dni
+    dateQuery ? getMovieIdsByDateAndCity(dateQuery, cityQuery) : Promise.resolve(null)
   ]);
 
   // Optymalizacja O(1) do szybkiego wyszukiwania dostępności kin dla filmu
@@ -62,6 +67,16 @@ export default async function Home({
     );
     topMovies = topMovies.filter((movie) =>
       movie.available_cities.includes(cityQuery)
+    );
+  }
+
+  // Filtrowanie po wybranej dacie
+  if (dateQuery && moviesOnDate) {
+    filteredMovies = filteredMovies.filter((movie) =>
+      moviesOnDate.has(movie.id)
+    );
+    topMovies = topMovies.filter((movie) =>
+      moviesOnDate.has(movie.id)
     );
   }
 
@@ -100,40 +115,99 @@ export default async function Home({
         <SearchBar />
       </Suspense>
 
-      <section className="mb-10">
-        <h2 className="text-lg font-semibold mb-3 text-slate-300">Wybierz miasto:</h2>
-        <div className="flex overflow-x-auto gap-2 pb-2 snap-x" style={{ scrollbarWidth: 'none' }}>
-          <Link 
-            href={query ? `/?q=${encodeURIComponent(query)}` : "/"}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 ${
-              !cityQuery
-                ? 'bg-indigo-600 text-white shadow-md' 
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-            }`}
-          >
-            Wszystkie
-          </Link>
-          
-          {cities.map((city) => {
-            const isActive = city === cityQuery;
-            const urlParams = new URLSearchParams();
-            if (query) urlParams.set('q', query);
-            urlParams.set('city', city);
+      <section className="mb-10 space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold mb-3 text-slate-300">Wybierz datę:</h2>
+          <div className="flex overflow-x-auto gap-2 pb-2 snap-x" style={{ scrollbarWidth: 'none' }}>
+            <Link 
+              href={(() => {
+                const urlParams = new URLSearchParams();
+                if (query) urlParams.set('q', query);
+                if (cityQuery) urlParams.set('city', cityQuery);
+                return `/?${urlParams.toString()}`;
+              })()}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 ${
+                !dateQuery
+                  ? 'bg-rose-600 text-white shadow-md' 
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+              }`}
+            >
+              Dowolna data
+            </Link>
             
-            return (
-              <Link 
-                key={city} 
-                href={`/?${urlParams.toString()}`}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 ${
-                  isActive 
-                    ? 'bg-indigo-600 text-white shadow-md' 
-                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-                }`}
-              >
-                {city}
-              </Link>
-            );
-          })}
+            {availableDates.map((date, index) => {
+              const isActive = date === dateQuery;
+              const urlParams = new URLSearchParams();
+              if (query) urlParams.set('q', query);
+              if (cityQuery) urlParams.set('city', cityQuery);
+              urlParams.set('date', date);
+              
+              let label = "";
+              if (index === 0) label = "Dzisiaj";
+              else if (index === 1) label = "Jutro";
+              else {
+                const d = new Date(date);
+                label = d.toLocaleDateString("pl-PL", { weekday: "short", day: "numeric", month: "numeric" });
+              }
+              
+              return (
+                <Link 
+                  key={date} 
+                  href={`/?${urlParams.toString()}`}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 capitalize ${
+                    isActive 
+                      ? 'bg-rose-600 text-white shadow-md' 
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                  }`}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold mb-3 text-slate-300">Wybierz miasto:</h2>
+          <div className="flex overflow-x-auto gap-2 pb-2 snap-x" style={{ scrollbarWidth: 'none' }}>
+            <Link 
+              href={(() => {
+                const urlParams = new URLSearchParams();
+                if (query) urlParams.set('q', query);
+                if (dateQuery) urlParams.set('date', dateQuery);
+                return `/?${urlParams.toString()}`;
+              })()}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 ${
+                !cityQuery
+                  ? 'bg-indigo-600 text-white shadow-md' 
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+              }`}
+            >
+              Wszystkie
+            </Link>
+            
+            {cities.map((city) => {
+              const isActive = city === cityQuery;
+              const urlParams = new URLSearchParams();
+              if (query) urlParams.set('q', query);
+              if (dateQuery) urlParams.set('date', dateQuery);
+              urlParams.set('city', city);
+              
+              return (
+                <Link 
+                  key={city} 
+                  href={`/?${urlParams.toString()}`}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 ${
+                    isActive 
+                      ? 'bg-indigo-600 text-white shadow-md' 
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                  }`}
+                >
+                  {city}
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -176,7 +250,7 @@ export default async function Home({
               className={`flex gap-5 pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 ${query ? 'flex-wrap' : 'overflow-x-auto snap-x'}`}
               style={query ? undefined : { scrollbarWidth: 'thin' }}
             >
-              {groupedMovies[category].map((movie) => (
+              {groupedMovies[category].map((movie: any) => (
                 <div key={movie.id} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
                   <MovieCard movie={movie} />
                 </div>

@@ -27,3 +27,41 @@ export async function getMovies() {
 
   return data;
 }
+
+export function getAvailableDates(days = 14) {
+  const dates = [];
+  const now = new Date();
+  
+  // Używamy formatu en-CA, by uzyskać stabilne YYYY-MM-DD
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Warsaw',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  
+  for (let i = 0; i < days; i++) {
+    const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
+    dates.push(formatter.format(d));
+  }
+  return dates;
+}
+
+export async function getMovieIdsByDateAndCity(dateStr: string, cityStr?: string) {
+  let query = supabase.from('movie_dates_view').select('movie_id');
+  
+  query = query.eq('screening_date', dateStr);
+  
+  if (cityStr) {
+    query = query.eq('city', cityStr);
+  }
+
+  const { data, error } = await query;
+  
+  if (error || !data) {
+    console.error('Błąd podczas pobierania id filmów dla daty:', error);
+    return new Set<string>();
+  }
+
+  return new Set(data.map(row => row.movie_id as string));
+}

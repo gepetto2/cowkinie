@@ -35,6 +35,7 @@ const formatScreeningsCount = (count: number) => {
 export default function MovieCard({ movie }: { movie: Movie }) {
   const searchParams = useSearchParams();
   const cityQuery = searchParams.get("city");
+  const dateQuery = searchParams.get("date");
 
   const [isOpen, setIsOpen] = useState(false);
   const [screenings, setScreenings] = useState<Screening[]>([]);
@@ -45,6 +46,11 @@ export default function MovieCard({ movie }: { movie: Movie }) {
     if (!isOpen) {
       setSelectedDate(null);
       return;
+    }
+    
+    // Jeśli użytkownik otworzył modal mając wybraną datę na stronie głównej
+    if (dateQuery && !selectedDate) {
+      setSelectedDate(dateQuery);
     }
 
     async function fetchScreenings() {
@@ -211,25 +217,29 @@ export default function MovieCard({ movie }: { movie: Movie }) {
                 </h3>
                 <div className="mb-4 bg-slate-900/50 p-3 rounded-lg border border-slate-800">
                   <div className="flex flex-wrap gap-2">
-                    {filteredScreenings.map((s) => {
-                      const dateObj = new Date(s.start_time);
-                      const time = dateObj.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
-                      const cinemaName = s.cinemas?.name || "Nieznane kino";
-                      
-                      return (
-                        <a
-                          key={s.id}
-                          href={s.booking_link || "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group flex flex-col items-center justify-center bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-colors rounded-md p-2 text-xs text-slate-200 min-w-[72px]"
-                        >
-                          <span className="font-bold text-sm mb-0.5">{time}</span>
-                          <span className="text-[10px] text-slate-400 group-hover:text-indigo-100 text-center leading-tight mb-0.5">{cinemaName}</span>
-                          {s.lang && <span className="text-[9px] uppercase mt-0.5 opacity-70 bg-slate-950/50 px-1 rounded">{s.lang}</span>}
-                        </a>
-                      );
-                    })}
+                    {filteredScreenings.length > 0 ? (
+                      filteredScreenings.map((s) => {
+                        const dateObj = new Date(s.start_time);
+                        const time = dateObj.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+                        const cinemaName = s.cinemas?.name || "Nieznane kino";
+                        
+                        return (
+                          <a
+                            key={s.id}
+                            href={s.booking_link || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group flex flex-col items-center justify-center bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-colors rounded-md p-2 text-xs text-slate-200 min-w-[72px]"
+                          >
+                            <span className="font-bold text-sm mb-0.5">{time}</span>
+                            <span className="text-[10px] text-slate-400 group-hover:text-indigo-100 text-center leading-tight mb-0.5">{cinemaName}</span>
+                            {s.lang && <span className="text-[9px] uppercase mt-0.5 opacity-70 bg-slate-950/50 px-1 rounded">{s.lang}</span>}
+                          </a>
+                        );
+                      })
+                    ) : (
+                      <div className="w-full text-center text-sm text-slate-400 py-4">Brak seansów tego dnia w wybranych kinach.</div>
+                    )}
                   </div>
                 </div>
               </div>
