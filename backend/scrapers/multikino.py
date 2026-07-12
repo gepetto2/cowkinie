@@ -1,6 +1,6 @@
 import re
 from curl_cffi import requests
-from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang
+from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 # Nazwy atrybutów sesji oznaczające format/technologię seansu.
@@ -145,6 +145,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "length_multikino": film.get("runningTime") if film.get("runningTime") and film.get("runningTime") > 0 else None,
                         "poster_multikino": get_valid_poster(film.get("posterImageSrc")),
                         "release_year_multikino": release_year,
+                        "release_date_multikino": parse_release_date(release_date),
                         "description_multikino": film.get("synopsisShort"),
                         "director_multikino": (film.get("director") or "").strip() or None,
                         "cast_multikino": film.get("cast")

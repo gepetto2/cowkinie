@@ -14,6 +14,28 @@ def parse_start_time(start_time_raw: str) -> str:
     except ValueError:
         return start_time_raw
 
+def parse_release_date(raw) -> str:
+    """Sprowadza datę premiery z różnych formatów źródeł do 'YYYY-MM-DD' (lub None).
+    Obsługuje: dateInt Filmwebu (int/str '20211022'), naiwny ISO ('2026-07-10T00:00:00'),
+    ISO ze strefą ('2026-07-17T00:00:00+02:00') oraz z 'Z'/ułamkami ('2021-10-01T00:00:00.000Z')."""
+    if not raw:
+        return None
+
+    s = str(raw).strip()
+
+    # Filmweb: dateInt w formacie YYYYMMDD
+    if s.isdigit() and len(s) == 8:
+        return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+
+    try:
+        dt_obj = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return dt_obj.date().isoformat()
+    except ValueError:
+        # Ostatnia deska ratunku: początek stringa wygląda jak data ISO
+        if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+            return s[:10]
+        return None
+
 def clean_title(title: str) -> str:
     if not title:
         return ""

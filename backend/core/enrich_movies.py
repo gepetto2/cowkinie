@@ -76,6 +76,7 @@ async def enrich_movies_data(supabase: Client):
                     "title_tmdb": tmdb_data.get("title"),
                     "original_title_tmdb": tmdb_data.get("original_title"),
                     "release_year_tmdb": tmdb_data.get("release_year"),
+                    "release_date_tmdb": tmdb_data.get("release_date_pl"),
                     "length_tmdb": tmdb_data.get("length"),
                     "director_tmdb": tmdb_data.get("director"),
                     "poster_tmdb": poster_url,
@@ -86,6 +87,7 @@ async def enrich_movies_data(supabase: Client):
                 update_data.update({
                     "title_filmweb": filmweb_data.get("title"),
                     "release_year_filmweb": filmweb_data.get("year"),
+                    "release_date_filmweb": filmweb_data.get("release_date"),
                     "length_filmweb": filmweb_data.get("duration"),
                     "director_filmweb": filmweb_data.get("directors")
                 })

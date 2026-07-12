@@ -61,7 +61,7 @@ def consolidate_movie_data(supabase):
         if movie.get("release_year") is None:
             years = [movie.get("release_year_multikino"), movie.get("release_year_cc"), movie.get("release_year_helios")]
             valid_years = [y for y in years if y is not None]
-            
+
             if valid_years:
                 # Wybieramy najstarszy zeskrapowany rok
                 update_data["release_year"] = min(valid_years)
@@ -125,5 +125,38 @@ def consolidate_movie_data(supabase):
         if update_data:
             supabase.table("movies").update(update_data).eq("id", movie["id"]).execute()
             updated_count += 1
-            
+
     print(f"Zaktualizowano dane dla {updated_count} filmów.")
+
+def consolidate_release_dates(supabase):
+    """Ustala główną release_date jako najwcześniejszą (min) datę ze WSZYSTKICH źródeł, łącznie z TMDB/Filmweb.
+    Uruchamiane PO wzbogaceniu (enrich), gdy release_date_tmdb/release_date_filmweb są już pobrane -
+    dzięki temu daty z baz zewnętrznych realnie wpływają na wynik (a nie tylko daty kinowe)."""
+    print("\nKonsolidacja dat premiery (min ze wszystkich źródeł, łącznie z TMDB/Filmweb)...")
+
+    response = supabase.table("movies").select(
+        "id, title, release_date_cc, release_date_multikino, release_date_helios, "
+        "release_date_tmdb, release_date_filmweb"
+    ).is_("release_date", "null").execute()
+    movies = response.data
+
+    if not movies:
+        print("Wszystkie filmy mają już ustaloną datę premiery.")
+        return
+
+    updated_count = 0
+    for movie in movies:
+        # Stringi ISO 'YYYY-MM-DD' porównują się chronologicznie leksykograficznie
+        dates = [
+            movie.get("release_date_multikino"),
+            movie.get("release_date_cc"),
+            movie.get("release_date_helios"),
+            movie.get("release_date_tmdb"),
+            movie.get("release_date_filmweb"),
+        ]
+        valid_dates = [d for d in dates if d]
+        if valid_dates:
+            supabase.table("movies").update({"release_date": min(valid_dates)}).eq("id", movie["id"]).execute()
+            updated_count += 1
+
+    print(f"Ustalono datę premiery dla {updated_count} filmów.")

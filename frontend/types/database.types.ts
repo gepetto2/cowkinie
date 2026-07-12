@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -70,6 +70,12 @@ export type Database = {
           poster_helios: string | null
           poster_multikino: string | null
           poster_tmdb: string | null
+          release_date: string | null
+          release_date_cc: string | null
+          release_date_filmweb: string | null
+          release_date_helios: string | null
+          release_date_multikino: string | null
+          release_date_tmdb: string | null
           release_year: number | null
           release_year_cc: number | null
           release_year_filmweb: number | null
@@ -112,6 +118,12 @@ export type Database = {
           poster_helios?: string | null
           poster_multikino?: string | null
           poster_tmdb?: string | null
+          release_date?: string | null
+          release_date_cc?: string | null
+          release_date_filmweb?: string | null
+          release_date_helios?: string | null
+          release_date_multikino?: string | null
+          release_date_tmdb?: string | null
           release_year?: number | null
           release_year_cc?: number | null
           release_year_filmweb?: number | null
@@ -154,6 +166,12 @@ export type Database = {
           poster_helios?: string | null
           poster_multikino?: string | null
           poster_tmdb?: string | null
+          release_date?: string | null
+          release_date_cc?: string | null
+          release_date_filmweb?: string | null
+          release_date_helios?: string | null
+          release_date_multikino?: string | null
+          release_date_tmdb?: string | null
           release_year?: number | null
           release_year_cc?: number | null
           release_year_filmweb?: number | null
@@ -175,6 +193,7 @@ export type Database = {
           created_at: string | null
           duration: number | null
           end_time: string | null
+          format: string | null
           id: string
           lang: string | null
           movie_id: string
@@ -188,6 +207,7 @@ export type Database = {
           created_at?: string | null
           duration?: number | null
           end_time?: string | null
+          format?: string | null
           id?: string
           lang?: string | null
           movie_id: string
@@ -201,6 +221,7 @@ export type Database = {
           created_at?: string | null
           duration?: number | null
           end_time?: string | null
+          format?: string | null
           id?: string
           lang?: string | null
           movie_id?: string

@@ -2,8 +2,19 @@ import asyncio
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang
+from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
+
+def _helios_premiere_date(movie_info: dict):
+    """Polska data premiery z detali filmu Helios: nationalPremiereDates -> premiereDate."""
+    if not movie_info:
+        return None
+    nat = movie_info.get("nationalPremiereDates") or []
+    if isinstance(nat, list) and nat:
+        d = nat[0].get("nationalPremiereDate")
+        if d:
+            return parse_release_date(d)
+    return parse_release_date(movie_info.get("premiereDate"))
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Helios z API v1 i filtruje te z wybranych miast."""
@@ -218,6 +229,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "length_helios": ev.get("duration") or movie_info.get("duration"),
                         "poster_helios": get_valid_poster(posters),
                         "release_year_helios": movie_info.get("yearOfProduction"),
+                        "release_date_helios": _helios_premiere_date(movie_info) or parse_release_date(ev.get("releaseDate")),
                         "director_helios": movie_info.get("director"),
                         "original_title_helios": movie_info.get("originalTitle")
                     }
@@ -240,6 +252,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "length_helios": movie_info.get("duration"),
                         "poster_helios": get_valid_poster(posters),
                         "release_year_helios": movie_info.get("yearOfProduction"),
+                        "release_date_helios": _helios_premiere_date(movie_info),
                         "director_helios": movie_info.get("director"),
                         "original_title_helios": movie_info.get("originalTitle")
                     }

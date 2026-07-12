@@ -5,7 +5,7 @@ from config import supabase
 from scrapers.multikino import scrape_and_save as scrape_multikina
 from scrapers.cinema_city import scrape_and_save as scrape_cinema_city
 from scrapers.helios import scrape_and_save as scrape_helios
-from db.database import consolidate_movie_data
+from db.database import consolidate_movie_data, consolidate_release_dates
 from core.enrich_movies import enrich_movies_data
 
 TARGET_CITIES = ["Poznań", "Bydgoszcz"]
@@ -26,6 +26,10 @@ async def run_all():
 
     # Po zakończeniu scrapowania kin uzupełniamy brakujące dane z TMDB i Filmwebu
     await enrich_movies_data(supabase)
+
+    # Konsolidacja daty premiery MUSI być po enrich - dopiero wtedy znamy daty z TMDB/Filmweb,
+    # więc min liczy się ze wszystkich źródeł naraz.
+    consolidate_release_dates(supabase)
 
 if __name__ == "__main__":
     asyncio.run(run_all())

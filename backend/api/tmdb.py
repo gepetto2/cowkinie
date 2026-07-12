@@ -4,9 +4,28 @@ import aiohttp
 from dotenv import load_dotenv
 from typing import Optional
 
+from utils import parse_release_date
+
 load_dotenv()
 
 TMDB_API_KEY = os.environ.get("TMDB_API_KEY")
+
+def _extract_pl_release_date(tmdb_movie):
+    """Polska data premiery kinowej z /release_dates. Preferencja typu: 3 (Theatrical) > 2 > 1 (Premiere)."""
+    results = (tmdb_movie.get("release_dates") or {}).get("results", [])
+    pl = next((r for r in results if r.get("iso_3166_1") == "PL"), None)
+    if not pl:
+        return None
+    dates = pl.get("release_dates", [])
+    for wanted_type in (3, 2, 1):
+        for d in dates:
+            if d.get("type") == wanted_type and d.get("release_date"):
+                return parse_release_date(d["release_date"])
+    # Fallback: pierwsza dostępna data dla PL
+    for d in dates:
+        if d.get("release_date"):
+            return parse_release_date(d["release_date"])
+    return None
 
 async def get_tmdb_movie_details(title: str, year: Optional[int] = None, director: Optional[str] = None, original_title: Optional[str] = None, session: Optional[aiohttp.ClientSession] = None):
     """
@@ -43,19 +62,24 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
         credits_url = f"https://api.themoviedb.org/3/movie/{movie_id}/credits"
         credits_params = {"api_key": TMDB_API_KEY, "language": "en-US"}
 
+        release_dates_url = f"https://api.themoviedb.org/3/movie/{movie_id}/release_dates"
+        release_dates_params = {"api_key": TMDB_API_KEY}
+
         async def fetch(url, params):
             async with session.get(url, params=params) as resp:
                 if resp.status == 200:
                     return await resp.json()
                 return None
 
-        movie_data, credits_data = await asyncio.gather(
+        movie_data, credits_data, release_dates_data = await asyncio.gather(
             fetch(details_url, details_params),
-            fetch(credits_url, credits_params)
+            fetch(credits_url, credits_params),
+            fetch(release_dates_url, release_dates_params)
         )
 
         if movie_data:
             movie_data["credits"] = credits_data or {}
+            movie_data["release_dates"] = release_dates_data or {}
             return movie_data
         return None
 
@@ -160,6 +184,7 @@ def _format_tmdb_response(tmdb_movie, dirs):
         "original_title": tmdb_movie.get("original_title"),
         "release_year": release_year,
         "release_date": release_date if release_date else None,
+        "release_date_pl": _extract_pl_release_date(tmdb_movie),
         "length": runtime if runtime and runtime > 0 else None,
         "director": director_str,
         "poster_path": tmdb_movie.get("poster_path"),

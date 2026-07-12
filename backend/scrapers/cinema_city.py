@@ -4,7 +4,7 @@ import re
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang
+from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 # Mapowanie tokenów formatu/technologii z attributeIds na czytelną formę (spójną z Multikinem).
@@ -191,11 +191,12 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         release_year = str(raw_release_year).replace('/', ',').split(',')[0].strip() if raw_release_year else None
 
                         all_movies_to_upsert[title] = {
-                            "title": title, 
+                            "title": title,
                             "movie_type_cc": movie_type,
                             "length_cc": film.get("length"),
                             "poster_cc": get_valid_poster(film.get("posterLink")),
                             "release_year_cc": release_year,
+                            "release_date_cc": parse_release_date(film.get("releaseDate")),
                             "director_cc": details.get("directors")
                         }
                         

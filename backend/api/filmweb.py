@@ -3,6 +3,15 @@ import aiohttp
 import urllib.parse
 from typing import Optional
 
+from utils import parse_release_date
+
+def _extract_filmweb_pl_date(dates_json):
+    """Polska data premiery kinowej z /dates (countryPublicReleaseDate, country == PL)."""
+    node = (dates_json or {}).get("countryPublicReleaseDate") or {}
+    if node.get("country") == "PL" and node.get("dateInt"):
+        return parse_release_date(node.get("dateInt"))
+    return None
+
 async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp.ClientSession):
     # Kodowanie tytułu do formatu URL (zamiana spacji na %20 itp.)
     query = urllib.parse.quote(title)
@@ -55,28 +64,37 @@ async def get_filmweb_movie_details(movie_id: int, session: aiohttp.ClientSessio
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    try:
-        async with session.get(url, headers=headers, timeout=10) as response:
+    dates_url = f"https://www.filmweb.pl/api/v1/film/{movie_id}/dates"
+
+    async def fetch_json(u):
+        async with session.get(u, headers=headers, timeout=10) as response:
             response.raise_for_status()
-            
-            data = await response.json()
-            
-            # Reżyserzy to lista obiektów, więc wyciągamy z nich imiona
-            directors_list = data.get("directors", [])
-            directors = ", ".join([d.get("name") for d in directors_list if d.get("name")])
-            
-            # Wyciąganie tytułu - fallback na 'originalTitle', jeśli 'title' nie istnieje lub jest null
-            title_obj = data.get("title") or {}
-            orig_title_obj = data.get("originalTitle") or {}
-            film_title = title_obj.get("title") or orig_title_obj.get("title")
-            
-            return {
-                "title": film_title,
-                "year": data.get("year"),
-                "duration": data.get("duration"),
-                "directors": directors
-            }
-            
+            return await response.json()
+
+    try:
+        # Równolegle: podstawowe dane (preview) i daty premier (dates)
+        data, dates_json = await asyncio.gather(
+            fetch_json(url),
+            fetch_json(dates_url)
+        )
+
+        # Reżyserzy to lista obiektów, więc wyciągamy z nich imiona
+        directors_list = data.get("directors", [])
+        directors = ", ".join([d.get("name") for d in directors_list if d.get("name")])
+
+        # Wyciąganie tytułu - fallback na 'originalTitle', jeśli 'title' nie istnieje lub jest null
+        title_obj = data.get("title") or {}
+        orig_title_obj = data.get("originalTitle") or {}
+        film_title = title_obj.get("title") or orig_title_obj.get("title")
+
+        return {
+            "title": film_title,
+            "year": data.get("year"),
+            "duration": data.get("duration"),
+            "directors": directors,
+            "release_date": _extract_filmweb_pl_date(dates_json)
+        }
+
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         print(f"Błąd podczas pobierania szczegółów filmu (ID: {movie_id}): {e}")
         return None

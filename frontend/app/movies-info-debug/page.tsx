@@ -14,11 +14,11 @@ const InfoBlock = ({ title, items }: { title: string; items: InfoItem[] }) => (
         return (
           <div key={idx} className={`flex ${isLong ? 'flex-col gap-1' : 'justify-between items-center gap-4'}`}>
             <dt className="text-slate-500 font-medium shrink-0">{item.label}</dt>
-            <dd 
-              className={`text-slate-300 ${isLong ? 'line-clamp-3 text-xs leading-relaxed' : 'text-right truncate font-medium max-w-[200px]'}`} 
-              title={item.value !== null ? String(item.value) : ''}
+            <dd
+              className={`text-slate-300 ${isLong ? 'line-clamp-3 text-xs leading-relaxed' : 'text-right truncate font-medium max-w-[200px]'}`}
+              title={item.value != null ? String(item.value) : ''}
             >
-              {item.value !== null ? String(item.value) : <span className="text-slate-700">-</span>}
+              {item.value != null ? String(item.value) : <span className="text-slate-700">-</span>}
             </dd>
           </div>
         );
@@ -110,15 +110,16 @@ export default async function MoviesInfoPage() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-400 mb-4 border-l-2 border-amber-500 pl-2">Szczegółowe dane ze źródeł</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    <InfoBlock 
-                      title="Złączone główne" 
+                    <InfoBlock
+                      title="Złączone główne"
                       items={[
                         { label: "Tytuł oryg.", value: movie.original_title },
                         { label: "Reżyser", value: movie.director },
                         { label: "Rok wydania", value: movie.release_year },
+                        { label: "Data premiery", value: movie.release_date },
                         { label: "Czas", value: movie.length !== null ? `${movie.length} min` : null },
                         { label: "Typ", value: movie.movie_type }
-                      ]} 
+                      ]}
                     />
                     <InfoBlock 
                       title="TMDB" 
@@ -128,6 +129,7 @@ export default async function MoviesInfoPage() {
                         { label: "Tytuł oryg.", value: movie.original_title_tmdb },
                         { label: "Reżyser", value: movie.director_tmdb },
                         { label: "Rok", value: movie.release_year_tmdb },
+                        { label: "Data premiery", value: movie.release_date_tmdb },
                         { label: "Czas", value: movie.length_tmdb !== null ? `${movie.length_tmdb} min` : null },
                         { label: "Opis", value: movie.description_tmdb }
                       ]} 
@@ -138,6 +140,7 @@ export default async function MoviesInfoPage() {
                         { label: "Tytuł", value: movie.title_filmweb },
                         { label: "Reżyser", value: movie.director_filmweb },
                         { label: "Rok", value: movie.release_year_filmweb },
+                        { label: "Data premiery", value: movie.release_date_filmweb },
                         { label: "Czas", value: movie.length_filmweb !== null ? `${movie.length_filmweb} min` : null }
                       ]} 
                     />
@@ -147,6 +150,7 @@ export default async function MoviesInfoPage() {
                         { label: "Tytuł oryg.", value: movie.original_title_cc },
                         { label: "Reżyser", value: movie.director_cc },
                         { label: "Rok", value: movie.release_year_cc },
+                        { label: "Data premiery", value: movie.release_date_cc },
                         { label: "Czas", value: movie.length_cc !== null ? `${movie.length_cc} min` : null },
                         { label: "Typ", value: movie.movie_type_cc }
                       ]} 
@@ -157,6 +161,7 @@ export default async function MoviesInfoPage() {
                         { label: "Reżyser", value: movie.director_multikino },
                         { label: "Obsada", value: movie.cast_multikino },
                         { label: "Rok", value: movie.release_year_multikino },
+                        { label: "Data premiery", value: movie.release_date_multikino },
                         { label: "Czas", value: movie.length_multikino !== null ? `${movie.length_multikino} min` : null },
                         { label: "Typ", value: movie.movie_type_multikino },
                         { label: "Opis", value: movie.description_multikino }
@@ -168,6 +173,7 @@ export default async function MoviesInfoPage() {
                         { label: "Tytuł oryg.", value: movie.original_title_helios },
                         { label: "Reżyser", value: movie.director_helios },
                         { label: "Rok", value: movie.release_year_helios },
+                        { label: "Data premiery", value: movie.release_date_helios },
                         { label: "Czas", value: movie.length_helios !== null ? `${movie.length_helios} min` : null },
                         { label: "Typ", value: movie.movie_type_helios }
                       ]} 
