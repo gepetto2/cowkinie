@@ -3,6 +3,13 @@ from curl_cffi import requests
 from utils import parse_start_time, clean_title, get_valid_poster
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
+# Nazwy atrybutów sesji oznaczające format/technologię seansu.
+# Pozostałe atrybuty typu Session to np. "Single Seat", "SUPERHIT", "PORANKI" - nie są formatem.
+KNOWN_FORMATS = {
+    "2D", "3D", "IMAX", "4DX", "VIP", "SCREENX", "SCREEN X",
+    "DOLBY ATMOS", "DOLBY CINEMA", "PLF", "270", "270°",
+}
+
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Multikino i filtruje te z wybranych miast."""
     cinemas_url = "https://www.multikino.pl/api/microservice/showings/cinemas"
@@ -116,6 +123,17 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     if title.startswith("Maraton:") or title.startswith("Minimaraton") or title.startswith("NMF"):
                         movie_type = "MARATON"
 
+                    # Ukraiński dubbing: Multikino nie taguje go w filmie (osobny wpis z cyrylickim tytułem),
+                    # tylko w języku seansu (attribute "UA"). Bez tego typu film zostałby scalony z polskim
+                    # oryginałem po tmdb_id (patrz core/merge_movies.py) i zniknął z bazy jako duplikat.
+                    if any(
+                        attr.get("attributeType") == "Language" and attr.get("name") == "UA"
+                        for group in film.get("showingGroups", [])
+                        for session in group.get("sessions", [])
+                        for attr in session.get("attributes", [])
+                    ):
+                        movie_type = "UKRAIŃSKI DUBBING"
+
                     title = clean_title(title)
 
                     release_date = film.get("releaseDate")
@@ -158,14 +176,24 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                             if booking_url and not booking_url.startswith("http"):
                                 booking_url = f"https://www.multikino.pl{booking_url}"
                             
-                            # Wyciągnięcie odpowiedniej wartości dla kolumny lang
+                            # Jednym przejściem po atrybutach wyciągamy język (pierwszy typu Language)
+                            # oraz format/technologię seansu (2D/3D/IMAX/4DX/VIP/ScreenX...)
                             lang = None
+                            formats = []
                             for attr in session.get("attributes", []):
+                                name = (attr.get("name") or "").strip()
                                 if attr.get("attributeType") == "Language":
-                                    lang = attr.get("name")
-                                    break
-                            
-                            
+                                    if lang is None:
+                                        lang = name
+                                elif name.upper() in KNOWN_FORMATS:
+                                    formats.append(name)
+                            # dict.fromkeys usuwa duplikaty zachowując kolejność
+                            screening_format = " ".join(dict.fromkeys(formats)) or None
+
+                            # Multikino nie podaje ratio dostępności, tylko flagę isSoldOut.
+                            # Mapujemy wyprzedane na 0.0 (spójnie z Cinema City / Helios), resztę zostawiamy jako brak danych.
+                            availability_ratio = 0.0 if session.get("isSoldOut") else None
+
                             screening_key = (movie_id, start_time, screen_name)
                             new_screenings[screening_key] = {
                                 "movie_id": movie_id,
@@ -174,8 +202,10 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                                 "end_time": parse_start_time(session.get("endTime")) if session.get("endTime") else None,
                                 "duration": session.get("duration"),
                                 "room_name": screen_name,
-                                "lang": "PL" if lang=="POLSKI" else lang,
-                                "booking_link": booking_url
+                                "lang": "PL" if lang == "POLSKI" else lang,
+                                "booking_link": booking_url,
+                                "format": screening_format,
+                                "availability_ratio": availability_ratio
                             }
                                 
                 if new_screenings:

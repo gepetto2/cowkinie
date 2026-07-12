@@ -28,6 +28,8 @@ def clean_title(title: str) -> str:
     title = re.sub(r'^Royal Ballet (?:and|&) Opera Sezon Kinowy \d{4}-\d{2}:\s*', '', title, flags=re.IGNORECASE)
     # Usuwa rocznice np. " 40. Rocznica", " 40th Anniversary", " - 40. rocznica"
     title = re.sub(r'\s*-?\s*(?:\.\s*)?\s*\d+(?:\.|st|nd|rd|th)?\s*(?:rocznica|Anniversary)\b.*$', '', title, flags=re.IGNORECASE)
+    # Usuwa dopiski typu "25-lecie", "100-lecie"
+    title = re.sub(r'\s*-?\s*\d+-lecie\b.*$', '', title, flags=re.IGNORECASE)
     # Usuwa typowy dopisek CC (rok generalizowany, np. 2026, 2027...)
     title = re.sub(r"\s*-\s*National Theatre Live \d{4}", "", title)
     title = title.removesuffix(" - wersja oryginalna")
