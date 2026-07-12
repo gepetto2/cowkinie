@@ -42,15 +42,17 @@ export default function MovieCard({ movie }: { movie: Movie }) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  // Reset/inicjalizacja wybranej daty odbywa się w handlerze otwarcia, aby nie wołać
+  // setState synchronicznie w efekcie (unika kaskadowych re-renderów).
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    // Jeśli użytkownik otworzył modal mając wybraną datę na stronie głównej, użyj jej
+    setSelectedDate(open && dateQuery ? dateQuery : null);
+  };
+
   useEffect(() => {
     if (!isOpen) {
-      setSelectedDate(null);
       return;
-    }
-    
-    // Jeśli użytkownik otworzył modal mając wybraną datę na stronie głównej
-    if (dateQuery && !selectedDate) {
-      setSelectedDate(dateQuery);
     }
 
     async function fetchScreenings() {
@@ -106,7 +108,7 @@ export default function MovieCard({ movie }: { movie: Movie }) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       {/* DialogTrigger opakowuje plakat. Kliknięcie w niego otworzy modal */}
       <DialogTrigger asChild>
         <div className="flex flex-col group cursor-pointer">
@@ -122,7 +124,7 @@ export default function MovieCard({ movie }: { movie: Movie }) {
               <div className="absolute bottom-2 right-2 flex flex-row gap-1.5 z-10">
                 {movie.available_franchises.map(franchise => {
                   let bgColor = 'bg-slate-800';
-                  let textColor = 'text-white';
+                  const textColor = 'text-white';
                   const lower = franchise.toLowerCase();
                   
                   if (lower.includes('cinema') && lower.includes('city')) {

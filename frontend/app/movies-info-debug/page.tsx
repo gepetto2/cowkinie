@@ -1,10 +1,7 @@
 import { supabase } from '@/lib/supabase/client';
-import { Database } from '@/types/database.types';
 
 // Wyłączamy cache, aby strona pomocnicza zawsze pokazywała najświeższe dane z bazy
 export const revalidate = 0;
-
-type Movie = Database['public']['Tables']['movies']['Row'];
 
 type InfoItem = { label: string; value: string | number | null };
 

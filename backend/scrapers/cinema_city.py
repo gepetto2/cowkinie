@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -149,7 +150,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     title = (film.get("name") or "").strip()
                     
                     movie_type_override = None
-                    if title.endswith(" - National Theatre Live 2026"):
+                    if re.search(r" - National Theatre Live \d{4}$", title):
                         movie_type_override = "TEATR"
                     title = clean_title(title)
 
@@ -192,9 +193,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     api_film_id = film.get("id")
                     title = (film.get("name") or "").strip()
                     
-                    if title.endswith(" - National Theatre Live 2026"):
-                        title = title.removesuffix(" - National Theatre Live 2026").strip()
-                        
+                    title = re.sub(r" - National Theatre Live \d{4}$", "", title).strip()
+
                     title = clean_title(title)
 
                     if api_film_id and title in movies_cache:

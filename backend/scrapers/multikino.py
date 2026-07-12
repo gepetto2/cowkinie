@@ -89,7 +89,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 # KROK 4: Zbieranie filmów do operacji Upsert
                 movies_to_upsert = {}
                 for film in films_list:
-                    title = film.get("filmTitle").strip()
+                    title = (film.get("filmTitle") or "").strip()
                     if not title:
                         continue
                         
@@ -128,7 +128,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "poster_multikino": get_valid_poster(film.get("posterImageSrc")),
                         "release_year_multikino": release_year,
                         "description_multikino": film.get("synopsisShort"),
-                        "director_multikino": film.get("director").strip(),
+                        "director_multikino": (film.get("director") or "").strip() or None,
                         "cast_multikino": film.get("cast")
                     }
                     

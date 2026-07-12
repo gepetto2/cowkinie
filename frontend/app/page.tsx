@@ -55,7 +55,7 @@ export default async function Home({
 
   // Dopasowanie pobranych idków do pełnych danych filmów
   let topMovies = (topScreenings || [])
-    .map((ts: any) => moviesMap.get(ts.movie_id))
+    .map((ts) => (ts.movie_id ? moviesMap.get(ts.movie_id) : undefined))
     .filter(Boolean) as typeof enhancedMovies;
 
   let filteredMovies = enhancedMovies;
@@ -250,7 +250,7 @@ export default async function Home({
               className={`flex gap-5 pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 ${query ? 'flex-wrap' : 'overflow-x-auto snap-x'}`}
               style={query ? undefined : { scrollbarWidth: 'thin' }}
             >
-              {groupedMovies[category].map((movie: any) => (
+              {groupedMovies[category].map((movie) => (
                 <div key={movie.id} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
                   <MovieCard movie={movie} />
                 </div>

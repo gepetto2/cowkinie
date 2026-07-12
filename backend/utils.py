@@ -24,10 +24,12 @@ def clean_title(title: str) -> str:
     title = title.replace("–", "-").replace("—", "-")
     # Usuwa przedrostki kinowe
     title = re.sub(r'^(?:NMF|NT Live)[:\s\-]+', '', title, flags=re.IGNORECASE)
-    # Usuwa rocznice np. " 40. Rocznica", " 40th Anniversary"
-    title = re.sub(r'(?:\.\s*)?\s*\d+(?:\.|st|nd|rd|th)?\s*(?:[Rr]ocznica|Anniversary)\b.*$', '', title, flags=re.IGNORECASE)
-    # Usuwa typowy dopisek CC
-    title = title.replace(" - National Theatre Live 2026", "")
+    # Usuwa przedrostek Royal Ballet and Opera (sezon generalizowany, np. 2026-27, 2027-28...)
+    title = re.sub(r'^Royal Ballet (?:and|&) Opera Sezon Kinowy \d{4}-\d{2}:\s*', '', title, flags=re.IGNORECASE)
+    # Usuwa rocznice np. " 40. Rocznica", " 40th Anniversary", " - 40. rocznica"
+    title = re.sub(r'\s*-?\s*(?:\.\s*)?\s*\d+(?:\.|st|nd|rd|th)?\s*(?:rocznica|Anniversary)\b.*$', '', title, flags=re.IGNORECASE)
+    # Usuwa typowy dopisek CC (rok generalizowany, np. 2026, 2027...)
+    title = re.sub(r"\s*-\s*National Theatre Live \d{4}", "", title)
     title = title.removesuffix(" - wersja oryginalna")
     title = title.removesuffix(". Wersja zremasterowana")
     title = title.removesuffix("- powrót do kin")
