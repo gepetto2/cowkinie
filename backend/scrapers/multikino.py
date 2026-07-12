@@ -1,6 +1,6 @@
 import re
 from curl_cffi import requests
-from utils import parse_start_time, clean_title, get_valid_poster
+from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 # Nazwy atrybutów sesji oznaczające format/technologię seansu.
@@ -202,7 +202,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                                 "end_time": parse_start_time(session.get("endTime")) if session.get("endTime") else None,
                                 "duration": session.get("duration"),
                                 "room_name": screen_name,
-                                "lang": "PL" if lang == "POLSKI" else lang,
+                                "lang": normalize_lang(lang),
                                 "booking_link": booking_url,
                                 "format": screening_format,
                                 "availability_ratio": availability_ratio

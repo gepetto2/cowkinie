@@ -2,7 +2,7 @@ import asyncio
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from utils import parse_start_time, clean_title, get_valid_poster
+from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
@@ -279,12 +279,17 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     aud = session.get("audience") or 0
                     avail_ratio = round(max(0.0, (max_occ - aud) / max_occ), 2) if max_occ > 0 else 1.0
 
-                    # Pobieranie języka
+                    # Pobieranie języka (dla eventów jest w items[0])
                     lang_raw = session.get("speakingType")
                     if not lang_raw and session.get("items") and len(session.get("items")) > 0:
                         lang_raw = session.get("items")[0].get("speakingType")
-                    
-                    lang = lang_raw.upper() if lang_raw else None
+
+                    lang = normalize_lang(lang_raw)
+
+                    # Format seansu (2D/3D) - dla zwykłych seansów w printType, dla eventów w items[0]
+                    print_type = session.get("printType")
+                    if not print_type and session.get("items") and len(session.get("items")) > 0:
+                        print_type = session.get("items")[0].get("printType")
 
                     screening_key = (db_movie_id, db_cinema_id, start_time, room_name)
                     new_screenings[screening_key] = {
@@ -294,7 +299,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "room_name": room_name,
                         "booking_link": f"https://bilety.helios.pl/screen/{scr_id}?cinemaId={cinema_uuid}",
                         "lang": lang,
-                        "availability_ratio": avail_ratio
+                        "availability_ratio": avail_ratio,
+                        "format": print_type or None
                     }
 
                 if new_screenings:

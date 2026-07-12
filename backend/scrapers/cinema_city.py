@@ -4,8 +4,18 @@ import re
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from utils import parse_start_time, clean_title, get_valid_poster
+from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
+
+# Mapowanie tokenów formatu/technologii z attributeIds na czytelną formę (spójną z Multikinem).
+# Pozostałe attributeIds to gatunki, kategorie wiekowe, języki, typ foteli itp. - nie są formatem.
+CC_FORMAT_MAP = {
+    "2d": "2D", "3d": "3D",
+    "imax": "IMAX", "imax-3d": "IMAX 3D",
+    "4dx": "4DX", "4dx-3d": "4DX 3D", "4dx-2d": "4DX",
+    "screenx": "ScreenX", "vip": "VIP",
+    "dolby-atmos": "Dolby Atmos", "dbox": "D-BOX", "d-box": "D-BOX",
+}
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
     """Pobiera listę kin Cinema City i filtruje te z wybranych miast."""
@@ -192,8 +202,6 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 for film in unique_films:
                     api_film_id = film.get("id")
                     title = (film.get("name") or "").strip()
-                    
-                    title = re.sub(r" - National Theatre Live \d{4}$", "", title).strip()
 
                     title = clean_title(title)
 
@@ -223,6 +231,15 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         lang = "DUBBING"
                     elif "original-lang-pl" in attribute_ids:
                         lang = "PL"
+                    elif "original" in attribute_ids or any(a.startswith("original-lang-") for a in attribute_ids):
+                        # Wersja oryginalna (obcojęzyczna, bez polskiego dubbingu/napisów)
+                        lang = "ORYGINALNY"
+                    lang = normalize_lang(lang)
+
+                    # Format/technologia seansu (2D/3D/IMAX/4DX/ScreenX/VIP...) z attributeIds
+                    # dict.fromkeys usuwa duplikaty zachowując kolejność
+                    formats = [CC_FORMAT_MAP[a] for a in attribute_ids if a in CC_FORMAT_MAP]
+                    screening_format = " ".join(dict.fromkeys(formats)) or None
 
                     screening_key = (db_movie_id, start_time, room_name)
                     new_screenings[screening_key] = {
@@ -232,7 +249,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "room_name": room_name,
                         "lang": lang,
                         "booking_link": event.get("bookingLink"),
-                        "availability_ratio": event.get("availabilityRatio")
+                        "availability_ratio": event.get("availabilityRatio"),
+                        "format": screening_format
                     }
 
                 if new_screenings:

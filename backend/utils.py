@@ -44,6 +44,34 @@ def clean_title(title: str) -> str:
         
     return cleaned_title
 
+# Ujednolicony słownik wersji językowej seansu (kolumna `lang`).
+# Kanon: NAPISY, DUBBING, PL, ORYGINALNY, LEKTOR.
+# Klucze są w UPPERCASE - porównanie po .strip().upper() surowej wartości ze źródła.
+_LANG_MAP = {
+    "NAPISY": "NAPISY",
+    "NAP": "NAPISY",
+    "SUBBED": "NAPISY",
+    "DUBBING": "DUBBING",
+    "DUB": "DUBBING",
+    "DUBBED": "DUBBING",
+    "UA": "DUBBING",            # ukraiński dubbing; sama "ukraińskość" jest w movie_type
+    "PL": "PL",
+    "POLSKI": "PL",
+    "JĘZYK ORYGINALNY": "ORYGINALNY",
+    "ORYGINALNY": "ORYGINALNY",
+    "ANGIELSKIE": "ORYGINALNY",
+    "ORIGINAL": "ORYGINALNY",
+    "LEKTOR": "LEKTOR",
+}
+
+def normalize_lang(raw: str):
+    """Sprowadza surową wartość języka z dowolnego kina do wspólnego słownika.
+    Nieznane wartości przepuszcza w UPPERCASE (nie gubi danych, ułatwia późniejsze zmapowanie)."""
+    if not raw:
+        return None
+    key = raw.strip().upper()
+    return _LANG_MAP.get(key, key) or None
+
 def get_valid_poster(poster_data):
     """
     Wyciąga i weryfikuje poprawność linku do plakatu. 
