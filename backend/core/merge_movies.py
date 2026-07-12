@@ -13,7 +13,7 @@ def check_and_merge_movie(supabase: Client, current_movie: dict, tmdb_id: int, s
     Przepina seanse na wybrany film główny i usuwa ten gorszy.
     Zwraca True jeśli film był duplikatem (i został usunięty), w przeciwnym razie False.
     """
-    if current_movie.get("movie_type") in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING"):
+    if current_movie.get("movie_type") in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING", "UNLIMITED SHOW"):
         return False
         
     if tmdb_id in seen_tmdb_ids:

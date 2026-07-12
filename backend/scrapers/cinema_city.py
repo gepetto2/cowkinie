@@ -162,6 +162,13 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     movie_type_override = None
                     if re.search(r" - National Theatre Live \d{4}$", title):
                         movie_type_override = "TEATR"
+                    elif re.match(r"^Ladies\s*Night\b", title, re.IGNORECASE):
+                        # CC nie zawsze taguje seans atrybutem 'ladies-night' - łapiemy po prefiksie tytułu.
+                        # Tytuł zostaje z prefiksem, by film nie skolidował po upsert(on_conflict=title) ze zwykłą wersją.
+                        movie_type_override = "LADIES NIGHT/KNO"
+                    elif re.match(r"^Unlimited\s*Show\b", title, re.IGNORECASE):
+                        # Przedpremiera dla członków Unlimited - brak taga, rozpoznanie po prefiksie tytułu (tytuł zostaje).
+                        movie_type_override = "UNLIMITED SHOW"
                     title = clean_title(title)
 
                     if title and title not in movies_cache and title not in all_movies_to_upsert:

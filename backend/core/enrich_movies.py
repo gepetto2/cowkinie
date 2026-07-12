@@ -27,7 +27,7 @@ async def enrich_movies_data(supabase: Client):
     # --- NOWE: Pobieramy już wzbogacone filmy z bazy, aby wiedzieć jakie tmdb_id już posiadamy ---
     try:
         enriched_response = supabase.table("movies").select("id, tmdb_id, title, movie_type").not_.is_("tmdb_id", "null").execute()
-        seen_tmdb_ids = {m["tmdb_id"]: {"id": m["id"], "title": m["title"]} for m in enriched_response.data if m.get("tmdb_id") and m.get("movie_type") not in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING")}
+        seen_tmdb_ids = {m["tmdb_id"]: {"id": m["id"], "title": m["title"]} for m in enriched_response.data if m.get("tmdb_id") and m.get("movie_type") not in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING", "UNLIMITED SHOW")}
     except Exception as e:
         print(f"Uwaga: Nie udało się pobrać istniejących tmdb_id (upewnij się, że kolumna 'tmdb_id' istnieje w tabeli 'movies'): {e}")
         seen_tmdb_ids = {}
