@@ -61,9 +61,9 @@ def clean_title(title: str) -> str:
     title = title.removesuffix(" - wersja oryginalna")
     title = title.removesuffix(". Wersja zremasterowana")
     title = title.removesuffix("- powrót do kin")
-    # Usuwa dopisek wersji reżyserskiej (": ", " - " lub ". " przed) oraz parentetyczny "(lektor)"
+    # Usuwa dopisek wersji reżyserskiej (": ", " - " lub ". " przed) oraz parentetyczne "(lektor)"/"(wersja rozszerzona)"
     title = re.sub(r"\s*[:.\-]\s*wersja reżyserska\s*$", "", title, flags=re.IGNORECASE)
-    title = re.sub(r"\s*\(lektor\)\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*\((?:lektor|wersja rozszerzona)\)\s*$", "", title, flags=re.IGNORECASE)
     # Zamiana skrótu na pełne słowo (np. "Diuna: cz. 2" -> "Diuna: część 2")
     title = title.replace("cz.", "część").replace("Cz.", "Część")
     

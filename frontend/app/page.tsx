@@ -1,11 +1,18 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { getCities, getMovies, getAvailableDates, getMovieIdsByDateAndCity } from '@/lib/supabase/queries';
+import { getCities, getMovies, getAvailableDates, getMovieIdsByDateAndCity, getDateDaysAgo } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
 import { supabase } from '@/lib/supabase/client';
 import SearchBar from '@/components/SearchBar';
 
 export const revalidate = 0;
+
+// Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
+const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY'];
+
+// Maksymalna różnica (w latach) między rokiem produkcji a rokiem premiery kinowej.
+// Powyżej tej wartości traktujemy film jako wznowienie starego tytułu i pomijamy w karuzelach.
+const CAROUSEL_MAX_YEAR_GAP = 1;
 
 export default async function Home({
   searchParams,
@@ -80,12 +87,42 @@ export default async function Home({
     );
   }
 
+  // Karuzele wg daty premiery (na już przefiltrowanym po mieście/dacie zbiorze).
+  // release_date to string 'YYYY-MM-DD', więc porównania i sortowanie działają leksykograficznie.
+  // availableDates[0] to dzisiejsza data (Europe/Warsaw); obliczenia dat są w queries.ts (poza renderem).
+  const todayStr = availableDates[0];
+  const monthAgoStr = getDateDaysAgo(30);
+
+  const carouselEligible = (m: typeof enhancedMovies[number]) => {
+    if (!m.release_date) return false;
+    if (CAROUSEL_EXCLUDED_TYPES.includes(m.movie_type ?? '')) return false;
+    // Pomijamy wznowienia starych filmów: rok produkcji dużo wcześniejszy niż rok premiery kinowej.
+    // release_year to teraz prawdziwy rok produkcji (konsolidowany po enrich ze wszystkich źródeł).
+    if (m.release_year && Number(m.release_date.slice(0, 4)) - m.release_year > CAROUSEL_MAX_YEAR_GAP) return false;
+    return true;
+  };
+
+  // Wkrótce: premiery w przyszłości, sortowane rosnąco po dacie premiery (najbliższa pierwsza), max 15
+  let upcoming = filteredMovies
+    .filter((m) => carouselEligible(m) && m.release_date! > todayStr)
+    .sort((a, b) => (a.release_date ?? '').localeCompare(b.release_date ?? ''))
+    .slice(0, 10);
+
+  // Nowości: filmy już po premierze (ostatnie 30 dni), od najnowszej do najstarszej premiery, max 10
+  let newReleases = filteredMovies
+    .filter((m) => carouselEligible(m) && m.release_date! >= monthAgoStr && m.release_date! <= todayStr)
+    .sort((a, b) => (b.release_date ?? '').localeCompare(a.release_date ?? ''))
+    .slice(0, 10);
+
   // Odfiltrowanie filmów w przypadku aktywnego wyszukiwania
   if (query) {
     filteredMovies = enhancedMovies.filter((movie) =>
       movie.title.toLowerCase().includes(query)
     );
-    topMovies = []; // Wyszukiwanie nadpisuje osobną sekcję "Najwięcej seansów"
+    // Wyszukiwanie nadpisuje osobne sekcje-karuzele
+    topMovies = [];
+    newReleases = [];
+    upcoming = [];
   }
 
   // Grupowanie filmów po typie
@@ -232,6 +269,44 @@ export default async function Home({
             >
               {topMovies.map((movie) => (
                 <div key={`top-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
+                  <MovieCard movie={movie} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Karuzela "Nowości" - premiery z ostatniego miesiąca */}
+        {newReleases.length > 0 && (
+          <section className="flex flex-col">
+            <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-emerald-500 rounded-sm">
+              Nowości
+            </h2>
+            <div
+              className="flex overflow-x-auto gap-5 pb-6 snap-x -mx-4 px-4 sm:mx-0 sm:px-0"
+              style={{ scrollbarWidth: 'thin' }}
+            >
+              {newReleases.map((movie) => (
+                <div key={`new-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
+                  <MovieCard movie={movie} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Karuzela "Wkrótce" - przyszłe premiery */}
+        {upcoming.length > 0 && (
+          <section className="flex flex-col">
+            <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-sky-500 rounded-sm">
+              Wkrótce
+            </h2>
+            <div
+              className="flex overflow-x-auto gap-5 pb-6 snap-x -mx-4 px-4 sm:mx-0 sm:px-0"
+              style={{ scrollbarWidth: 'thin' }}
+            >
+              {upcoming.map((movie) => (
+                <div key={`soon-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
                   <MovieCard movie={movie} />
                 </div>
               ))}

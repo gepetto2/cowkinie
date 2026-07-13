@@ -47,6 +47,17 @@ export function getAvailableDates(days = 14) {
   return dates;
 }
 
+export function getDateDaysAgo(days: number) {
+  // Data sprzed N dni w formacie YYYY-MM-DD (strefa Europe/Warsaw)
+  const d = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Warsaw',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+}
+
 export async function getMovieIdsByDateAndCity(dateStr: string, cityStr?: string) {
   let query = supabase.from('movie_dates_view').select('movie_id');
   

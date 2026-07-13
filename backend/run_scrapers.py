@@ -6,7 +6,7 @@ from config import supabase
 from scrapers.multikino import scrape_and_save as scrape_multikina
 from scrapers.cinema_city import scrape_and_save as scrape_cinema_city
 from scrapers.helios import scrape_and_save as scrape_helios
-from db.database import consolidate_movie_data, consolidate_release_dates, dedupe_by_normalized_title
+from db.database import consolidate_movie_data, consolidate_release_dates, dedupe_by_normalized_title, dedupe_ukrainian_by_tmdb
 from core.enrich_movies import enrich_movies_data
 
 TARGET_CITIES = ["Poznań", "Bydgoszcz"]
@@ -39,6 +39,9 @@ async def run_all() -> bool:
 
     # Po zakończeniu scrapowania kin uzupełniamy brakujące dane z TMDB i Filmwebu
     await enrich_movies_data(supabase)
+
+    # Scalenie rekordów ukraińskiego dubbingu tego samego filmu z różnych sieci (po tmdb_id nadanym w enrich).
+    dedupe_ukrainian_by_tmdb(supabase)
 
     # Konsolidacja daty premiery MUSI być po enrich - dopiero wtedy znamy daty z TMDB/Filmweb,
     # więc min liczy się ze wszystkich źródeł naraz.

@@ -132,37 +132,47 @@ def consolidate_movie_data(supabase):
     print(f"Zaktualizowano dane dla {updated_count} filmów.")
 
 def consolidate_release_dates(supabase):
-    """Ustala główną release_date jako najwcześniejszą (min) datę ze WSZYSTKICH źródeł, łącznie z TMDB/Filmweb.
-    Uruchamiane PO wzbogaceniu (enrich), gdy release_date_tmdb/release_date_filmweb są już pobrane -
-    dzięki temu daty z baz zewnętrznych realnie wpływają na wynik (a nie tylko daty kinowe)."""
-    print("\nKonsolidacja dat premiery (min ze wszystkich źródeł, łącznie z TMDB/Filmweb)...")
+    """Po enrich: ustala główną release_date (min ze WSZYSTKICH źródeł) oraz przelicza release_year
+    jako najwcześniejszy rok ze wszystkich źródeł, łącznie z TMDB/Filmweb.
+    Uruchamiane PO wzbogaceniu, gdy dane z TMDB/Filmweb są już pobrane. Korekta roku jest kluczowa dla
+    wznowień: kina podają rok WZNOWIENIA (np. Multikino 2026 dla filmu z 1990), a TMDB/Filmweb rok produkcji."""
+    print("\nKonsolidacja daty i roku premiery (min ze wszystkich źródeł, łącznie z TMDB/Filmweb)...")
 
     response = supabase.table("movies").select(
-        "id, title, release_date_cc, release_date_multikino, release_date_helios, "
-        "release_date_tmdb, release_date_filmweb"
-    ).is_("release_date", "null").execute()
+        "id, title, release_year, "
+        "release_date_cc, release_date_multikino, release_date_helios, release_date_tmdb, release_date_filmweb, "
+        "release_year_cc, release_year_multikino, release_year_helios, release_year_tmdb, release_year_filmweb"
+    ).execute()
     movies = response.data
 
     if not movies:
-        print("Wszystkie filmy mają już ustaloną datę premiery.")
+        print("Brak filmów do konsolidacji.")
         return
 
     updated_count = 0
     for movie in movies:
-        # Stringi ISO 'YYYY-MM-DD' porównują się chronologicznie leksykograficznie
-        dates = [
-            movie.get("release_date_multikino"),
-            movie.get("release_date_cc"),
-            movie.get("release_date_helios"),
-            movie.get("release_date_tmdb"),
-            movie.get("release_date_filmweb"),
-        ]
+        update_data = {}
+
+        # Data premiery: najwcześniejsza z dostępnych (stringi ISO 'YYYY-MM-DD' porównują się chronologicznie)
+        dates = [movie.get(f"release_date_{s}") for s in ("multikino", "cc", "helios", "tmdb", "filmweb")]
         valid_dates = [d for d in dates if d]
         if valid_dates:
-            supabase.table("movies").update({"release_date": min(valid_dates)}).eq("id", movie["id"]).execute()
+            update_data["release_date"] = min(valid_dates)
+
+        # Rok produkcji: najwcześniejszy ze WSZYSTKICH źródeł. Nadpisuje ewentualny rok wznowienia
+        # ustawiony w konsolidacji przed-enrich (która nie zna jeszcze lat z TMDB/Filmweb).
+        years = [movie.get(f"release_year_{s}") for s in ("multikino", "cc", "helios", "tmdb", "filmweb")]
+        valid_years = [int(y) for y in years if y is not None]
+        if valid_years:
+            new_year = min(valid_years)
+            if new_year != movie.get("release_year"):
+                update_data["release_year"] = new_year
+
+        if update_data:
+            supabase.table("movies").update(update_data).eq("id", movie["id"]).execute()
             updated_count += 1
 
-    print(f"Ustalono datę premiery dla {updated_count} filmów.")
+    print(f"Zaktualizowano datę/rok premiery dla {updated_count} filmów.")
 
 def _normalize_title_key(title: str) -> str:
     """Klucz porównawczy tytułu: bez diakrytyków, bez wielkości liter, ze zbitymi spacjami.
@@ -223,3 +233,58 @@ def dedupe_by_normalized_title(supabase):
             supabase.table("movies").update(update_payload).eq("id", survivor["id"]).execute()
 
     print(f"Zdeduplikowano {merged_count} rekordów.")
+
+def dedupe_ukrainian_by_tmdb(supabase):
+    """Scala rekordy ukraińskiego dubbingu tego samego filmu z różnych sieci kin. Mają wspólne tmdb_id,
+    ale różne tytuły ('ВАЯНА' / 'Vajana - UA' / 'Vaiana ukraiński dubbing'), więc upsert ich nie łączy,
+    a scalanie po tmdb_id jest dla tego typu wyłączone (żeby nie zlać z polskim oryginałem).
+    Tu łączymy ukraiński-z-ukraińskim: zostaje jeden rekord z kanonicznym tytułem '{tytuł_tmdb} (ukraiński dubbing)',
+    seanse ze wszystkich sieci są przepięte, a niepuste pola przeniesione. Uruchamiane PO enrich (potrzebne tmdb_id)."""
+    print("\nScalanie rekordów ukraińskiego dubbingu po tmdb_id...")
+
+    movies = supabase.table("movies").select("*").eq("movie_type", "UKRAIŃSKI DUBBING").execute().data or []
+
+    groups = {}
+    for m in movies:
+        if m.get("tmdb_id"):
+            groups.setdefault(m["tmdb_id"], []).append(m)
+
+    merged_count = 0
+    for tmdb_id, group in groups.items():
+        if len(group) < 2:
+            continue
+
+        # Ocalały: najbardziej kompletny rekord (najwięcej niepustych pól), stabilnie po id
+        survivor = max(group, key=lambda m: (sum(1 for v in m.values() if v is not None), str(m.get("id"))))
+        dups = [m for m in group if m["id"] != survivor["id"]]
+
+        # Kanoniczny tytuł z dowolnego dostępnego title_tmdb w grupie
+        title_tmdb = next((m.get("title_tmdb") for m in group if m.get("title_tmdb")), None)
+        new_title = f"{title_tmdb} (ukraiński dubbing)" if title_tmdb else survivor.get("title")
+
+        print(f"  Scalanie {len(group)} wariantów (tmdb {tmdb_id}) -> '{new_title}': {[m.get('title') for m in group]}")
+
+        update_payload = {}
+        for dup in dups:
+            try:
+                # Niepuste wartości z duplikatu w puste miejsca ocalałego (tytuł ustawiamy osobno)
+                for k, v in dup.items():
+                    if k in ("id", "created_at", "title"):
+                        continue
+                    if survivor.get(k) is None and update_payload.get(k) is None and v is not None:
+                        update_payload[k] = v
+                # Przepięcie seansów, potem usunięcie duplikatu
+                supabase.table("screenings").update({"movie_id": survivor["id"]}).eq("movie_id", dup["id"]).execute()
+                supabase.table("movies").delete().eq("id", dup["id"]).execute()
+                merged_count += 1
+            except Exception as e:
+                print(f"    Błąd przy scalaniu '{dup.get('title')}' -> '{new_title}': {e}")
+
+        # Tytuł ustawiamy PO usunięciu duplikatów, by uniknąć kolizji unique (jeden z dupów mógł mieć ten tytuł)
+        if new_title and new_title != survivor.get("title"):
+            update_payload["title"] = new_title
+
+        if update_payload:
+            supabase.table("movies").update(update_payload).eq("id", survivor["id"]).execute()
+
+    print(f"Scalono {merged_count} rekordów ukraińskiego dubbingu.")
