@@ -22,6 +22,13 @@ type Screening = Database["public"]["Tables"]["screenings"]["Row"] & {
   cinemas: { name: string; city: string } | null;
 };
 
+// Dzień seansu liczymy w strefie kina (Europe/Warsaw), spójnie z chipami "Wybierz datę" na stronie głównej,
+// zamiast w lokalnej strefie przeglądarki (inaczej seans o 23:30 mógłby wpaść do innego dnia).
+const warsawDayFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit',
+});
+const toWarsawDay = (iso: string) => warsawDayFormatter.format(new Date(iso));
+
 const formatScreeningsCount = (count: number) => {
   if (count === 1) return "1 seans";
   const lastDigit = count % 10;
@@ -57,27 +64,21 @@ export default function MovieCard({ movie }: { movie: Movie }) {
 
     async function fetchScreenings() {
       setIsLoading(true);
-      // Pobieramy wszystkie seanse dla wybranego filmu, nie filtrujemy po mieście
-      const { data, error } = await supabase
+      // Filtr po mieście robimy po stronie zapytania (join !inner), by nie ściągać seansów z innych miast
+      let queryBuilder = supabase
         .from("screenings")
-        .select(`
-          *,
-          cinemas(name, city)
-        `)
+        .select("*, cinemas!inner(name, city)")
         .eq("movie_id", movie.id)
         .order("start_time", { ascending: true });
 
+      if (cityQuery) {
+        queryBuilder = queryBuilder.eq("cinemas.city", cityQuery);
+      }
+
+      const { data, error } = await queryBuilder;
+
       if (!error && data) {
-        let fetchedScreenings = data as unknown as Screening[];
-        
-        // Filtrowanie po wybranym mieście
-        if (cityQuery) {
-          fetchedScreenings = fetchedScreenings.filter(
-            (s) => s.cinemas?.city === cityQuery
-          );
-        }
-        
-        setScreenings(fetchedScreenings);
+        setScreenings(data as unknown as Screening[]);
       }
       setIsLoading(false);
     }
@@ -85,26 +86,22 @@ export default function MovieCard({ movie }: { movie: Movie }) {
     fetchScreenings();
   }, [isOpen, movie.id, cityQuery]);
 
-  // Wyodrębnienie unikalnych dat seansów i zliczenie ich ilości (lokalnie dla strefy czasowej przeglądarki)
+  // Wyodrębnienie unikalnych dat seansów i zliczenie ich ilości (dzień w strefie kina - Europe/Warsaw)
   const screeningsPerDay = screenings.reduce((acc, s) => {
-    const d = new Date(s.start_time);
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const dateStr = toWarsawDay(s.start_time);
     acc[dateStr] = (acc[dateStr] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
   const uniqueDays = Object.keys(screeningsPerDay).sort();
 
-  // Filtrowanie po wybranej dacie
-  const filteredScreenings = screenings.filter(s => {
-    const d = new Date(s.start_time);
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    return dateStr === selectedDate;
-  });
+  // Filtrowanie po wybranej dacie (również w strefie kina)
+  const filteredScreenings = screenings.filter(s => toWarsawDay(s.start_time) === selectedDate);
 
   const formatDateLabel = (dateString: string) => {
-    const d = new Date(dateString);
-    return d.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
+    // dateString to już dzień w strefie Warsaw ('YYYY-MM-DD'); formatujemy w UTC, by nie przesunąć dnia
+    const d = new Date(`${dateString}T00:00:00Z`);
+    return d.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
   };
 
   return (
@@ -221,8 +218,7 @@ export default function MovieCard({ movie }: { movie: Movie }) {
                   <div className="flex flex-wrap gap-2">
                     {filteredScreenings.length > 0 ? (
                       filteredScreenings.map((s) => {
-                        const dateObj = new Date(s.start_time);
-                        const time = dateObj.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+                        const time = new Date(s.start_time).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
                         const cinemaName = s.cinemas?.name || "Nieznane kino";
                         
                         return (

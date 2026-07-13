@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import NextTopLoader from 'nextjs-toploader';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,8 +17,6 @@ export const metadata: Metadata = {
   title: "Repertuar Kin",
   description: "Sprawdź aktualny repertuar i dostępność biletów w Twoich ulubionych kinach.",
 };
-
-import NextTopLoader from 'nextjs-toploader';
 
 export default function RootLayout({
   children,

@@ -1,11 +1,11 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { getCities, getMovies, getAvailableDates, getMovieIdsByDateAndCity, getDateDaysAgo } from '@/lib/supabase/queries';
+import {
+  getCities, getMovies, getAvailableDates, getMovieIdsByDateAndCity, getDateDaysAgo,
+  getCinemaAvailabilities, getTopScreenings,
+} from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
-import { supabase } from '@/lib/supabase/client';
 import SearchBar from '@/components/SearchBar';
-
-export const revalidate = 0;
 
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
 const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY'];
@@ -25,26 +25,26 @@ export default async function Home({
   const cityQuery = typeof params?.city === 'string' ? params.city : '';
   const dateQuery = typeof params?.date === 'string' ? params.date : '';
 
-  // Zrównoleglenie pobierania wszystkich danych
+  // Zrównoleglenie pobierania wszystkich danych (odczyty z bazy są cache'owane w queries.ts)
   const [
     cities,
     movies,
-    { data: cinemaAvailabilities },
-    { data: topScreenings },
+    cinemaAvailabilities,
+    topScreenings,
     availableDates,
     moviesOnDate
   ] = await Promise.all([
     getCities(),
     getMovies(),
-    supabase.from('movie_cinemas_view').select('*'),
-    supabase.from('movie_screening_counts').select('*').order('screening_count', { ascending: false }).limit(10),
+    getCinemaAvailabilities(),
+    getTopScreenings(),
     Promise.resolve(getAvailableDates(7)), // 7 najbliższych dni
     dateQuery ? getMovieIdsByDateAndCity(dateQuery, cityQuery) : Promise.resolve(null)
   ]);
 
   // Optymalizacja O(1) do szybkiego wyszukiwania dostępności kin dla filmu
   const availabilitiesMap = new Map(
-    cinemaAvailabilities?.map(a => [a.movie_id, a]) || []
+    cinemaAvailabilities.map(a => [a.movie_id, a])
   );
 
   // Wzbogacenie obiektów filmów o dane o kinach
