@@ -1,3 +1,4 @@
+import logging
 import asyncio
 import aiohttp
 from datetime import datetime
@@ -8,8 +9,10 @@ from api.filmweb import search_movie_details
 from core.merge_movies import check_and_merge_movie
 from utils import search_title
 
+
+logger = logging.getLogger(__name__)
 async def enrich_movies_data(supabase: Client):
-    print("\nRozpoczynamy wzbogacanie danych o filmach z TMDB i Filmweb...")
+    logger.info("Rozpoczynamy wzbogacanie danych o filmach z TMDB i Filmweb...")
     
     # Pobieramy filmy, które nie mają jeszcze danych z TMDB (zabezpieczenie przed ponownym pobieraniem)
     response = supabase.table("movies").select("id, title, original_title, release_year, movie_type, director").is_("title_tmdb", "null").execute()
@@ -20,17 +23,17 @@ async def enrich_movies_data(supabase: Client):
     movies = [m for m in movies if m.get("movie_type") not in SKIP_ENRICH_TYPES]
 
     if not movies:
-        print("Wszystkie filmy mają już pobrane informacje z baz zewnętrznych.")
+        logger.info("Wszystkie filmy mają już pobrane informacje z baz zewnętrznych.")
         return
 
-    print(f"Znaleziono {len(movies)} filmów do uzupełnienia.\n")
+    logger.info(f"Znaleziono {len(movies)} filmów do uzupełnienia.")
 
     # --- NOWE: Pobieramy już wzbogacone filmy z bazy, aby wiedzieć jakie tmdb_id już posiadamy ---
     try:
         enriched_response = supabase.table("movies").select("id, tmdb_id, title, movie_type").not_.is_("tmdb_id", "null").execute()
         seen_tmdb_ids = {m["tmdb_id"]: {"id": m["id"], "title": m["title"]} for m in enriched_response.data if m.get("tmdb_id") and m.get("movie_type") not in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING", "UNLIMITED SHOW")}
     except Exception as e:
-        print(f"Uwaga: Nie udało się pobrać istniejących tmdb_id (upewnij się, że kolumna 'tmdb_id' istnieje w tabeli 'movies'): {e}")
+        logger.warning(f"Nie udało się pobrać istniejących tmdb_id (upewnij się, że kolumna 'tmdb_id' istnieje w tabeli 'movies'): {e}")
         seen_tmdb_ids = {}
 
     async with aiohttp.ClientSession() as session:
@@ -52,9 +55,9 @@ async def enrich_movies_data(supabase: Client):
             # Do zapytań używamy tytułu bez ozdobników pokazów specjalnych (w bazie zostaje pełny)
             query_title = search_title(db_title)
             if query_title != db_title:
-                print(f"[{i}/{len(movies)}] Uzupełnianie: '{db_title}' (szukam jako '{query_title}')")
+                logger.info(f"[{i}/{len(movies)}] Uzupełnianie: '{db_title}' (szukam jako '{query_title}')")
             else:
-                print(f"[{i}/{len(movies)}] Uzupełnianie: '{db_title}'")
+                logger.info(f"[{i}/{len(movies)}] Uzupełnianie: '{db_title}'")
 
             tmdb_task = get_tmdb_movie_details(query_title, search_year, db_director, db_original_title, session)
             filmweb_task = search_movie_details(query_title, search_year, session)
@@ -102,6 +105,6 @@ async def enrich_movies_data(supabase: Client):
                 try:
                     supabase.table("movies").update(update_data).eq("id", db_id).execute()
                 except Exception as e:
-                    print(f"  Błąd podczas aktualizacji filmu '{db_title}' w bazie: {e}")
+                    logger.error(f"Błąd podczas aktualizacji filmu '{db_title}' w bazie: {e}")
                     
-    print("\nZakończono wzbogacanie danych o filmach!")
+    logger.info("Zakończono wzbogacanie danych o filmach!")

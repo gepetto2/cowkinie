@@ -1,5 +1,9 @@
+import logging
 import difflib
 from supabase import Client
+
+
+logger = logging.getLogger(__name__)
 
 def get_similarity(a: str, b: str) -> float:
     if not a or not b:
@@ -39,8 +43,8 @@ def check_and_merge_movie(supabase: Client, current_movie: dict, tmdb_id: int, s
             target_id, target_title = current_movie_id, current_movie_title
             current_is_duplicate = False
             
-        print(f"  -> [Merge] Znaleziono duplikat! Łączenie: '{source_title}' -> '{target_title}' (TMDB ID {tmdb_id}).")
-        print(f"     Podobieństwo do '{tmdb_title}': '{seen_movie_title}' ({sim_seen:.2f}) vs '{current_movie_title}' ({sim_current:.2f})")
+        logger.info(f"-> [Merge] Znaleziono duplikat! Łączenie: '{source_title}' -> '{target_title}' (TMDB ID {tmdb_id}).")
+        logger.info(f"Podobieństwo do '{tmdb_title}': '{seen_movie_title}' ({sim_seen:.2f}) vs '{current_movie_title}' ({sim_current:.2f})")
         
         try:
             # 1. Scalenie danych z obu rekordów (np. scraperów), aby nie utracić informacji
@@ -64,14 +68,14 @@ def check_and_merge_movie(supabase: Client, current_movie: dict, tmdb_id: int, s
             supabase.table("screenings").update({"movie_id": target_id}).eq("movie_id", source_id).execute()
             # 3. Usunięcie zduplikowanego filmu
             supabase.table("movies").delete().eq("id", source_id).execute()
-            print(f"  -> [Merge] Pomyślnie przeniesiono seanse, scalono brakujące dane i usunięto zduplikowany wpis.")
+            logger.info(f"-> [Merge] Pomyślnie przeniesiono seanse, scalono brakujące dane i usunięto zduplikowany wpis.")
             
             # Aktualizacja pamięci, jeśli nowym głównym filmem został ten obecnie przetwarzany
             if not current_is_duplicate:
                 seen_tmdb_ids[tmdb_id] = {"id": target_id, "title": target_title}
                 
         except Exception as e:
-            print(f"  -> [Merge] Błąd podczas łączenia duplikatów: {e}")
+            logger.error(f"-> [Merge] Błąd podczas łączenia duplikatów: {e}")
             
         return current_is_duplicate
     else:

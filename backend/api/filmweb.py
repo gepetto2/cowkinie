@@ -1,3 +1,4 @@
+import logging
 import asyncio
 import aiohttp
 import urllib.parse
@@ -5,6 +6,8 @@ from typing import Optional
 
 from utils import parse_release_date
 
+
+logger = logging.getLogger(__name__)
 _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
@@ -42,7 +45,7 @@ async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp
 
     data = await _fetch_json(session, url)
     if data is None:
-        print(f"Błąd/brak odpowiedzi z API Filmwebu dla zapytania: '{title}'")
+        logger.warning(f"Błąd/brak odpowiedzi z API Filmwebu dla zapytania: '{title}'")
         return None
 
     search_hits = data.get("searchHits", [])
@@ -51,7 +54,7 @@ async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp
     film_hits = [hit for hit in search_hits if hit.get("type") == "film"]
 
     if not film_hits:
-        print(f"Nie znaleziono żadnych filmów dla zapytania: '{title}'")
+        logger.debug(f"Nie znaleziono żadnych filmów dla zapytania: '{title}'")
         return None
 
     if year:
@@ -60,15 +63,15 @@ async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp
             if hit_year and str(hit_year) == str(year):
                 film_id = hit.get("id")
                 film_title = hit.get("matchedTitle")
-                print(f"Znaleziono dokładne dopasowanie: '{film_title}' ({hit_year}) z ID: {film_id}")
+                logger.debug(f"Znaleziono dokładne dopasowanie: '{film_title}' ({hit_year}) z ID: {film_id}")
                 return film_id
-        print(f"Nie znaleziono filmu '{title}' z roku {year}. Próba dopasowania pierwszego wyniku...")
+        logger.debug(f"Nie znaleziono filmu '{title}' z roku {year}. Próba dopasowania pierwszego wyniku...")
 
     # Zwracamy ID pierwszego znalezionego filmu (wartość zapasowa / brak roku)
     first_film_id = film_hits[0].get("id")
     first_film_title = film_hits[0].get("matchedTitle")
 
-    print(f"Znaleziono film: '{first_film_title}' z ID: {first_film_id}")
+    logger.debug(f"Znaleziono film: '{first_film_title}' z ID: {first_film_id}")
     return first_film_id
 
 async def get_filmweb_movie_details(movie_id: int, session: aiohttp.ClientSession):
@@ -83,7 +86,7 @@ async def get_filmweb_movie_details(movie_id: int, session: aiohttp.ClientSessio
     )
 
     if data is None:
-        print(f"Błąd/brak odpowiedzi z Filmwebu dla szczegółów filmu (ID: {movie_id})")
+        logger.warning(f"Błąd/brak odpowiedzi z Filmwebu dla szczegółów filmu (ID: {movie_id})")
         return None
 
     # Reżyserzy to lista obiektów, więc wyciągamy z nich imiona

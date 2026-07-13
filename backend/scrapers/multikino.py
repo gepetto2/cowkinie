@@ -1,8 +1,10 @@
+import logging
 import re
-import traceback
 from curl_cffi import requests
 from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
+
+logger = logging.getLogger(__name__)
 
 # Nazwy atrybutów sesji oznaczające format/technologię seansu.
 # Pozostałe atrybuty typu Session to np. "Single Seat", "SUPERHIT", "PORANKI" - nie są formatem.
@@ -15,12 +17,12 @@ async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> lis
     """Pobiera listę kin Multikino i filtruje te z wybranych miast."""
     cinemas_url = "https://www.multikino.pl/api/microservice/showings/cinemas"
     
-    print("Pobieranie listy kin z Multikina...")
+    logger.info("Pobieranie listy kin z Multikina...")
     headers = {"Accept": "application/json"}
     try:
         response = await client.get(cinemas_url, headers=headers, timeout=60.0)
         if response.status_code != 200:
-            print(f"Błąd pobierania listy kin (Kod {response.status_code}): {response.text[:200]}")
+            logger.error(f"Błąd pobierania listy kin (Kod {response.status_code}): {response.text[:200]}")
             return []
             
         data = response.json()
@@ -42,11 +44,11 @@ async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> lis
                         "city": matched_city
                     })
                     
-        print(f"Znaleziono {len(target_cinemas)} kin dla miast: {', '.join(cities)}.")
+        logger.info(f"Znaleziono {len(target_cinemas)} kin dla miast: {', '.join(cities)}.")
         return target_cinemas
         
     except Exception as e:
-        print(f"Błąd podczas pobierania listy kin: {e}")
+        logger.error(f"Błąd podczas pobierania listy kin: {e}")
         return []
 
 async def scrape_and_save(supabase, cities=["Poznań"]):
@@ -54,13 +56,13 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             # KROK 1: Wejście na stronę główną, aby Cloudflare nadał nam ciasteczka (np. cf_clearance)
-            print("Rozpoczynam pobieranie ciasteczek...")
+            logger.info("Rozpoczynam pobieranie ciasteczek...")
             await client.get("https://www.multikino.pl/", timeout=60.0)
             
             # KROK 2: Pobranie kin w wybranych miastach
             target_cinemas = await get_target_cinemas(client, cities)
             if not target_cinemas:
-                print("Nie znaleziono kin lub wystąpił błąd. Zakończono.")
+                logger.info("Nie znaleziono kin lub wystąpił błąd. Zakończono.")
                 return
                 
             movies_cache = {}
@@ -71,7 +73,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 cinema_name = cinema["name"]
                 cinema_city = cinema["city"]
 
-                print(f"\n--- Rozpoczynam scraping dla: {cinema_name} (ID: {cinema_id_api}) ---")
+                logger.info(f"--- Rozpoczynam scraping dla: {cinema_name} (ID: {cinema_id_api}) ---")
                 
                 # Upsert kina w Supabase
                 db_cinema_id = upsert_cinema(supabase, cinema_name, cinema_city, "Multikino")
@@ -82,17 +84,17 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 response = await client.get(target_url, headers=headers, timeout=60.0)
                 
                 if response.status_code != 200:
-                    print(f"Błąd Multikina dla {cinema_name} (Kod {response.status_code}): {response.text[:200]}")
+                    logger.error(f"Błąd Multikina dla {cinema_name} (Kod {response.status_code}): {response.text[:200]}")
                     continue
                     
                 try:
                     data = response.json()
                 except ValueError:
-                    print(f"Odpowiedź nie jest poprawnym formatem JSON. Fragment: {response.text[:250]}")
+                    logger.info(f"Odpowiedź nie jest poprawnym formatem JSON. Fragment: {response.text[:250]}")
                     continue
 
                 films_list = data.get("result", []) if isinstance(data, dict) else []
-                print(f"Pobrano {len(films_list)} filmów dla {cinema_name}. Zapisywanie do bazy...")
+                logger.info(f"Pobrano {len(films_list)} filmów dla {cinema_name}. Zapisywanie do bazy...")
 
                 # KROK 4: Zbieranie filmów do operacji Upsert
                 movies_to_upsert = {}
@@ -213,12 +215,11 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 if new_screenings:
                     upsert_screenings_chunked(supabase, new_screenings, cinema_name)
 
-            print("\nZakończono zapisywanie danych z Multikina!")
+            logger.info("Zakończono zapisywanie danych z Multikina!")
 
-        except Exception as e:
-            print(f"[Multikino] Wystąpił błąd: {str(e)}")
-            traceback.print_exc()
+        except Exception:
+            logger.exception("[Multikino] Błąd w trakcie scrapowania")
             raise
 
 if __name__ == "__main__":
-    print("Skrypt uruchom poprzez plik run_scrapers.py")
+    logger.info("Skrypt uruchom poprzez plik run_scrapers.py")

@@ -1,3 +1,4 @@
+import logging
 import os
 import asyncio
 import aiohttp
@@ -5,6 +6,9 @@ from dotenv import load_dotenv
 from typing import Optional
 
 from utils import parse_release_date
+
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -53,7 +57,7 @@ async def get_tmdb_movie_details(title: str, year: Optional[int] = None, directo
     Zwraca słownik z danymi lub None, jeśli filmu nie znaleziono.
     """
     if not TMDB_API_KEY:
-        print("Brak TMDB_API_KEY w zmiennych środowiskowych.")
+        logger.warning("Brak TMDB_API_KEY w zmiennych środowiskowych.")
         return None
 
     # Używamy przekazanej sesji lub tworzymy własną
@@ -115,7 +119,7 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
             credits_data = await fetch_credits(candidate["id"])
             dirs = extract_directors({"credits": credits_data or {}})
             if any(d.lower() in director_lower or director_lower in d.lower() for d in dirs):
-                print(f"  [TMDB] Dopasowano film po reżyserze: {', '.join(dirs)}")
+                logger.debug(f"[TMDB] Dopasowano film po reżyserze: {', '.join(dirs)}")
                 # Pełne dane (details + release_dates) dociągamy dopiero dla trafionego filmu.
                 full = await get_movie_details(candidate["id"])
                 if full:
@@ -131,7 +135,7 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
         results = (json_data or {}).get("results", [])
         if results:
             year_str = f" (rok: {search_year})" if search_year else " (bez roku)"
-            print(f"  [TMDB] Znaleziono wyniki dla zapytania: '{query}'{year_str}")
+            logger.debug(f"[TMDB] Znaleziono wyniki dla zapytania: '{query}'{year_str}")
         return results
 
     search_strategies = [

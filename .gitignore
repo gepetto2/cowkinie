@@ -1,5 +1,6 @@
 backend/.env
 backend/view_movie_sources.py
+backend/logs/
 frontend/supabase/.temp/
 __pycache__/
 *.pyc

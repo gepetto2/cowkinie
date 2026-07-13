@@ -1,6 +1,10 @@
+import logging
 import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+
+logger = logging.getLogger(__name__)
 
 def parse_start_time(start_time_raw: str) -> str:
     """Parsuje ciąg daty i w razie braku strefy czasowej dodaje Europe/Warsaw."""
@@ -69,7 +73,7 @@ def clean_title(title: str) -> str:
     
     cleaned_title = title.strip()
     if original_title != cleaned_title:
-        print(f"Zmieniono tytuł: '{original_title}' -> '{cleaned_title}'")
+        logger.debug(f"Zmieniono tytuł: '{original_title}' -> '{cleaned_title}'")
         
     return cleaned_title
 

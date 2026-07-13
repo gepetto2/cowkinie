@@ -1,12 +1,14 @@
+import logging
 import asyncio
 import json
 import re
-import traceback
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
+
+logger = logging.getLogger(__name__)
 
 # Mapowanie tokenów formatu/technologii z attributeIds na czytelną formę (spójną z Multikinem).
 # Pozostałe attributeIds to gatunki, kategorie wiekowe, języki, typ foteli itp. - nie są formatem.
@@ -24,7 +26,7 @@ async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> lis
     until_date = (datetime.now(ZoneInfo("Europe/Warsaw")) + timedelta(days=365*2)).strftime("%Y-%m-%d")
     cinemas_url = f"https://www.cinema-city.pl/pl/data-api-service/v1/quickbook/10103/cinemas/with-event/until/{until_date}"
 
-    print("Pobieranie listy kin z Cinema City...")
+    logger.info("Pobieranie listy kin z Cinema City...")
     headers = {"Accept": "application/json"}
     try:
         response = await client.get(cinemas_url, headers=headers, timeout=60.0)
@@ -38,14 +40,14 @@ async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> lis
             if cinema.get("addressInfo", {}).get("city") in cities
         ]
 
-        print(f"Znaleziono {len(target_cinemas)} kin dla miast: {', '.join(cities)}.")
+        logger.info(f"Znaleziono {len(target_cinemas)} kin dla miast: {', '.join(cities)}.")
         return target_cinemas
 
     except requests.errors.RequestsError as e:
-        print(f"Błąd HTTP podczas pobierania listy kin: {e}")
+        logger.error(f"Błąd HTTP podczas pobierania listy kin: {e}")
         return []
     except json.JSONDecodeError:
-        print("Błąd dekodowania JSON z listy kin.")
+        logger.error("Błąd dekodowania JSON z listy kin.")
         return []
 
 async def fetch_events_for_date(client: requests.AsyncSession, cinema_id_api, date, headers, sem: asyncio.Semaphore):
@@ -57,7 +59,7 @@ async def fetch_events_for_date(client: requests.AsyncSession, cinema_id_api, da
             if response.status_code == 200:
                 return date, response.json()
         except Exception as e:
-            print(f"   Błąd pobierania dnia {date}: {e}")
+            logger.error(f"Błąd pobierania dnia {date}: {e}")
         return date, None
 
 async def fetch_film_details(client: requests.AsyncSession, api_film_id: str, headers: dict, sem: asyncio.Semaphore):
@@ -71,20 +73,20 @@ async def fetch_film_details(client: requests.AsyncSession, api_film_id: str, he
                 film_details = data.get("body", {}).get("filmDetails", {})
                 return api_film_id, film_details
         except Exception as e:
-            print(f"   Błąd pobierania szczegółów filmu {api_film_id}: {e}")
+            logger.error(f"Błąd pobierania szczegółów filmu {api_film_id}: {e}")
         return api_film_id, None
 
 async def scrape_and_save(supabase, cities=["Poznań"]):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             # KROK 1: Inicjalizacja sesji i pobranie ciasteczek
-            print("Nawiązywanie połączenia z Cinema City...")
+            logger.info("Nawiązywanie połączenia z Cinema City...")
             await client.get("https://www.cinema-city.pl/", timeout=60.0)
 
             # KROK 2: Pobranie kin
             target_cinemas = await get_target_cinemas(client, cities)
             if not target_cinemas:
-                print("Nie znaleziono kin lub wystąpił błąd. Zakończono.")
+                logger.info("Nie znaleziono kin lub wystąpił błąd. Zakończono.")
                 return
 
             movies_cache = {}  # Pamięć podręczna dla pobranych/dodanych filmów z bazy
@@ -101,7 +103,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 if not cinema_id_api or not cinema_name:
                     continue
 
-                print(f"\n--- Rozpoczynam scraping dla: {cinema_name} (ID: {cinema_id_api}) ---")
+                logger.info(f"--- Rozpoczynam scraping dla: {cinema_name} (ID: {cinema_id_api}) ---")
 
                 # Upsert kina w Supabase (wymaga nałożonego UNIQUE na kolumnach 'name, franchise')
                 db_cinema_id = upsert_cinema(supabase, cinema_name, cinema_city, "Cinema City")
@@ -110,22 +112,22 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 until_date = (datetime.now(ZoneInfo("Europe/Warsaw")) + timedelta(days=365)).strftime("%Y-%m-%d")
                 dates_url = f"https://www.cinema-city.pl/pl/data-api-service/v1/quickbook/10103/dates/in-cinema/{cinema_id_api}/until/{until_date}"
 
-                print("Pobieranie dostępnych dat...")
+                logger.info("Pobieranie dostępnych dat...")
                 headers = {"Accept": "application/json"}
                 dates_response = await client.get(dates_url, headers=headers, timeout=60.0)
 
                 if dates_response.status_code != 200:
-                    print(f"Błąd pobierania dat dla kina {cinema_name}: {dates_response.status_code}")
+                    logger.error(f"Błąd pobierania dat dla kina {cinema_name}: {dates_response.status_code}")
                     continue
 
                 dates_data = dates_response.json()
                 dates_list = (dates_data.get("body") or {}).get("dates", [])
 
                 if not dates_list:
-                    print(f"Brak dostępnych dat w API dla kina {cinema_name}.")
+                    logger.info(f"Brak dostępnych dat w API dla kina {cinema_name}.")
                     continue
 
-                print(f"Znaleziono {len(dates_list)} dni z seansami. Pobieranie harmonogramów...")
+                logger.info(f"Znaleziono {len(dates_list)} dni z seansami. Pobieranie harmonogramów...")
 
                 # Współbieżne pobieranie wydarzeń dla wszystkich dni
                 tasks = [fetch_events_for_date(client, cinema_id_api, date, headers, sem) for date in dates_list]
@@ -148,7 +150,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 missing_details_ids = [f["id"] for f in unique_films if f["id"] not in global_film_details_cache]
                 
                 if missing_details_ids:
-                    print(f"  Pobieranie dodatkowych szczegółów dla {len(missing_details_ids)} filmów...")
+                    logger.info(f"Pobieranie dodatkowych szczegółów dla {len(missing_details_ids)} filmów...")
                     details_tasks = [fetch_film_details(client, film_id, headers, sem) for film_id in missing_details_ids]
                     details_results = await asyncio.gather(*details_tasks)
                     
@@ -265,12 +267,11 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 if new_screenings:
                     upsert_screenings_chunked(supabase, new_screenings, cinema_name)
 
-            print(f"\nZakończono zapisywanie danych z Cinema City dla miast: {', '.join(cities)}!")
+            logger.info(f"Zakończono zapisywanie danych z Cinema City dla miast: {', '.join(cities)}!")
 
-        except Exception as e:
-            print(f"[Cinema City] Wystąpił błąd w trakcie scrapowania: {str(e)}")
-            traceback.print_exc()
+        except Exception:
+            logger.exception("[Cinema City] Błąd w trakcie scrapowania")
             raise
 
 if __name__ == "__main__":
-    print("Skrypt uruchom poprzez plik run_scrapers.py")
+    logger.info("Skrypt uruchom poprzez plik run_scrapers.py")
