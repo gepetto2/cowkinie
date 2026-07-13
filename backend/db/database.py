@@ -1,3 +1,6 @@
+import re
+import unicodedata
+
 def upsert_cinema(supabase, name: str, city: str, franchise: str) -> str:
     """Dodaje lub aktualizuje kino w bazie danych i zwraca jego ID."""
     cinema_res = supabase.table("cinemas").upsert(
@@ -160,3 +163,63 @@ def consolidate_release_dates(supabase):
             updated_count += 1
 
     print(f"Ustalono datę premiery dla {updated_count} filmów.")
+
+def _normalize_title_key(title: str) -> str:
+    """Klucz porównawczy tytułu: bez diakrytyków, bez wielkości liter, ze zbitymi spacjami.
+    'André Rieu' i 'Andre Rieu' dają ten sam klucz. 'ł' nie ma dekompozycji NFKD - mapujemy ręcznie."""
+    if not title:
+        return ""
+    s = unicodedata.normalize("NFKD", title)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = s.replace("ł", "l").replace("Ł", "L")
+    return re.sub(r"\s+", " ", s).strip().lower()
+
+def _accent_score(title: str) -> int:
+    """Miara 'bogactwa' pisowni - liczba znaków spoza ASCII (im więcej diakrytyków, tym lepszy tytuł)."""
+    return sum(1 for c in (title or "") if ord(c) > 127)
+
+def dedupe_by_normalized_title(supabase):
+    """Łączy filmy różniące się tylko diakrytykami/wielkością liter/spacjami w tytule
+    (np. 'Andre Rieu' vs 'André Rieu'). Zostawia rekord z najbogatszą pisownią, przepina do niego
+    seanse, przenosi brakujące dane, resztę kasuje. Uruchamiane po scrapie, przed konsolidacją."""
+    print("\nDeduplikacja filmów po znormalizowanym tytule (diakrytyki/wielkość liter)...")
+
+    movies = supabase.table("movies").select("*").execute().data or []
+
+    groups = {}
+    for m in movies:
+        key = _normalize_title_key(m.get("title"))
+        if key:
+            groups.setdefault(key, []).append(m)
+
+    merged_count = 0
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+
+        # Ocalały: najwięcej diakrytyków, potem najdłuższy, potem stabilnie po id
+        survivor = max(group, key=lambda m: (_accent_score(m.get("title")), len(m.get("title") or ""), str(m.get("id"))))
+        dups = [m for m in group if m["id"] != survivor["id"]]
+
+        print(f"  Scalanie {len(group)} wariantów -> '{survivor.get('title')}': {[m.get('title') for m in group]}")
+
+        update_payload = {}
+        for dup in dups:
+            try:
+                # Niepuste wartości z duplikatu w puste miejsca ocalałego (tytułu nie ruszamy)
+                for k, v in dup.items():
+                    if k in ("id", "created_at", "title"):
+                        continue
+                    if survivor.get(k) is None and update_payload.get(k) is None and v is not None:
+                        update_payload[k] = v
+                # Przepięcie seansów, potem usunięcie duplikatu
+                supabase.table("screenings").update({"movie_id": survivor["id"]}).eq("movie_id", dup["id"]).execute()
+                supabase.table("movies").delete().eq("id", dup["id"]).execute()
+                merged_count += 1
+            except Exception as e:
+                print(f"    Błąd przy scalaniu '{dup.get('title')}' -> '{survivor.get('title')}': {e}")
+
+        if update_payload:
+            supabase.table("movies").update(update_payload).eq("id", survivor["id"]).execute()
+
+    print(f"Zdeduplikowano {merged_count} rekordów.")

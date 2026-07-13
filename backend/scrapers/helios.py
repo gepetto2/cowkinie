@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -322,4 +323,6 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             print("\nZakończono zapisywanie danych z Heliosa!")
 
         except Exception as e:
-            print(f"Wystąpił błąd w trakcie scrapowania Heliosa: {str(e)}")
+            print(f"[Helios] Wystąpił błąd w trakcie scrapowania: {str(e)}")
+            traceback.print_exc()
+            raise

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+import traceback
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -267,7 +268,9 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             print(f"\nZakończono zapisywanie danych z Cinema City dla miast: {', '.join(cities)}!")
 
         except Exception as e:
-            print(f"Wystąpił błąd w trakcie scrapowania: {str(e)}")
+            print(f"[Cinema City] Wystąpił błąd w trakcie scrapowania: {str(e)}")
+            traceback.print_exc()
+            raise
 
 if __name__ == "__main__":
     print("Skrypt uruchom poprzez plik run_scrapers.py")

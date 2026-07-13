@@ -6,6 +6,7 @@ from supabase import Client
 from api.tmdb import get_tmdb_movie_details
 from api.filmweb import search_movie_details
 from core.merge_movies import check_and_merge_movie
+from utils import search_title
 
 async def enrich_movies_data(supabase: Client):
     print("\nRozpoczynamy wzbogacanie danych o filmach z TMDB i Filmweb...")
@@ -48,10 +49,15 @@ async def enrich_movies_data(supabase: Client):
                 except ValueError:
                     pass
             
-            print(f"[{i}/{len(movies)}] Uzupełnianie: '{db_title}'")
-            
-            tmdb_task = get_tmdb_movie_details(db_title, search_year, db_director, db_original_title, session)
-            filmweb_task = search_movie_details(db_title, search_year, session)
+            # Do zapytań używamy tytułu bez ozdobników pokazów specjalnych (w bazie zostaje pełny)
+            query_title = search_title(db_title)
+            if query_title != db_title:
+                print(f"[{i}/{len(movies)}] Uzupełnianie: '{db_title}' (szukam jako '{query_title}')")
+            else:
+                print(f"[{i}/{len(movies)}] Uzupełnianie: '{db_title}'")
+
+            tmdb_task = get_tmdb_movie_details(query_title, search_year, db_director, db_original_title, session)
+            filmweb_task = search_movie_details(query_title, search_year, session)
             
             tmdb_data, filmweb_data = await asyncio.gather(tmdb_task, filmweb_task)
             update_data = {}

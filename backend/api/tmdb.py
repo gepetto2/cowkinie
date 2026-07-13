@@ -10,6 +10,25 @@ load_dotenv()
 
 TMDB_API_KEY = os.environ.get("TMDB_API_KEY")
 
+async def _fetch_json(session, url, params, retries: int = 2):
+    """GET JSON z timeoutem i ponowieniami. Zwraca None po wyczerpaniu prób.
+    Ponawiamy przy błędach sieci/timeout oraz przy 429/5xx (chwilowe), nie przy 4xx (trwałe)."""
+    for attempt in range(retries + 1):
+        try:
+            async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+                if resp.status in (429, 500, 502, 503, 504) and attempt < retries:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+                    continue
+                return None
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            if attempt < retries:
+                await asyncio.sleep(0.5 * (attempt + 1))
+                continue
+            return None
+    return None
+
 def _extract_pl_release_date(tmdb_movie):
     """Polska data premiery kinowej z /release_dates. Preferencja typu: 3 (Theatrical) > 2 > 1 (Premiere)."""
     results = (tmdb_movie.get("release_dates") or {}).get("results", [])
@@ -55,26 +74,22 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
         "language": "pl-PL"
     }
 
+    async def fetch_credits(movie_id: int):
+        """Same credits (obsada/ekipa) - lekkie, do sprawdzania reżysera."""
+        return await _fetch_json(session, f"https://api.themoviedb.org/3/movie/{movie_id}/credits",
+                                 {"api_key": TMDB_API_KEY, "language": "en-US"})
+
     async def get_movie_details(movie_id: int):
         details_url = f"https://api.themoviedb.org/3/movie/{movie_id}"
         details_params = {"api_key": TMDB_API_KEY, "language": "pl-PL"}
-        
-        credits_url = f"https://api.themoviedb.org/3/movie/{movie_id}/credits"
-        credits_params = {"api_key": TMDB_API_KEY, "language": "en-US"}
 
         release_dates_url = f"https://api.themoviedb.org/3/movie/{movie_id}/release_dates"
         release_dates_params = {"api_key": TMDB_API_KEY}
 
-        async def fetch(url, params):
-            async with session.get(url, params=params) as resp:
-                if resp.status == 200:
-                    return await resp.json()
-                return None
-
         movie_data, credits_data, release_dates_data = await asyncio.gather(
-            fetch(details_url, details_params),
-            fetch(credits_url, credits_params),
-            fetch(release_dates_url, release_dates_params)
+            _fetch_json(session, details_url, details_params),
+            fetch_credits(movie_id),
+            _fetch_json(session, release_dates_url, release_dates_params)
         )
 
         if movie_data:
@@ -90,19 +105,21 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
                 if crew_member.get("job") == "Director":
                     dirs.append(crew_member.get("name"))
         return dirs
-             
+
     async def check_director_in_results(results_list):
         if not director:
             return None
         director_lower = director.lower()
         for candidate in results_list[:20]:
-            tmdb_movie = await get_movie_details(candidate["id"])
-            if not tmdb_movie:
-                continue
-            dirs = extract_directors(tmdb_movie)
+            # Do sprawdzenia reżysera wystarczą same credits (1 zapytanie zamiast 3).
+            credits_data = await fetch_credits(candidate["id"])
+            dirs = extract_directors({"credits": credits_data or {}})
             if any(d.lower() in director_lower or director_lower in d.lower() for d in dirs):
                 print(f"  [TMDB] Dopasowano film po reżyserze: {', '.join(dirs)}")
-                return _format_tmdb_response(tmdb_movie, dirs)
+                # Pełne dane (details + release_dates) dociągamy dopiero dla trafionego filmu.
+                full = await get_movie_details(candidate["id"])
+                if full:
+                    return _format_tmdb_response(full, extract_directors(full))
         return None
 
     async def perform_search(query: str, search_year: Optional[int] = None):
@@ -110,15 +127,12 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
         p["query"] = query
         if search_year:
             p["year"] = str(search_year)
-        async with session.get(search_url, params=p) as response:
-            if response.status == 200:
-                json_data = await response.json()
-                results = json_data.get("results", [])
-                if results:
-                    year_str = f" (rok: {search_year})" if search_year else " (bez roku)"
-                    print(f"  [TMDB] Znaleziono wyniki dla zapytania: '{query}'{year_str}")
-                return results
-            return []
+        json_data = await _fetch_json(session, search_url, p)
+        results = (json_data or {}).get("results", [])
+        if results:
+            year_str = f" (rok: {search_year})" if search_year else " (bez roku)"
+            print(f"  [TMDB] Znaleziono wyniki dla zapytania: '{query}'{year_str}")
+        return results
 
     search_strategies = [
         {"query": title, "year": year},

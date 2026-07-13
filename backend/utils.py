@@ -23,9 +23,13 @@ def parse_release_date(raw) -> str:
 
     s = str(raw).strip()
 
-    # Filmweb: dateInt w formacie YYYYMMDD
+    # Filmweb: dateInt w formacie YYYYMMDD. Bywa niepełny (np. 19970000 = sam rok) -
+    # wtedy nie da się zbudować prawidłowej daty, więc zwracamy None (rok jest w release_year).
     if s.isdigit() and len(s) == 8:
-        return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+        month, day = s[4:6], s[6:8]
+        if month == "00" or day == "00":
+            return None
+        return f"{s[:4]}-{month}-{day}"
 
     try:
         dt_obj = datetime.fromisoformat(s.replace("Z", "+00:00"))
@@ -57,6 +61,9 @@ def clean_title(title: str) -> str:
     title = title.removesuffix(" - wersja oryginalna")
     title = title.removesuffix(". Wersja zremasterowana")
     title = title.removesuffix("- powrót do kin")
+    # Usuwa dopisek wersji reżyserskiej (": ", " - " lub ". " przed) oraz parentetyczny "(lektor)"
+    title = re.sub(r"\s*[:.\-]\s*wersja reżyserska\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*\(lektor\)\s*$", "", title, flags=re.IGNORECASE)
     # Zamiana skrótu na pełne słowo (np. "Diuna: cz. 2" -> "Diuna: część 2")
     title = title.replace("cz.", "część").replace("Cz.", "Część")
     
@@ -93,6 +100,18 @@ def normalize_lang(raw: str):
         return None
     key = raw.strip().upper()
     return _LANG_MAP.get(key, key) or None
+
+def search_title(title: str) -> str:
+    """Dodatkowo oczyszczony tytuł WYŁĄCZNIE do wyszukiwania w TMDB/Filmweb.
+    Zdejmuje ozdobniki pokazów specjalnych, które w bazie zostawiamy dla odrębności rekordu
+    (Ladies Night, Unlimited Show, Kino na obcasach, sufiks ' ukraiński dubbing').
+    Dzięki temu np. 'Vaiana ukraiński dubbing' dostanie plakat/opis szukając po 'Vaiana'."""
+    if not title:
+        return title
+    t = re.sub(r"^(?:Ladies\s*Night|Unlimited\s*Show)\s*-\s*", "", title, flags=re.IGNORECASE)
+    t = re.sub(r"^Kino na obcasach:\s*", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s*ukraiński dubbing\s*$", "", t, flags=re.IGNORECASE)
+    return t.strip() or title
 
 def get_valid_poster(poster_data):
     """

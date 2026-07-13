@@ -1,4 +1,5 @@
 import re
+import traceback
 from curl_cffi import requests
 from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
@@ -215,7 +216,9 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             print("\nZakończono zapisywanie danych z Multikina!")
 
         except Exception as e:
-            print(f"Wystąpił błąd: {str(e)}")
+            print(f"[Multikino] Wystąpił błąd: {str(e)}")
+            traceback.print_exc()
+            raise
 
 if __name__ == "__main__":
     print("Skrypt uruchom poprzez plik run_scrapers.py")
