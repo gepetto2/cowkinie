@@ -19,7 +19,7 @@ type Movie = Database["public"]["Tables"]["movies"]["Row"] & {
   available_franchises?: string[];
 };
 type Screening = Database["public"]["Tables"]["screenings"]["Row"] & {
-  cinemas: { name: string; city: string } | null;
+  cinemas: { name: string; city: string; franchise: string | null } | null;
 };
 
 // Dzień seansu liczymy w strefie kina (Europe/Warsaw), spójnie z chipami "Wybierz datę" na stronie głównej,
@@ -28,6 +28,31 @@ const warsawDayFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit',
 });
 const toWarsawDay = (iso: string) => warsawDayFormatter.format(new Date(iso));
+
+// Kolor + skrót sieci kin (wspólne dla plakatu i listy dni w modalu)
+function franchiseVisual(franchise: string) {
+  const lower = franchise.toLowerCase();
+  let bgColor = "bg-slate-700";
+  let initial = franchise.charAt(0).toUpperCase();
+  if (lower.includes("cinema") && lower.includes("city")) { bgColor = "bg-orange-500"; initial = "CC"; }
+  else if (lower.includes("multikino")) bgColor = "bg-red-600";
+  else if (lower.includes("helios")) bgColor = "bg-blue-600";
+  else if (lower.includes("studyjne")) bgColor = "bg-indigo-600";
+  return { bgColor, initial };
+}
+
+function FranchiseBadge({ franchise, size = "md", className = "" }: { franchise: string; size?: "sm" | "md"; className?: string }) {
+  const { bgColor, initial } = franchiseVisual(franchise);
+  const dim = size === "sm" ? "w-5 h-5 text-[9px]" : "w-7 h-7 text-[10px]";
+  return (
+    <div
+      className={`${dim} rounded-full flex items-center justify-center font-bold text-white shadow-md border border-slate-900/50 ${bgColor} ${className}`}
+      title={franchise}
+    >
+      {initial}
+    </div>
+  );
+}
 
 const formatScreeningsCount = (count: number) => {
   if (count === 1) return "1 seans";
@@ -42,7 +67,10 @@ const formatScreeningsCount = (count: number) => {
 export default function MovieCard({ movie }: { movie: Movie }) {
   const searchParams = useSearchParams();
   const cityQuery = searchParams.get("city");
-  const dateQuery = searchParams.get("date");
+  const fromQuery = searchParams.get("from");
+  const toQuery = searchParams.get("to");
+  // Preselekcja dnia w modalu ma sens tylko dla pojedynczego dnia (from === to), nie dla zakresu
+  const singleDay = fromQuery && fromQuery === toQuery ? fromQuery : null;
 
   const [isOpen, setIsOpen] = useState(false);
   const [screenings, setScreenings] = useState<Screening[]>([]);
@@ -53,8 +81,8 @@ export default function MovieCard({ movie }: { movie: Movie }) {
   // setState synchronicznie w efekcie (unika kaskadowych re-renderów).
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
-    // Jeśli użytkownik otworzył modal mając wybraną datę na stronie głównej, użyj jej
-    setSelectedDate(open && dateQuery ? dateQuery : null);
+    // Jeśli użytkownik otworzył modal mając wybrany pojedynczy dzień na stronie głównej, użyj go
+    setSelectedDate(open ? singleDay : null);
   };
 
   useEffect(() => {
@@ -67,7 +95,7 @@ export default function MovieCard({ movie }: { movie: Movie }) {
       // Filtr po mieście robimy po stronie zapytania (join !inner), by nie ściągać seansów z innych miast
       let queryBuilder = supabase
         .from("screenings")
-        .select("*, cinemas!inner(name, city)")
+        .select("*, cinemas!inner(name, city, franchise)")
         .eq("movie_id", movie.id)
         .order("start_time", { ascending: true });
 
@@ -92,6 +120,16 @@ export default function MovieCard({ movie }: { movie: Movie }) {
     acc[dateStr] = (acc[dateStr] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+
+  // Zbiór sieci kin grających film danego dnia (do ikon po prawej stronie wiersza)
+  const franchisesPerDay = screenings.reduce((acc, s) => {
+    const dateStr = toWarsawDay(s.start_time);
+    const franchise = s.cinemas?.franchise;
+    if (franchise) {
+      (acc[dateStr] ??= new Set<string>()).add(franchise);
+    }
+    return acc;
+  }, {} as Record<string, Set<string>>);
 
   const uniqueDays = Object.keys(screeningsPerDay).sort();
 
@@ -119,35 +157,9 @@ export default function MovieCard({ movie }: { movie: Movie }) {
             {/* Ikony kin */}
             {movie.available_franchises && movie.available_franchises.length > 0 && (
               <div className="absolute bottom-2 right-2 flex flex-row gap-1.5 z-10">
-                {movie.available_franchises.map(franchise => {
-                  let bgColor = 'bg-slate-800';
-                  const textColor = 'text-white';
-                  const lower = franchise.toLowerCase();
-                  
-                  if (lower.includes('cinema') && lower.includes('city')) {
-                    bgColor = 'bg-orange-500';
-                  } else if (lower.includes('multikino')) {
-                    bgColor = 'bg-red-600';
-                  } else if (lower.includes('helios')) {
-                    bgColor = 'bg-blue-600';
-                  } else if (lower.includes('studyjne')) {
-                    bgColor = 'bg-indigo-600';
-                  }
-                  
-                  // Inicjał dla ikony
-                  let initial = franchise.charAt(0).toUpperCase();
-                  if (lower.includes('cinema') && lower.includes('city')) initial = 'CC';
-                  
-                  return (
-                    <div 
-                      key={franchise} 
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md border border-slate-900/50 ${bgColor} ${textColor} hover:scale-110 transition-transform`} 
-                      title={franchise}
-                    >
-                      {initial}
-                    </div>
-                  );
-                })}
+                {movie.available_franchises.map(franchise => (
+                  <FranchiseBadge key={franchise} franchise={franchise} className="hover:scale-110 transition-transform" />
+                ))}
               </div>
             )}
           </div>
@@ -194,11 +206,18 @@ export default function MovieCard({ movie }: { movie: Movie }) {
                       onClick={() => setSelectedDate(date)}
                       className="group w-full bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-colors rounded-lg p-4 text-left flex items-center justify-between"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-200 capitalize">{formatDateLabel(date)}</span>
-                        <span className="text-sm text-slate-400 group-hover:text-indigo-200 transition-colors">({formatScreeningsCount(count)})</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-semibold text-slate-200 capitalize truncate">{formatDateLabel(date)}</span>
+                        <span className="text-sm text-slate-400 group-hover:text-indigo-200 transition-colors shrink-0">({formatScreeningsCount(count)})</span>
                       </div>
-                      <span className="text-slate-500 group-hover:text-slate-200 transition-colors">&rarr;</span>
+                      <div className="flex items-center gap-2 shrink-0 pl-2">
+                        <div className="flex flex-row gap-1">
+                          {[...(franchisesPerDay[date] ?? [])].sort().map(franchise => (
+                            <FranchiseBadge key={franchise} franchise={franchise} size="sm" />
+                          ))}
+                        </div>
+                        <span className="text-slate-500 group-hover:text-slate-200 transition-colors">&rarr;</span>
+                      </div>
                     </button>
                   );
                 })}

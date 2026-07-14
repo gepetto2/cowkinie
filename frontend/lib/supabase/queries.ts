@@ -85,10 +85,14 @@ export function getDateDaysAgo(days: number) {
   return warsawDateFormatter.format(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
 }
 
-export async function getMovieIdsByDateAndCity(dateStr: string, cityStr?: string) {
-  let query = supabase.from('movie_dates_view').select('movie_id');
-
-  query = query.eq('screening_date', dateStr);
+// Zbiór id filmów mających seans w zakresie [from, to] (włącznie), opcjonalnie w danym mieście.
+// Pojedynczy dzień to from === to. Widok movie_dates_view ma kolumny movie_id, screening_date, city.
+export async function getMovieIdsByDateRange(from: string, to: string, cityStr?: string) {
+  let query = supabase
+    .from('movie_dates_view')
+    .select('movie_id')
+    .gte('screening_date', from)
+    .lte('screening_date', to);
 
   if (cityStr) {
     query = query.eq('city', cityStr);
@@ -97,7 +101,7 @@ export async function getMovieIdsByDateAndCity(dateStr: string, cityStr?: string
   const { data, error } = await query;
 
   if (error || !data) {
-    console.error('Błąd podczas pobierania id filmów dla daty:', error);
+    console.error('Błąd podczas pobierania id filmów dla zakresu dat:', error);
     return new Set<string>();
   }
 

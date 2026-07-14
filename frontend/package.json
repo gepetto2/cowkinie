@@ -17,6 +17,7 @@
     "nextjs-toploader": "^3.9.17",
     "radix-ui": "^1.4.3",
     "react": "19.2.4",
+    "react-day-picker": "^10.0.1",
     "react-dom": "19.2.4",
     "shadcn": "^4.8.0",
     "supabase": "^2.106.0",

@@ -1,11 +1,12 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import {
-  getCities, getMovies, getAvailableDates, getMovieIdsByDateAndCity, getDateDaysAgo,
+  getCities, getMovies, getAvailableDates, getMovieIdsByDateRange, getDateDaysAgo,
   getCinemaAvailabilities, getTopScreenings,
 } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
 import SearchBar from '@/components/SearchBar';
+import DateFilter from '@/components/DateFilter';
 
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
 const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY'];
@@ -23,7 +24,12 @@ export default async function Home({
   const params = await Promise.resolve(searchParams);
   const query = typeof params?.q === 'string' ? params.q.toLowerCase() : '';
   const cityQuery = typeof params?.city === 'string' ? params.city : '';
-  const dateQuery = typeof params?.date === 'string' ? params.date : '';
+  // Zakres dat: from/to (włącznie). Jedna granica = pojedynczy dzień.
+  const fromQuery = typeof params?.from === 'string' ? params.from : '';
+  const toQuery = typeof params?.to === 'string' ? params.to : '';
+  const rangeFrom = fromQuery || toQuery;
+  const rangeTo = toQuery || fromQuery;
+  const rangeActive = Boolean(rangeFrom);
 
   // Zrównoleglenie pobierania wszystkich danych (odczyty z bazy są cache'owane w queries.ts)
   const [
@@ -32,14 +38,14 @@ export default async function Home({
     cinemaAvailabilities,
     topScreenings,
     availableDates,
-    moviesOnDate
+    moviesInRange
   ] = await Promise.all([
     getCities(),
     getMovies(),
     getCinemaAvailabilities(),
     getTopScreenings(),
-    Promise.resolve(getAvailableDates(7)), // 7 najbliższych dni
-    dateQuery ? getMovieIdsByDateAndCity(dateQuery, cityQuery) : Promise.resolve(null)
+    Promise.resolve(getAvailableDates(1)), // dzisiejsza data dla karuzel
+    rangeActive ? getMovieIdsByDateRange(rangeFrom, rangeTo, cityQuery) : Promise.resolve(null)
   ]);
 
   // Optymalizacja O(1) do szybkiego wyszukiwania dostępności kin dla filmu
@@ -77,13 +83,13 @@ export default async function Home({
     );
   }
 
-  // Filtrowanie po wybranej dacie
-  if (dateQuery && moviesOnDate) {
+  // Filtrowanie po wybranym zakresie dat
+  if (rangeActive && moviesInRange) {
     filteredMovies = filteredMovies.filter((movie) =>
-      moviesOnDate.has(movie.id)
+      moviesInRange.has(movie.id)
     );
     topMovies = topMovies.filter((movie) =>
-      moviesOnDate.has(movie.id)
+      moviesInRange.has(movie.id)
     );
   }
 
@@ -153,81 +159,36 @@ export default async function Home({
       </Suspense>
 
       <section className="mb-10 space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold mb-3 text-slate-300">Wybierz datę:</h2>
-          <div className="flex overflow-x-auto gap-2 pb-2 snap-x" style={{ scrollbarWidth: 'none' }}>
-            <Link 
-              href={(() => {
-                const urlParams = new URLSearchParams();
-                if (query) urlParams.set('q', query);
-                if (cityQuery) urlParams.set('city', cityQuery);
-                return `/?${urlParams.toString()}`;
-              })()}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 ${
-                !dateQuery
-                  ? 'bg-rose-600 text-white shadow-md' 
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-              }`}
-            >
-              Dowolna data
-            </Link>
-            
-            {availableDates.map((date, index) => {
-              const isActive = date === dateQuery;
-              const urlParams = new URLSearchParams();
-              if (query) urlParams.set('q', query);
-              if (cityQuery) urlParams.set('city', cityQuery);
-              urlParams.set('date', date);
-              
-              let label = "";
-              if (index === 0) label = "Dzisiaj";
-              else if (index === 1) label = "Jutro";
-              else {
-                const d = new Date(date);
-                label = d.toLocaleDateString("pl-PL", { weekday: "short", day: "numeric", month: "numeric" });
-              }
-              
-              return (
-                <Link 
-                  key={date} 
-                  href={`/?${urlParams.toString()}`}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 capitalize ${
-                    isActive 
-                      ? 'bg-rose-600 text-white shadow-md' 
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-                  }`}
-                >
-                  {label}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+        <Suspense fallback={<div className="h-16" />}>
+          <DateFilter />
+        </Suspense>
 
         <div>
           <h2 className="text-lg font-semibold mb-3 text-slate-300">Wybierz miasto:</h2>
           <div className="flex overflow-x-auto gap-2 pb-2 snap-x" style={{ scrollbarWidth: 'none' }}>
-            <Link 
+            <Link
               href={(() => {
                 const urlParams = new URLSearchParams();
                 if (query) urlParams.set('q', query);
-                if (dateQuery) urlParams.set('date', dateQuery);
+                if (fromQuery) urlParams.set('from', fromQuery);
+                if (toQuery) urlParams.set('to', toQuery);
                 return `/?${urlParams.toString()}`;
               })()}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 ${
                 !cityQuery
-                  ? 'bg-indigo-600 text-white shadow-md' 
+                  ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
               }`}
             >
               Wszystkie
             </Link>
-            
+
             {cities.map((city) => {
               const isActive = city === cityQuery;
               const urlParams = new URLSearchParams();
               if (query) urlParams.set('q', query);
-              if (dateQuery) urlParams.set('date', dateQuery);
+              if (fromQuery) urlParams.set('from', fromQuery);
+              if (toQuery) urlParams.set('to', toQuery);
               urlParams.set('city', city);
               
               return (

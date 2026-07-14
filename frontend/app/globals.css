@@ -128,3 +128,32 @@
     @apply font-sans;
   }
 }
+
+/* react-day-picker – motyw ciemny (slate/indygo), spójny z resztą UI.
+   Selektor .rdp-root.rdp-dark ma wyższą specyficzność niż bazowe .rdp-root,
+   więc nasze zmienne zawsze wygrywają (niezależnie od kolejności importu CSS). */
+.rdp-root.rdp-dark {
+  --rdp-accent-color: #4f46e5; /* indigo-600 */
+  --rdp-accent-background-color: #1e293b; /* slate-800 */
+  --rdp-today-color: #fb7185; /* rose-400 */
+  --rdp-selected-border: 2px solid #4f46e5;
+  --rdp-range_start-date-background-color: #4f46e5;
+  --rdp-range_end-date-background-color: #4f46e5;
+  --rdp-range_start-color: #ffffff;
+  --rdp-range_end-color: #ffffff;
+  --rdp-range_middle-background-color: #312e81; /* indigo-900 */
+  --rdp-range_middle-color: #e0e7ff; /* indigo-100 */
+  color: #e2e8f0; /* slate-200 */
+}
+
+.rdp-dark .rdp-day_button:hover:not([disabled]) {
+  background-color: #1e293b;
+}
+
+.rdp-dark .rdp-chevron {
+  fill: #94a3b8; /* slate-400 */
+}
+
+.rdp-dark .rdp-disabled {
+  opacity: 0.35;
+}
