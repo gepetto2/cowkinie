@@ -103,6 +103,7 @@ export default async function MoviesInfoPage() {
                     <PosterImage src={movie.poster_cc} source="Cinema City" />
                     <PosterImage src={movie.poster_multikino} source="Multikino" />
                     <PosterImage src={movie.poster_helios} source="Helios" />
+                    <PosterImage src={movie.poster_muza} source="Kino Muza" />
                   </div>
                 </div>
 
@@ -167,8 +168,8 @@ export default async function MoviesInfoPage() {
                         { label: "Opis", value: movie.description_multikino }
                       ]} 
                     />
-                    <InfoBlock 
-                      title="Helios" 
+                    <InfoBlock
+                      title="Helios"
                       items={[
                         { label: "Tytuł oryg.", value: movie.original_title_helios },
                         { label: "Reżyser", value: movie.director_helios },
@@ -176,7 +177,18 @@ export default async function MoviesInfoPage() {
                         { label: "Data premiery", value: movie.release_date_helios },
                         { label: "Czas", value: movie.length_helios !== null ? `${movie.length_helios} min` : null },
                         { label: "Typ", value: movie.movie_type_helios }
-                      ]} 
+                      ]}
+                    />
+                    <InfoBlock
+                      title="Kino Muza"
+                      items={[
+                        { label: "Tytuł oryg.", value: movie.original_title_muza },
+                        { label: "Reżyser", value: movie.director_muza },
+                        { label: "Rok", value: movie.release_year_muza },
+                        { label: "Data premiery", value: movie.release_date_muza },
+                        { label: "Czas", value: movie.length_muza !== null ? `${movie.length_muza} min` : null },
+                        { label: "Opis", value: movie.description_muza }
+                      ]}
                     />
                   </div>
                 </div>

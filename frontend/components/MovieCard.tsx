@@ -37,7 +37,7 @@ function franchiseVisual(franchise: string) {
   if (lower.includes("cinema") && lower.includes("city")) { bgColor = "bg-orange-500"; initial = "CC"; }
   else if (lower.includes("multikino")) bgColor = "bg-red-600";
   else if (lower.includes("helios")) bgColor = "bg-blue-600";
-  else if (lower.includes("studyjne")) bgColor = "bg-indigo-600";
+  else if (lower.includes("studyjne")) { bgColor = "bg-indigo-600"; initial = "KS"; }
   return { bgColor, initial };
 }
 

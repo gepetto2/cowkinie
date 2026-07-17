@@ -65,9 +65,10 @@ def clean_title(title: str) -> str:
     title = title.removesuffix(" - wersja oryginalna")
     title = title.removesuffix(". Wersja zremasterowana")
     title = title.removesuffix("- powrót do kin")
-    # Usuwa dopisek wersji reżyserskiej (": ", " - " lub ". " przed) oraz parentetyczne "(lektor)"/"(wersja rozszerzona)"
-    title = re.sub(r"\s*[:.\-]\s*wersja reżyserska\s*$", "", title, flags=re.IGNORECASE)
-    title = re.sub(r"\s*\((?:lektor|wersja rozszerzona)\)\s*$", "", title, flags=re.IGNORECASE)
+    title = title.removesuffix(" | NAJLEPSZE Z NAJGORSZYCH")
+    # Usuwa parentetyczny "(lektor)". Uwaga: dopiski o wersji reżyserskiej/rozszerzonej celowo
+    # ZOSTAJĄ w tytule (to inna wersja filmu) - zdejmuje je dopiero search_title na potrzeby wyszukiwania.
+    title = re.sub(r"\s*\(lektor\)\s*$", "", title, flags=re.IGNORECASE)
     # Zamiana skrótu na pełne słowo (np. "Diuna: cz. 2" -> "Diuna: część 2")
     title = title.replace("cz.", "część").replace("Cz.", "Część")
     
@@ -107,14 +108,17 @@ def normalize_lang(raw: str):
 
 def search_title(title: str) -> str:
     """Dodatkowo oczyszczony tytuł WYŁĄCZNIE do wyszukiwania w TMDB/Filmweb.
-    Zdejmuje ozdobniki pokazów specjalnych, które w bazie zostawiamy dla odrębności rekordu
-    (Ladies Night, Unlimited Show, Kino na obcasach, sufiks ' ukraiński dubbing').
-    Dzięki temu np. 'Vaiana ukraiński dubbing' dostanie plakat/opis szukając po 'Vaiana'."""
+    Zdejmuje ozdobniki, które w bazie zostawiamy dla odrębności/informacji o rekordzie
+    (Ladies Night, Unlimited Show, Kino na obcasach, ' ukraiński dubbing', wersja reżyserska/rozszerzona).
+    Dzięki temu np. 'Vaiana ukraiński dubbing' czy 'Diuna (wersja rozszerzona)' znajdą film bazowy."""
     if not title:
         return title
     t = re.sub(r"^(?:Ladies\s*Night|Unlimited\s*Show)\s*-\s*", "", title, flags=re.IGNORECASE)
     t = re.sub(r"^Kino na obcasach:\s*", "", t, flags=re.IGNORECASE)
-    t = re.sub(r"\s*ukraiński dubbing\s*$", "", t, flags=re.IGNORECASE)
+    # Sufiks ukraińskiego dubbingu w różnych formach (PL/EN, z nawiasem, po ". "/" - "/spacji)
+    t = re.sub(r"\s*[.\-]?\s*\(?(?:ukrai[nń]ski dubbing|ukrainian dubbing)\)?\s*$", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s*[:.\-]\s*wersja reżyserska\s*$", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s*\(wersja rozszerzona\)\s*$", "", t, flags=re.IGNORECASE)
     return t.strip() or title
 
 def get_valid_poster(poster_data):

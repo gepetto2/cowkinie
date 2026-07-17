@@ -12,6 +12,7 @@ from config import supabase
 from scrapers.multikino import scrape_and_save as scrape_multikina
 from scrapers.cinema_city import scrape_and_save as scrape_cinema_city
 from scrapers.helios import scrape_and_save as scrape_helios
+from scrapers.kino_muza import scrape_and_save as scrape_muza
 from db.database import consolidate_movie_data, consolidate_release_dates, dedupe_by_normalized_title, dedupe_ukrainian_by_tmdb
 from core.enrich_movies import enrich_movies_data
 
@@ -23,12 +24,13 @@ async def run_all() -> bool:
     """Zwraca True, jeśli wszystkie źródła zeskrapowały się bez błędu."""
     logger.info("=== START: pobieranie danych ze wszystkich kin dla miast: %s ===", ", ".join(TARGET_CITIES))
 
-    sources = ["Multikino", "Cinema City", "Helios"]
+    sources = ["Multikino", "Cinema City", "Helios", "Kino Muza"]
     # return_exceptions=True: awaria jednego źródła nie przerywa pozostałych ani konsolidacji.
     results = await asyncio.gather(
         scrape_multikina(supabase, TARGET_CITIES),
         scrape_cinema_city(supabase, TARGET_CITIES),
         scrape_helios(supabase, TARGET_CITIES),
+        scrape_muza(supabase, TARGET_CITIES),
         return_exceptions=True
     )
 

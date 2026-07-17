@@ -43,12 +43,14 @@ export type Database = {
           cast_multikino: string | null
           created_at: string | null
           description_multikino: string | null
+          description_muza: string | null
           description_tmdb: string | null
           director: string | null
           director_cc: string | null
           director_filmweb: string | null
           director_helios: string | null
           director_multikino: string | null
+          director_muza: string | null
           director_tmdb: string | null
           id: string
           length: number | null
@@ -56,31 +58,37 @@ export type Database = {
           length_filmweb: number | null
           length_helios: number | null
           length_multikino: number | null
+          length_muza: number | null
           length_tmdb: number | null
           movie_type: string | null
           movie_type_cc: string | null
           movie_type_helios: string | null
           movie_type_multikino: string | null
+          movie_type_muza: string | null
           original_title: string | null
           original_title_cc: string | null
           original_title_helios: string | null
+          original_title_muza: string | null
           original_title_tmdb: string | null
           poster: string | null
           poster_cc: string | null
           poster_helios: string | null
           poster_multikino: string | null
+          poster_muza: string | null
           poster_tmdb: string | null
           release_date: string | null
           release_date_cc: string | null
           release_date_filmweb: string | null
           release_date_helios: string | null
           release_date_multikino: string | null
+          release_date_muza: string | null
           release_date_tmdb: string | null
           release_year: number | null
           release_year_cc: number | null
           release_year_filmweb: number | null
           release_year_helios: number | null
           release_year_multikino: number | null
+          release_year_muza: number | null
           release_year_tmdb: number | null
           title: string
           title_filmweb: string | null
@@ -91,12 +99,14 @@ export type Database = {
           cast_multikino?: string | null
           created_at?: string | null
           description_multikino?: string | null
+          description_muza?: string | null
           description_tmdb?: string | null
           director?: string | null
           director_cc?: string | null
           director_filmweb?: string | null
           director_helios?: string | null
           director_multikino?: string | null
+          director_muza?: string | null
           director_tmdb?: string | null
           id?: string
           length?: number | null
@@ -104,31 +114,37 @@ export type Database = {
           length_filmweb?: number | null
           length_helios?: number | null
           length_multikino?: number | null
+          length_muza?: number | null
           length_tmdb?: number | null
           movie_type?: string | null
           movie_type_cc?: string | null
           movie_type_helios?: string | null
           movie_type_multikino?: string | null
+          movie_type_muza?: string | null
           original_title?: string | null
           original_title_cc?: string | null
           original_title_helios?: string | null
+          original_title_muza?: string | null
           original_title_tmdb?: string | null
           poster?: string | null
           poster_cc?: string | null
           poster_helios?: string | null
           poster_multikino?: string | null
+          poster_muza?: string | null
           poster_tmdb?: string | null
           release_date?: string | null
           release_date_cc?: string | null
           release_date_filmweb?: string | null
           release_date_helios?: string | null
           release_date_multikino?: string | null
+          release_date_muza?: string | null
           release_date_tmdb?: string | null
           release_year?: number | null
           release_year_cc?: number | null
           release_year_filmweb?: number | null
           release_year_helios?: number | null
           release_year_multikino?: number | null
+          release_year_muza?: number | null
           release_year_tmdb?: number | null
           title: string
           title_filmweb?: string | null
@@ -139,12 +155,14 @@ export type Database = {
           cast_multikino?: string | null
           created_at?: string | null
           description_multikino?: string | null
+          description_muza?: string | null
           description_tmdb?: string | null
           director?: string | null
           director_cc?: string | null
           director_filmweb?: string | null
           director_helios?: string | null
           director_multikino?: string | null
+          director_muza?: string | null
           director_tmdb?: string | null
           id?: string
           length?: number | null
@@ -152,31 +170,37 @@ export type Database = {
           length_filmweb?: number | null
           length_helios?: number | null
           length_multikino?: number | null
+          length_muza?: number | null
           length_tmdb?: number | null
           movie_type?: string | null
           movie_type_cc?: string | null
           movie_type_helios?: string | null
           movie_type_multikino?: string | null
+          movie_type_muza?: string | null
           original_title?: string | null
           original_title_cc?: string | null
           original_title_helios?: string | null
+          original_title_muza?: string | null
           original_title_tmdb?: string | null
           poster?: string | null
           poster_cc?: string | null
           poster_helios?: string | null
           poster_multikino?: string | null
+          poster_muza?: string | null
           poster_tmdb?: string | null
           release_date?: string | null
           release_date_cc?: string | null
           release_date_filmweb?: string | null
           release_date_helios?: string | null
           release_date_multikino?: string | null
+          release_date_muza?: string | null
           release_date_tmdb?: string | null
           release_year?: number | null
           release_year_cc?: number | null
           release_year_filmweb?: number | null
           release_year_helios?: number | null
           release_year_multikino?: number | null
+          release_year_muza?: number | null
           release_year_tmdb?: number | null
           title?: string
           title_filmweb?: string | null

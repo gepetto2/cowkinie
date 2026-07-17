@@ -49,11 +49,11 @@ def consolidate_movie_data(supabase):
     # Pobieramy filmy, które nie mają jeszcze głównego release_year, movie_type, director, original_title lub poster
     response = supabase.table("movies").select(
         "id, title, release_year, movie_type, director, original_title, poster, "
-        "release_year_cc, release_year_multikino, release_year_helios, "
-        "movie_type_cc, movie_type_multikino, movie_type_helios, "
-        "director_multikino, director_helios, director_cc, "
-        "original_title_cc, original_title_helios, "
-        "poster_cc, poster_multikino, poster_helios"
+        "release_year_cc, release_year_multikino, release_year_helios, release_year_muza, "
+        "movie_type_cc, movie_type_multikino, movie_type_helios, movie_type_muza, "
+        "director_multikino, director_helios, director_cc, director_muza, "
+        "original_title_cc, original_title_helios, original_title_muza, "
+        "poster_cc, poster_multikino, poster_helios, poster_muza"
     ).or_("release_year.is.null,movie_type.is.null,director.is.null,original_title.is.null,poster.is.null").execute()
     movies = response.data
     
@@ -66,7 +66,7 @@ def consolidate_movie_data(supabase):
         update_data = {}
         
         if movie.get("release_year") is None:
-            years = [movie.get("release_year_multikino"), movie.get("release_year_cc"), movie.get("release_year_helios")]
+            years = [movie.get("release_year_multikino"), movie.get("release_year_cc"), movie.get("release_year_helios"), movie.get("release_year_muza")]
             valid_years = [y for y in years if y is not None]
 
             if valid_years:
@@ -74,7 +74,7 @@ def consolidate_movie_data(supabase):
                 update_data["release_year"] = min(valid_years)
 
         if movie.get("movie_type") is None:
-            types = [movie.get("movie_type_multikino"), movie.get("movie_type_cc"), movie.get("movie_type_helios")]
+            types = [movie.get("movie_type_multikino"), movie.get("movie_type_cc"), movie.get("movie_type_helios"), movie.get("movie_type_muza")]
             valid_types = [t for t in types if t] # Pobieramy tylko niepuste stringi
             
             if valid_types:
@@ -89,7 +89,8 @@ def consolidate_movie_data(supabase):
             directors = [
                 movie.get("director_multikino"),
                 movie.get("director_helios"),
-                movie.get("director_cc")
+                movie.get("director_cc"),
+                movie.get("director_muza")
             ]
             valid_directors = [d for d in directors if d]
             
@@ -106,23 +107,25 @@ def consolidate_movie_data(supabase):
         if movie.get("original_title") is None:
             original_titles = [
                 movie.get("original_title_helios"),
-                movie.get("original_title_cc")
+                movie.get("original_title_cc"),
+                movie.get("original_title_muza")
             ]
             valid_titles = [t for t in original_titles if t]
-            
+
             if valid_titles:
                 unique_titles = list(set(valid_titles))
                 if len(unique_titles) > 1:
                     logger.warning(f"Niezgodność oryginalnych tytułów dla filmu '{movie.get('title')}': {unique_titles}")
-                
-                # Preferujemy tytuł z Heliosa, w drugiej kolejności z Cinema City
-                update_data["original_title"] = movie.get("original_title_helios") or movie.get("original_title_cc")
+
+                # Preferujemy tytuł z Heliosa, potem Cinema City, na końcu Muza
+                update_data["original_title"] = movie.get("original_title_helios") or movie.get("original_title_cc") or movie.get("original_title_muza")
                 
         if movie.get("poster") is None:
             posters = [
                 movie.get("poster_cc"),
                 movie.get("poster_helios"),
-                movie.get("poster_multikino")
+                movie.get("poster_multikino"),
+                movie.get("poster_muza")
             ]
             valid_posters = [p for p in posters if p]
             
@@ -144,8 +147,8 @@ def consolidate_release_dates(supabase):
 
     response = supabase.table("movies").select(
         "id, title, release_year, "
-        "release_date_cc, release_date_multikino, release_date_helios, release_date_tmdb, release_date_filmweb, "
-        "release_year_cc, release_year_multikino, release_year_helios, release_year_tmdb, release_year_filmweb"
+        "release_date_cc, release_date_multikino, release_date_helios, release_date_tmdb, release_date_filmweb, release_date_muza, "
+        "release_year_cc, release_year_multikino, release_year_helios, release_year_tmdb, release_year_filmweb, release_year_muza"
     ).execute()
     movies = response.data
 
@@ -158,14 +161,14 @@ def consolidate_release_dates(supabase):
         update_data = {}
 
         # Data premiery: najwcześniejsza z dostępnych (stringi ISO 'YYYY-MM-DD' porównują się chronologicznie)
-        dates = [movie.get(f"release_date_{s}") for s in ("multikino", "cc", "helios", "tmdb", "filmweb")]
+        dates = [movie.get(f"release_date_{s}") for s in ("multikino", "cc", "helios", "tmdb", "filmweb", "muza")]
         valid_dates = [d for d in dates if d]
         if valid_dates:
             update_data["release_date"] = min(valid_dates)
 
         # Rok produkcji: najwcześniejszy ze WSZYSTKICH źródeł. Nadpisuje ewentualny rok wznowienia
         # ustawiony w konsolidacji przed-enrich (która nie zna jeszcze lat z TMDB/Filmweb).
-        years = [movie.get(f"release_year_{s}") for s in ("multikino", "cc", "helios", "tmdb", "filmweb")]
+        years = [movie.get(f"release_year_{s}") for s in ("multikino", "cc", "helios", "tmdb", "filmweb", "muza")]
         valid_years = [int(y) for y in years if y is not None]
         if valid_years:
             new_year = min(valid_years)
@@ -254,16 +257,29 @@ def dedupe_ukrainian_by_tmdb(supabase):
             groups.setdefault(m["tmdb_id"], []).append(m)
 
     merged_count = 0
+    renamed_count = 0
     for tmdb_id, group in groups.items():
+        # Kanoniczny tytuł z dowolnego dostępnego title_tmdb w grupie
+        title_tmdb = next((m.get("title_tmdb") for m in group if m.get("title_tmdb")), None)
+
+        # Pojedynczy rekord (film tylko w jednym kinie): nie ma czego scalać, ale ujednolicamy
+        # tytuł do tego samego formatu co rekordy scalone.
         if len(group) < 2:
+            movie = group[0]
+            single_title = f"{title_tmdb} (ukraiński dubbing)" if title_tmdb else None
+            if single_title and single_title != movie.get("title"):
+                try:
+                    supabase.table("movies").update({"title": single_title}).eq("id", movie["id"]).execute()
+                    logger.info(f"Ujednolicono tytuł: '{movie.get('title')}' -> '{single_title}'")
+                    renamed_count += 1
+                except Exception as e:
+                    logger.error(f"Błąd przy zmianie tytułu '{movie.get('title')}' -> '{single_title}': {e}")
             continue
 
         # Ocalały: najbardziej kompletny rekord (najwięcej niepustych pól), stabilnie po id
         survivor = max(group, key=lambda m: (sum(1 for v in m.values() if v is not None), str(m.get("id"))))
         dups = [m for m in group if m["id"] != survivor["id"]]
 
-        # Kanoniczny tytuł z dowolnego dostępnego title_tmdb w grupie
-        title_tmdb = next((m.get("title_tmdb") for m in group if m.get("title_tmdb")), None)
         new_title = f"{title_tmdb} (ukraiński dubbing)" if title_tmdb else survivor.get("title")
 
         logger.info(f"Scalanie {len(group)} wariantów (tmdb {tmdb_id}) -> '{new_title}': {[m.get('title') for m in group]}")
@@ -291,4 +307,4 @@ def dedupe_ukrainian_by_tmdb(supabase):
         if update_payload:
             supabase.table("movies").update(update_payload).eq("id", survivor["id"]).execute()
 
-    logger.info(f"Scalono {merged_count} rekordów ukraińskiego dubbingu.")
+    logger.info(f"Ukraiński dubbing: scalono {merged_count} rekordów, ujednolicono {renamed_count} tytułów.")
