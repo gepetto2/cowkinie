@@ -29,6 +29,14 @@ def _muza_lang(item: dict):
     return None
 
 
+def _muza_movie_type(item: dict):
+    """Mapuje cykl/wydarzenie Muzy na movie_type. Na razie tylko 'Najlepsze z Najgorszych'."""
+    text = f"{item.get('cycle') or ''} {item.get('event') or ''}".lower()
+    if "najlepsze z najgorszych" in text:
+        return "NAJLEPSZE Z NAJGORSZYCH"
+    return None
+
+
 def _extract_poster(page_html: str):
     """Wyciąga PIONOWY plakat ze strony filmu (thumb z JSON to poziomy kadr, nie plakat).
     Kolejno: nazwa z 'plakat' -> rozmiar plakatowy (B1/B2/A1) -> obraz w orientacji pionowej (H > W).
@@ -103,13 +111,20 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             movie_links = {}
             for it in items:
                 title = clean_title(it.get("title") or "")
-                if not title or title in movies_to_upsert:
+                if not title:
+                    continue
+                mtype = _muza_movie_type(it)
+                # Typ jest per-seans; jeśli film już dodany, ale dotąd bez typu - uzupełnij z tego seansu
+                if title in movies_to_upsert:
+                    if mtype and not movies_to_upsert[title].get("movie_type_muza"):
+                        movies_to_upsert[title]["movie_type_muza"] = mtype
                     continue
                 movie_links[title] = it.get("movieLink")
                 year = it.get("year")
                 duration = it.get("duration")
                 movies_to_upsert[title] = {
                     "title": title,
+                    "movie_type_muza": mtype,
                     "release_year_muza": int(year) if year and str(year).isdigit() else None,
                     "release_date_muza": parse_release_date(it.get("premiereDate")),
                     "director_muza": (it.get("director") or "").strip() or None,

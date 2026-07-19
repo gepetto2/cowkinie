@@ -1,12 +1,10 @@
 import { Suspense } from 'react';
-import Link from 'next/link';
 import {
   getCities, getMovies, getAvailableDates, getMovieIdsByDateRange, getDateDaysAgo,
   getCinemaAvailabilities, getTopScreenings,
 } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
-import SearchBar from '@/components/SearchBar';
-import DateFilter from '@/components/DateFilter';
+import FilterBar from '@/components/FilterBar';
 
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
 const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY'];
@@ -131,9 +129,19 @@ export default async function Home({
     upcoming = [];
   }
 
-  // Grupowanie filmów po typie
+  // Grupowanie filmów po typie. Filmy bez movie_type grane WYŁĄCZNIE w kinach studyjnych
+  // trafiają do osobnej sekcji "Kino Studyjne" (zamiast do STANDARD).
   const groupedMovies = filteredMovies.reduce((acc, movie) => {
-    const type = query ? 'Wyniki wyszukiwania' : (movie.movie_type || 'STANDARD');
+    let type: string;
+    if (query) {
+      type = 'Wyniki wyszukiwania';
+    } else if (movie.movie_type) {
+      type = movie.movie_type;
+    } else {
+      const franchises = movie.available_franchises;
+      const studyjneOnly = franchises.length > 0 && franchises.every((f) => /studyjne/i.test(f));
+      type = studyjneOnly ? 'Kino Studyjne' : 'STANDARD';
+    }
 
     if (!acc[type]) {
       acc[type] = [];
@@ -142,72 +150,32 @@ export default async function Home({
     return acc;
   }, {} as Record<string, typeof enhancedMovies>);
 
-  // Wymuszamy, by główna kategoria była na samej górze
+  // Kolejność: główna kategoria, potem "Kino Studyjne", potem reszta alfabetycznie.
   const mainCategory = query ? 'Wyniki wyszukiwania' : 'STANDARD';
+  const categoryRank = (c: string) => (c === mainCategory ? 0 : c === 'Kino Studyjne' ? 1 : 2);
   const sortedCategories = Object.keys(groupedMovies).sort((a, b) => {
-    if (a === mainCategory) return -1;
-    if (b === mainCategory) return 1;
-    return a.localeCompare(b);
+    const diff = categoryRank(a) - categoryRank(b);
+    return diff !== 0 ? diff : a.localeCompare(b);
   });
 
+  // Krótkie sekcje (mało filmów) upakowujemy obok siebie w siatce; duże zostają pełną szerokością.
+  const NARROW_SECTION_MAX = 4;
+  // Główna kategoria i "Kino Studyjne" zawsze pełną szerokością (jak STANDARD).
+  const alwaysWide = (c: string) => c === mainCategory || c === 'Kino Studyjne';
+  const wideCategories = sortedCategories.filter(
+    (c) => alwaysWide(c) || groupedMovies[c].length > NARROW_SECTION_MAX
+  );
+  const narrowCategories = sortedCategories.filter(
+    (c) => !alwaysWide(c) && groupedMovies[c].length <= NARROW_SECTION_MAX
+  );
+
   return (
-    <main className="container mx-auto p-4 pt-8 pb-16 overflow-hidden">
+    <main className="container mx-auto p-4 pt-8 pb-16 overflow-x-clip">
       <h1 className="text-4xl font-extrabold mb-8 text-slate-100 tracking-tight">Repertuar Kin</h1>
 
-      <Suspense fallback={<div className="h-10 bg-slate-900 animate-pulse rounded-lg mb-8 max-w-2xl"></div>}>
-        <SearchBar />
+      <Suspense fallback={<div className="h-14 mb-6" />}>
+        <FilterBar cities={cities} resultCount={filteredMovies.length} />
       </Suspense>
-
-      <section className="mb-10 space-y-6">
-        <Suspense fallback={<div className="h-16" />}>
-          <DateFilter />
-        </Suspense>
-
-        <div>
-          <h2 className="text-lg font-semibold mb-3 text-slate-300">Wybierz miasto:</h2>
-          <div className="flex overflow-x-auto gap-2 pb-2 snap-x" style={{ scrollbarWidth: 'none' }}>
-            <Link
-              href={(() => {
-                const urlParams = new URLSearchParams();
-                if (query) urlParams.set('q', query);
-                if (fromQuery) urlParams.set('from', fromQuery);
-                if (toQuery) urlParams.set('to', toQuery);
-                return `/?${urlParams.toString()}`;
-              })()}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 ${
-                !cityQuery
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-              }`}
-            >
-              Wszystkie
-            </Link>
-
-            {cities.map((city) => {
-              const isActive = city === cityQuery;
-              const urlParams = new URLSearchParams();
-              if (query) urlParams.set('q', query);
-              if (fromQuery) urlParams.set('from', fromQuery);
-              if (toQuery) urlParams.set('to', toQuery);
-              urlParams.set('city', city);
-              
-              return (
-                <Link 
-                  key={city} 
-                  href={`/?${urlParams.toString()}`}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap snap-start shrink-0 ${
-                    isActive 
-                      ? 'bg-indigo-600 text-white shadow-md' 
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-                  }`}
-                >
-                  {city}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </section>
 
       <div className="space-y-10">
         {/* Komunikat o braku wyników */}
@@ -275,16 +243,20 @@ export default async function Home({
           </section>
         )}
 
-        {sortedCategories.map((category) => (
+        {/* Duże sekcje - pełna szerokość. STANDARD i "Kino Studyjne" (oraz wyniki wyszukiwania)
+            rozwijamy w pełną siatkę; pozostałe zostają poziomymi karuzelami. */}
+        {wideCategories.map((category) => {
+          const expanded = query || alwaysWide(category);
+          return (
           <section key={category} className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-indigo-500 rounded-sm">
               {category}
             </h2>
-            
-            {/* Kontener dla karuzeli lub siatki dla wyników */}
-            <div 
-              className={`flex gap-5 pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 ${query ? 'flex-wrap' : 'overflow-x-auto snap-x'}`}
-              style={query ? undefined : { scrollbarWidth: 'thin' }}
+
+            {/* Rozwinięta siatka (flex-wrap) albo pozioma karuzela */}
+            <div
+              className={`flex gap-5 pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 ${expanded ? 'flex-wrap' : 'overflow-x-auto snap-x'}`}
+              style={expanded ? undefined : { scrollbarWidth: 'thin' }}
             >
               {groupedMovies[category].map((movie) => (
                 <div key={movie.id} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
@@ -293,7 +265,32 @@ export default async function Home({
               ))}
             </div>
           </section>
-        ))}
+          );
+        })}
+
+        {/* Krótkie sekcje jako kafelki o szerokości dopasowanej do liczby filmów (w-fit).
+            Dzięki temu kafelek nigdy nie ma pustego slotu, a kafelki (równej wysokości) płyną w rzędach. */}
+        {narrowCategories.length > 0 && (
+          <div className="flex flex-wrap gap-5 items-stretch">
+            {narrowCategories.map((category) => (
+              <section
+                key={category}
+                className="w-fit max-w-full border border-slate-800 bg-slate-900/40 rounded-xl p-4 flex flex-col"
+              >
+                <h2 className="text-lg font-bold mb-3 text-slate-200 pl-2 border-l-4 border-indigo-500 rounded-sm">
+                  {category}
+                </h2>
+                <div className="flex flex-wrap gap-4">
+                  {groupedMovies[category].map((movie) => (
+                    <div key={movie.id} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0">
+                      <MovieCard movie={movie} />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );
