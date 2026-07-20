@@ -13,7 +13,10 @@ from scrapers.multikino import scrape_and_save as scrape_multikina
 from scrapers.cinema_city import scrape_and_save as scrape_cinema_city
 from scrapers.helios import scrape_and_save as scrape_helios
 from scrapers.kino_muza import scrape_and_save as scrape_muza
-from db.database import consolidate_movie_data, consolidate_release_dates, dedupe_by_normalized_title, dedupe_ukrainian_by_tmdb
+from db.database import (
+    consolidate_movie_data, consolidate_release_dates, dedupe_by_normalized_title,
+    dedupe_ukrainian_by_tmdb, delete_past_screenings, delete_orphan_movies, log_run_summary,
+)
 from core.enrich_movies import enrich_movies_data
 
 
@@ -38,7 +41,7 @@ async def run_all() -> bool:
     if failed:
         logger.warning("Nieudane źródła: %s. Kontynuuję konsolidację na danych częściowych.", ", ".join(failed))
     else:
-        logger.info("Wszystkie źródła (Multikino, Cinema City, Helios) pobrane i zapisane.")
+        logger.info("Wszystkie źródła (%s) pobrane i zapisane.", ", ".join(sources))
 
     # Łączymy rekordy różniące się tylko diakrytykami w tytule (np. Andre/André Rieu)
     # przed konsolidacją, żeby dalsze kroki pracowały na odchudzonym zbiorze.
@@ -48,7 +51,7 @@ async def run_all() -> bool:
     consolidate_movie_data(supabase)
 
     # Po zakończeniu scrapowania kin uzupełniamy brakujące dane z TMDB i Filmwebu
-    await enrich_movies_data(supabase)
+    enriched_count = await enrich_movies_data(supabase)
 
     # Scalenie rekordów ukraińskiego dubbingu tego samego filmu z różnych sieci (po tmdb_id nadanym w enrich).
     dedupe_ukrainian_by_tmdb(supabase)
@@ -56,6 +59,18 @@ async def run_all() -> bool:
     # Konsolidacja daty premiery MUSI być po enrich - dopiero wtedy znamy daty z TMDB/Filmweb,
     # więc min liczy się ze wszystkich źródeł naraz.
     consolidate_release_dates(supabase)
+
+    # Sprzątanie (umożliwia scrapowanie bez czyszczenia bazy):
+    # - przeszłe seanse usuwamy zawsze (są zawsze nieaktualne),
+    # - osierocone filmy tylko gdy WSZYSTKIE źródła OK (inaczej skasowalibyśmy filmy nieudanego źródła).
+    past_deleted = delete_past_screenings(supabase)
+    orphans_deleted = 0
+    if not failed:
+        orphans_deleted = delete_orphan_movies(supabase)
+    else:
+        logger.warning("Pomijam kasowanie osieroconych filmów - było nieudane źródło.")
+
+    log_run_summary(supabase, enriched_count or 0, past_deleted, orphans_deleted)
 
     logger.info("=== KONIEC: proces zakończony (bez błędów źródeł: %s) ===", not failed)
     return not failed

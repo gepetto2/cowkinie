@@ -4,7 +4,7 @@ import re
 from html import unescape
 from curl_cffi import requests
 from utils import parse_start_time, clean_title, normalize_lang, parse_release_date
-from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
+from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked, load_existing_movies
 
 logger = logging.getLogger(__name__)
 
@@ -134,9 +134,20 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     "description_muza": _strip_html(it.get("shortDesc") or it.get("desc")),
                 }
 
-            # KROK 2: prawdziwe plakaty ze stron filmów (thumb z repertuaru to poziomy kadr)
-            to_fetch = [(t, link) for t, link in movie_links.items() if link]
-            logger.info(f"Pobieranie plakatów ze stron {len(to_fetch)} filmów...")
+            # KROK 2: prawdziwe plakaty ze stron filmów (thumb z repertuaru to poziomy kadr).
+            # Pomijamy pobieranie strony filmu, jeśli plakat jest już w bazie (scrape bez czyszczenia).
+            existing = load_existing_movies(supabase, ["poster_muza"])
+            reused = 0
+            to_fetch = []
+            for title, link in movie_links.items():
+                cached = existing.get(title, {}).get("poster_muza")
+                if cached:
+                    movies_to_upsert[title]["poster_muza"] = cached
+                    reused += 1
+                elif link:
+                    to_fetch.append((title, link))
+            logger.info(f"Plakaty: {reused} z bazy (pominięto), {len(to_fetch)} do pobrania ze stron filmów...")
+
             poster_tasks = [_fetch_poster(client, t, link, sem) for t, link in to_fetch]
             found = 0
             for i, coro in enumerate(asyncio.as_completed(poster_tasks), 1):
@@ -145,7 +156,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     movies_to_upsert[title]["poster_muza"] = poster
                     found += 1
                 if i % 10 == 0 or i == len(poster_tasks):
-                    logger.info(f"  Plakaty: {i}/{len(poster_tasks)} (znaleziono {found})")
+                    logger.info(f"  Plakaty: {i}/{len(to_fetch)} (znaleziono {found})")
 
             movies_cache = upsert_movies_batch(supabase, movies_to_upsert)
             logger.info(f"Zapisano {len(movies_cache)} filmów Kina Muza.")

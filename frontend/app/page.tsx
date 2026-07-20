@@ -189,7 +189,7 @@ export default async function Home({
         {topMovies.length > 0 && (
           <section className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-amber-500 rounded-sm">
-              Najwięcej seansów
+              Najpopularniejsze
             </h2>
             
             <div 

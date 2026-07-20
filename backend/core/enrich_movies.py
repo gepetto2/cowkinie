@@ -24,7 +24,7 @@ async def enrich_movies_data(supabase: Client):
 
     if not movies:
         logger.info("Wszystkie filmy mają już pobrane informacje z baz zewnętrznych.")
-        return
+        return 0
 
     logger.info(f"Znaleziono {len(movies)} filmów do uzupełnienia.")
 
@@ -108,3 +108,4 @@ async def enrich_movies_data(supabase: Client):
                     logger.error(f"Błąd podczas aktualizacji filmu '{db_title}' w bazie: {e}")
                     
     logger.info("Zakończono wzbogacanie danych o filmach!")
+    return len(movies)

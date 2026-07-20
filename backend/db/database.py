@@ -1,6 +1,8 @@
 import logging
 import re
 import unicodedata
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
 
 
 logger = logging.getLogger(__name__)
@@ -28,19 +30,29 @@ def upsert_movies_batch(supabase, movies_to_upsert: dict) -> dict:
     
     return {m["title"]: m["id"] for m in movie_res.data}
 
+def load_existing_movies(supabase, columns: list) -> dict:
+    """Zwraca {title: wiersz} dla filmów już w bazie - pozwala pominąć kosztowne sub-fetche
+    (plakaty/szczegóły) przy scrapie bez czyszczenia. `columns` to dodatkowe kolumny (title dołączany zawsze).
+    Uwaga: przy >1000 filmach trzeba by paginować (obecnie ~130, mieści się w limicie)."""
+    select = "title," + ",".join(columns)
+    rows = supabase.table("movies").select(select).execute().data or []
+    return {r["title"]: r for r in rows}
+
 def upsert_screenings_chunked(supabase, screenings_dict: dict, cinema_name: str, chunk_size: int = 1000):
-    """Zapisuje seanse do bazy danych z uwzględnieniem paginacji."""
+    """ZASTĘPUJE komplet seansów danego kina świeżym zestawem (usuwa stare, wstawia nowe).
+    Dzięki temu scrapowanie działa poprawnie BEZ czyszczenia bazy: znikają seanse odwołane/przeszłe,
+    a availability_ratio/format istniejących seansów się odświeżają. Scraper podaje pełny bieżący repertuar kina."""
     if not screenings_dict:
         return
-        
+
     screenings_list = list(screenings_dict.values())
+    cinema_id = screenings_list[0]["cinema_id"]
+
+    # Usuwamy dotychczasowe seanse tego kina, potem wstawiamy świeży komplet (brak konfliktów -> zwykły insert).
+    supabase.table("screenings").delete().eq("cinema_id", cinema_id).execute()
     for i in range(0, len(screenings_list), chunk_size):
-        supabase.table("screenings").upsert(
-            screenings_list[i:i+chunk_size],
-            on_conflict="movie_id,cinema_id,start_time,room_name",
-            ignore_duplicates=True
-        ).execute()
-    logger.info(f"Zapisano {len(screenings_list)} seansów do bazy dla kina {cinema_name}.")
+        supabase.table("screenings").insert(screenings_list[i:i+chunk_size]).execute()
+    logger.info(f"Zastąpiono {len(screenings_list)} seansów w bazie dla kina {cinema_name}.")
 
 def consolidate_movie_data(supabase):
     """Wypełnia główne kolumny release_year, movie_type, director, original_title i poster na podstawie danych z poszczególnych źródeł."""
@@ -139,16 +151,17 @@ def consolidate_movie_data(supabase):
     logger.info(f"Zaktualizowano dane dla {updated_count} filmów.")
 
 def consolidate_release_dates(supabase):
-    """Po enrich: ustala główną release_date (min ze WSZYSTKICH źródeł) oraz przelicza release_year
-    jako najwcześniejszy rok ze wszystkich źródeł, łącznie z TMDB/Filmweb.
-    Uruchamiane PO wzbogaceniu, gdy dane z TMDB/Filmweb są już pobrane. Korekta roku jest kluczowa dla
-    wznowień: kina podają rok WZNOWIENIA (np. Multikino 2026 dla filmu z 1990), a TMDB/Filmweb rok produkcji."""
-    logger.info("Konsolidacja daty i roku premiery (min ze wszystkich źródeł, łącznie z TMDB/Filmweb)...")
+    """Po enrich: ustala główną release_date (min ze WSZYSTKICH źródeł), release_year (najwcześniejszy rok)
+    oraz length (czas trwania). Uruchamiane PO wzbogaceniu, gdy dane z TMDB/Filmweb są już pobrane.
+    Korekta roku jest kluczowa dla wznowień: kina podają rok WZNOWIENIA, a TMDB/Filmweb rok produkcji.
+    Czas trwania bierzemy w priorytecie TMDB -> Filmweb -> kina (kanoniczny czas filmu; kina bywają z reklamami)."""
+    logger.info("Konsolidacja daty/roku premiery i czasu trwania (po enrich, ze wszystkich źródeł)...")
 
     response = supabase.table("movies").select(
-        "id, title, release_year, "
+        "id, title, release_year, length, "
         "release_date_cc, release_date_multikino, release_date_helios, release_date_tmdb, release_date_filmweb, release_date_muza, "
-        "release_year_cc, release_year_multikino, release_year_helios, release_year_tmdb, release_year_filmweb, release_year_muza"
+        "release_year_cc, release_year_multikino, release_year_helios, release_year_tmdb, release_year_filmweb, release_year_muza, "
+        "length_cc, length_multikino, length_helios, length_tmdb, length_filmweb, length_muza"
     ).execute()
     movies = response.data
 
@@ -174,6 +187,14 @@ def consolidate_release_dates(supabase):
             new_year = min(valid_years)
             if new_year != movie.get("release_year"):
                 update_data["release_year"] = new_year
+
+        # Czas trwania: pierwszy sensowny wg priorytetu źródeł (TMDB/Filmweb kanoniczne, potem kina)
+        length = next(
+            (movie.get(f"length_{s}") for s in ("tmdb", "filmweb", "helios", "cc", "multikino", "muza") if movie.get(f"length_{s}")),
+            None,
+        )
+        if length and length != movie.get("length"):
+            update_data["length"] = length
 
         if update_data:
             supabase.table("movies").update(update_data).eq("id", movie["id"]).execute()
@@ -308,3 +329,52 @@ def dedupe_ukrainian_by_tmdb(supabase):
             supabase.table("movies").update(update_payload).eq("id", survivor["id"]).execute()
 
     logger.info(f"Ukraiński dubbing: scalono {merged_count} rekordów, ujednolicono {renamed_count} tytułów.")
+
+def delete_past_screenings(supabase):
+    """Usuwa seanse z przeszłości (start_time przed dzisiejszą północą w strefie Europe/Warsaw).
+    Bezpieczne w każdym przebiegu - przeszłe seanse są zawsze nieaktualne."""
+    warsaw_midnight = datetime.combine(
+        datetime.now(ZoneInfo("Europe/Warsaw")).date(), time.min, tzinfo=ZoneInfo("Europe/Warsaw")
+    )
+    cutoff = warsaw_midnight.isoformat()
+    res = supabase.table("screenings").delete().lt("start_time", cutoff).execute()
+    count = len(res.data or [])
+    logger.info(f"Usunięto przeszłe seanse (start_time < {cutoff}): {count}.")
+    return count
+
+def delete_orphan_movies(supabase):
+    """Usuwa filmy bez żadnego seansu (wypadły z repertuaru). Uruchamiać TYLKO gdy wszystkie źródła
+    zescrapowały się poprawnie - inaczej skasowalibyśmy filmy chwilowo nieudanego źródła."""
+    all_ids = {m["id"] for m in supabase.table("movies").select("id").execute().data}
+    # movie_screening_counts to widok z jednym wierszem na film mający seanse (agregacja) - mieści się w limicie
+    used_ids = {r["movie_id"] for r in supabase.table("movie_screening_counts").select("movie_id").execute().data}
+    orphans = [i for i in all_ids if i not in used_ids]
+
+    if not orphans:
+        logger.info("Brak osieroconych filmów do usunięcia.")
+        return 0
+
+    for i in range(0, len(orphans), 100):
+        supabase.table("movies").delete().in_("id", orphans[i:i+100]).execute()
+    logger.info(f"Usunięto {len(orphans)} osieroconych filmów (bez seansów).")
+    return len(orphans)
+
+def log_run_summary(supabase, enriched_count=0, past_deleted=0, orphans_deleted=0):
+    """Wypisuje na końcu logu zwięzłe podsumowanie przebiegu (stan bazy + statystyki sprzątania)."""
+    total_movies = supabase.table("movies").select("id", count="exact").limit(1).execute().count
+    total_scr = supabase.table("screenings").select("id", count="exact").limit(1).execute().count
+
+    # Seanse w rozbiciu na sieci (po kilka zapytań count - pozwala wychwycić źródło, które nic nie zwróciło)
+    cinemas = supabase.table("cinemas").select("id, franchise").execute().data
+    by_franchise = {}
+    for c in cinemas:
+        by_franchise.setdefault(c.get("franchise") or "?", []).append(c["id"])
+    parts = []
+    for fr, ids in sorted(by_franchise.items()):
+        cnt = supabase.table("screenings").select("id", count="exact").in_("cinema_id", ids).limit(1).execute().count
+        parts.append(f"{fr}: {cnt}")
+
+    logger.info("=== PODSUMOWANIE ===")
+    logger.info("Filmy w bazie: %s (nowo wzbogaconych w tym przebiegu: %s)", total_movies, enriched_count)
+    logger.info("Seanse w bazie: %s  [%s]", total_scr, ", ".join(parts))
+    logger.info("Sprzątanie: przeszłych seansów usunięto %s, osieroconych filmów %s", past_deleted, orphans_deleted)

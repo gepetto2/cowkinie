@@ -6,7 +6,7 @@ from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date
-from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
+from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked, load_existing_movies
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,9 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
 
             movies_cache = {}  # Pamięć podręczna dla pobranych/dodanych filmów z bazy
             global_film_details_cache = {}  # Pamięć dla szczegółów z API (reżyser itp.)
-            
+            # Filmy już w bazie - pozwala pominąć pobieranie szczegółów (reżysera) przy scrapie bez czyszczenia
+            existing_cc = load_existing_movies(supabase, ["director_cc"])
+
             sem = asyncio.Semaphore(10)  # Ograniczenie do max. 10 jednoczesnych połączeń
 
             # KROK 3: Iteracja po znalezionych kinach
@@ -145,10 +147,15 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     all_films_api_list.extend(body.get("films", []))
                     all_events_api_list.extend(body.get("events", []))
 
-                # Filtrowanie unikalnych filmów i pobieranie brakujących szczegółów
+                # Filtrowanie unikalnych filmów i pobieranie brakujących szczegółów.
+                # Pomijamy szczegóły filmów już w bazie (tytuł znamy z listy, reżysera weźmiemy z bazy).
                 unique_films = {f["id"]: f for f in all_films_api_list if f.get("id")}.values()
-                missing_details_ids = [f["id"] for f in unique_films if f["id"] not in global_film_details_cache]
-                
+                missing_details_ids = [
+                    f["id"] for f in unique_films
+                    if f["id"] not in global_film_details_cache
+                    and clean_title((f.get("name") or "").strip()) not in existing_cc
+                ]
+
                 if missing_details_ids:
                     logger.info(f"Pobieranie dodatkowych szczegółów dla {len(missing_details_ids)} filmów...")
                     details_tasks = [fetch_film_details(client, film_id, headers, sem) for film_id in missing_details_ids]
@@ -193,6 +200,9 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         raw_release_year = film.get("releaseYear")
                         release_year = str(raw_release_year).replace('/', ',').split(',')[0].strip() if raw_release_year else None
 
+                        # Reżyser: ze świeżo pobranych szczegółów, a dla pominiętych (znanych) filmów z bazy
+                        director_cc = details.get("directors") or existing_cc.get(title, {}).get("director_cc")
+
                         all_movies_to_upsert[title] = {
                             "title": title,
                             "movie_type_cc": movie_type,
@@ -200,7 +210,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                             "poster_cc": get_valid_poster(film.get("posterLink")),
                             "release_year_cc": release_year,
                             "release_date_cc": parse_release_date(film.get("releaseDate")),
-                            "director_cc": details.get("directors")
+                            "director_cc": director_cc
                         }
                         
                 # Zbiorczy Upsert wszystkich nowych filmów ze wszystkich dni
