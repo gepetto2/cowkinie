@@ -13,27 +13,29 @@ from scrapers.multikino import scrape_and_save as scrape_multikina
 from scrapers.cinema_city import scrape_and_save as scrape_cinema_city
 from scrapers.helios import scrape_and_save as scrape_helios
 from scrapers.kino_muza import scrape_and_save as scrape_muza
+from scrapers.cinema_lumiere import scrape_and_save as scrape_lumiere
 from db.database import (
-    consolidate_movie_data, consolidate_release_dates, dedupe_by_normalized_title,
+    consolidate_movie_data, consolidate_post_enrich, dedupe_by_normalized_title,
     dedupe_ukrainian_by_tmdb, delete_past_screenings, delete_orphan_movies, log_run_summary,
 )
 from core.enrich_movies import enrich_movies_data
 
 
 logger = logging.getLogger(__name__)
-TARGET_CITIES = ["Poznań", "Bydgoszcz"]
+TARGET_CITIES = ["Poznań", "Bydgoszcz", "Suwałki"]
 
 async def run_all() -> bool:
     """Zwraca True, jeśli wszystkie źródła zeskrapowały się bez błędu."""
     logger.info("=== START: pobieranie danych ze wszystkich kin dla miast: %s ===", ", ".join(TARGET_CITIES))
 
-    sources = ["Multikino", "Cinema City", "Helios", "Kino Muza"]
+    sources = ["Multikino", "Cinema City", "Helios", "Kino Muza", "Cinema Lumiere"]
     # return_exceptions=True: awaria jednego źródła nie przerywa pozostałych ani konsolidacji.
     results = await asyncio.gather(
         scrape_multikina(supabase, TARGET_CITIES),
         scrape_cinema_city(supabase, TARGET_CITIES),
         scrape_helios(supabase, TARGET_CITIES),
         scrape_muza(supabase, TARGET_CITIES),
+        scrape_lumiere(supabase, TARGET_CITIES),
         return_exceptions=True
     )
 
@@ -56,9 +58,9 @@ async def run_all() -> bool:
     # Scalenie rekordów ukraińskiego dubbingu tego samego filmu z różnych sieci (po tmdb_id nadanym w enrich).
     dedupe_ukrainian_by_tmdb(supabase)
 
-    # Konsolidacja daty premiery MUSI być po enrich - dopiero wtedy znamy daty z TMDB/Filmweb,
-    # więc min liczy się ze wszystkich źródeł naraz.
-    consolidate_release_dates(supabase)
+    # Konsolidacja po enrich MUSI być po enrich - dopiero wtedy znamy dane z TMDB/Filmweb
+    # (daty, rok, czas, plakat-fallback, gatunek), więc liczą się ze wszystkich źródeł naraz.
+    consolidate_post_enrich(supabase)
 
     # Sprzątanie (umożliwia scrapowanie bez czyszczenia bazy):
     # - przeszłe seanse usuwamy zawsze (są zawsze nieaktualne),

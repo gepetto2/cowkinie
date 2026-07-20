@@ -42,6 +42,7 @@ export type Database = {
         Row: {
           cast_multikino: string | null
           created_at: string | null
+          description_lumiere: string | null
           description_multikino: string | null
           description_muza: string | null
           description_tmdb: string | null
@@ -52,11 +53,14 @@ export type Database = {
           director_multikino: string | null
           director_muza: string | null
           director_tmdb: string | null
+          genre: string | null
+          genre_lumiere: string | null
           id: string
           length: number | null
           length_cc: number | null
           length_filmweb: number | null
           length_helios: number | null
+          length_lumiere: number | null
           length_multikino: number | null
           length_muza: number | null
           length_tmdb: number | null
@@ -66,7 +70,6 @@ export type Database = {
           movie_type_multikino: string | null
           movie_type_muza: string | null
           original_title: string | null
-          original_title_cc: string | null
           original_title_helios: string | null
           original_title_muza: string | null
           original_title_tmdb: string | null
@@ -98,6 +101,7 @@ export type Database = {
         Insert: {
           cast_multikino?: string | null
           created_at?: string | null
+          description_lumiere?: string | null
           description_multikino?: string | null
           description_muza?: string | null
           description_tmdb?: string | null
@@ -108,11 +112,14 @@ export type Database = {
           director_multikino?: string | null
           director_muza?: string | null
           director_tmdb?: string | null
+          genre?: string | null
+          genre_lumiere?: string | null
           id?: string
           length?: number | null
           length_cc?: number | null
           length_filmweb?: number | null
           length_helios?: number | null
+          length_lumiere?: number | null
           length_multikino?: number | null
           length_muza?: number | null
           length_tmdb?: number | null
@@ -122,7 +129,6 @@ export type Database = {
           movie_type_multikino?: string | null
           movie_type_muza?: string | null
           original_title?: string | null
-          original_title_cc?: string | null
           original_title_helios?: string | null
           original_title_muza?: string | null
           original_title_tmdb?: string | null
@@ -154,6 +160,7 @@ export type Database = {
         Update: {
           cast_multikino?: string | null
           created_at?: string | null
+          description_lumiere?: string | null
           description_multikino?: string | null
           description_muza?: string | null
           description_tmdb?: string | null
@@ -164,11 +171,14 @@ export type Database = {
           director_multikino?: string | null
           director_muza?: string | null
           director_tmdb?: string | null
+          genre?: string | null
+          genre_lumiere?: string | null
           id?: string
           length?: number | null
           length_cc?: number | null
           length_filmweb?: number | null
           length_helios?: number | null
+          length_lumiere?: number | null
           length_multikino?: number | null
           length_muza?: number | null
           length_tmdb?: number | null
@@ -178,7 +188,6 @@ export type Database = {
           movie_type_multikino?: string | null
           movie_type_muza?: string | null
           original_title?: string | null
-          original_title_cc?: string | null
           original_title_helios?: string | null
           original_title_muza?: string | null
           original_title_tmdb?: string | null

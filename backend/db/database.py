@@ -55,94 +55,67 @@ def upsert_screenings_chunked(supabase, screenings_dict: dict, cinema_name: str,
     logger.info(f"Zastąpiono {len(screenings_list)} seansów w bazie dla kina {cinema_name}.")
 
 def consolidate_movie_data(supabase):
-    """Wypełnia główne kolumny release_year, movie_type, director, original_title i poster na podstawie danych z poszczególnych źródeł."""
-    logger.info("Konsolidacja danych o filmach (release_year, movie_type, director, original_title, poster)...")
-    
-    # Pobieramy filmy, które nie mają jeszcze głównego release_year, movie_type, director, original_title lub poster
-    response = supabase.table("movies").select(
-        "id, title, release_year, movie_type, director, original_title, poster, "
-        "release_year_cc, release_year_multikino, release_year_helios, release_year_muza, "
-        "movie_type_cc, movie_type_multikino, movie_type_helios, movie_type_muza, "
-        "director_multikino, director_helios, director_cc, director_muza, "
-        "original_title_cc, original_title_helios, original_title_muza, "
-        "poster_cc, poster_multikino, poster_helios, poster_muza"
-    ).or_("release_year.is.null,movie_type.is.null,director.is.null,original_title.is.null,poster.is.null").execute()
+    """Przed enrich: wypełnia TYLKO pola używane jako wejście do wyszukiwania w TMDB/Filmweb
+    (release_year, movie_type, director, original_title). Reszta (poster, genre, release_date, length)
+    konsolidowana jest po enrich w consolidate_post_enrich - dzięki temu może korzystać z danych z API."""
+    logger.info("Konsolidacja danych do wyszukiwania (release_year, movie_type, director, original_title)...")
+
+    # Źródła per pole (kolejność = priorytet tam, gdzie bierzemy pierwszą niepustą wartość).
+    cinemas = ("multikino", "cc", "helios", "muza")
+    ot_sources = ("helios", "muza")  # original_title: bez Multikina, priorytet Helios -> CC -> Muza
+
+    # Pobieramy filmy, które nie mają jeszcze głównego release_year, movie_type, director lub original_title
+    select_cols = ["id", "title", "release_year", "movie_type", "director", "original_title"]
+    select_cols += [f"release_year_{s}" for s in cinemas]
+    select_cols += [f"movie_type_{s}" for s in cinemas]
+    select_cols += [f"director_{s}" for s in cinemas]
+    select_cols += [f"original_title_{s}" for s in ot_sources]
+    response = supabase.table("movies").select(", ".join(select_cols)).or_(
+        "release_year.is.null,movie_type.is.null,director.is.null,original_title.is.null"
+    ).execute()
     movies = response.data
-    
+
     if not movies:
-        logger.info("Wszystkie filmy mają już określony release_year, movie_type, director, original_title oraz poster.")
+        logger.info("Wszystkie filmy mają już określony release_year, movie_type, director oraz original_title.")
         return
-        
+
     updated_count = 0
     for movie in movies:
         update_data = {}
-        
-        if movie.get("release_year") is None:
-            years = [movie.get("release_year_multikino"), movie.get("release_year_cc"), movie.get("release_year_helios"), movie.get("release_year_muza")]
-            valid_years = [y for y in years if y is not None]
 
+        if movie.get("release_year") is None:
+            valid_years = [y for y in (movie.get(f"release_year_{s}") for s in cinemas) if y is not None]
             if valid_years:
                 # Wybieramy najstarszy zeskrapowany rok
                 update_data["release_year"] = min(valid_years)
 
         if movie.get("movie_type") is None:
-            types = [movie.get("movie_type_multikino"), movie.get("movie_type_cc"), movie.get("movie_type_helios"), movie.get("movie_type_muza")]
-            valid_types = [t for t in types if t] # Pobieramy tylko niepuste stringi
-            
+            valid_types = [t for t in (movie.get(f"movie_type_{s}") for s in cinemas) if t]
             if valid_types:
                 unique_types = list(set(valid_types))
                 if len(unique_types) > 1:
                     logger.warning(f"Niezgodność typów dla filmu '{movie.get('title')}': {unique_types}")
-                
                 # Wybieramy pierwszą z brzegu niepustą wartość
                 update_data["movie_type"] = valid_types[0]
-                
+
         if movie.get("director") is None:
-            directors = [
-                movie.get("director_multikino"),
-                movie.get("director_helios"),
-                movie.get("director_cc"),
-                movie.get("director_muza")
-            ]
-            valid_directors = [d for d in directors if d]
-            
+            valid_directors = [d for d in (movie.get(f"director_{s}") for s in cinemas) if d]
             if valid_directors:
                 unique_directors = list({d.lower(): d for d in valid_directors}.values())
                 if len(unique_directors) > 1:
                     longest_director_lower = max(unique_directors, key=len).lower()
                     if not all(d.lower() in longest_director_lower for d in unique_directors):
                         logger.warning(f"Niezgodność reżyserów dla filmu '{movie.get('title')}': {unique_directors}")
-                
                 # Wybieramy najdłuższą z dostępnych wartości
                 update_data["director"] = max(valid_directors, key=len)
-                
+
         if movie.get("original_title") is None:
-            original_titles = [
-                movie.get("original_title_helios"),
-                movie.get("original_title_cc"),
-                movie.get("original_title_muza")
-            ]
-            valid_titles = [t for t in original_titles if t]
-
+            valid_titles = [t for t in (movie.get(f"original_title_{s}") for s in ot_sources) if t]
             if valid_titles:
-                unique_titles = list(set(valid_titles))
-                if len(unique_titles) > 1:
-                    logger.warning(f"Niezgodność oryginalnych tytułów dla filmu '{movie.get('title')}': {unique_titles}")
-
-                # Preferujemy tytuł z Heliosa, potem Cinema City, na końcu Muza
-                update_data["original_title"] = movie.get("original_title_helios") or movie.get("original_title_cc") or movie.get("original_title_muza")
-                
-        if movie.get("poster") is None:
-            posters = [
-                movie.get("poster_cc"),
-                movie.get("poster_helios"),
-                movie.get("poster_multikino"),
-                movie.get("poster_muza")
-            ]
-            valid_posters = [p for p in posters if p]
-            
-            if valid_posters:
-                update_data["poster"] = valid_posters[0]
+                if len(set(valid_titles)) > 1:
+                    logger.warning(f"Niezgodność oryginalnych tytułów dla filmu '{movie.get('title')}': {list(set(valid_titles))}")
+                # ot_sources jest już w kolejności priorytetu (Helios -> CC -> Muza)
+                update_data["original_title"] = valid_titles[0]
 
         if update_data:
             supabase.table("movies").update(update_data).eq("id", movie["id"]).execute()
@@ -150,19 +123,26 @@ def consolidate_movie_data(supabase):
 
     logger.info(f"Zaktualizowano dane dla {updated_count} filmów.")
 
-def consolidate_release_dates(supabase):
-    """Po enrich: ustala główną release_date (min ze WSZYSTKICH źródeł), release_year (najwcześniejszy rok)
-    oraz length (czas trwania). Uruchamiane PO wzbogaceniu, gdy dane z TMDB/Filmweb są już pobrane.
+def consolidate_post_enrich(supabase):
+    """Po enrich: konsoliduje pola, które NIE są potrzebne do wyszukiwania w API, więc korzystają
+    już z danych TMDB/Filmweb - release_date, release_year (finalny), length, poster, genre.
     Korekta roku jest kluczowa dla wznowień: kina podają rok WZNOWIENIA, a TMDB/Filmweb rok produkcji.
-    Czas trwania bierzemy w priorytecie TMDB -> Filmweb -> kina (kanoniczny czas filmu; kina bywają z reklamami)."""
-    logger.info("Konsolidacja daty/roku premiery i czasu trwania (po enrich, ze wszystkich źródeł)...")
+    Czas trwania bierzemy w priorytecie TMDB -> Filmweb -> kina (kanoniczny czas filmu; kina bywają z reklamami).
+    Plakat preferuje lokalne (PL) plakaty z kin, a TMDB jest ostatecznym fallbackiem."""
+    logger.info("Konsolidacja po enrich (release_date, release_year, length, poster, genre)...")
 
-    response = supabase.table("movies").select(
-        "id, title, release_year, length, "
-        "release_date_cc, release_date_multikino, release_date_helios, release_date_tmdb, release_date_filmweb, release_date_muza, "
-        "release_year_cc, release_year_multikino, release_year_helios, release_year_tmdb, release_year_filmweb, release_year_muza, "
-        "length_cc, length_multikino, length_helios, length_tmdb, length_filmweb, length_muza"
-    ).execute()
+    # Źródła per pole. Kolejność = priorytet dla length i poster (pierwsza niepusta wygrywa).
+    # Datę/rok premiery bierzemy z kin + TMDB/Filmweb (bez Lumiere - jego premiera bywa datą wznowienia).
+    date_sources = ("multikino", "cc", "helios", "tmdb", "filmweb", "muza")
+    length_sources = ("tmdb", "filmweb", "helios", "cc", "multikino", "muza", "lumiere")
+    poster_sources = ("cc", "helios", "multikino", "muza", "tmdb")  # lokalne (PL) plakaty z kin, TMDB jako fallback
+
+    select_cols = ["id", "title", "release_year", "length", "poster", "genre", "genre_lumiere"]
+    select_cols += [f"release_date_{s}" for s in date_sources]
+    select_cols += [f"release_year_{s}" for s in date_sources]
+    select_cols += [f"length_{s}" for s in length_sources]
+    select_cols += [f"poster_{s}" for s in poster_sources]
+    response = supabase.table("movies").select(", ".join(select_cols)).execute()
     movies = response.data
 
     if not movies:
@@ -174,33 +154,40 @@ def consolidate_release_dates(supabase):
         update_data = {}
 
         # Data premiery: najwcześniejsza z dostępnych (stringi ISO 'YYYY-MM-DD' porównują się chronologicznie)
-        dates = [movie.get(f"release_date_{s}") for s in ("multikino", "cc", "helios", "tmdb", "filmweb", "muza")]
-        valid_dates = [d for d in dates if d]
+        valid_dates = [d for d in (movie.get(f"release_date_{s}") for s in date_sources) if d]
         if valid_dates:
             update_data["release_date"] = min(valid_dates)
 
         # Rok produkcji: najwcześniejszy ze WSZYSTKICH źródeł. Nadpisuje ewentualny rok wznowienia
         # ustawiony w konsolidacji przed-enrich (która nie zna jeszcze lat z TMDB/Filmweb).
-        years = [movie.get(f"release_year_{s}") for s in ("multikino", "cc", "helios", "tmdb", "filmweb", "muza")]
-        valid_years = [int(y) for y in years if y is not None]
+        valid_years = [int(y) for y in (movie.get(f"release_year_{s}") for s in date_sources) if y is not None]
         if valid_years:
             new_year = min(valid_years)
             if new_year != movie.get("release_year"):
                 update_data["release_year"] = new_year
 
         # Czas trwania: pierwszy sensowny wg priorytetu źródeł (TMDB/Filmweb kanoniczne, potem kina)
-        length = next(
-            (movie.get(f"length_{s}") for s in ("tmdb", "filmweb", "helios", "cc", "multikino", "muza") if movie.get(f"length_{s}")),
-            None,
-        )
+        length = next((movie.get(f"length_{s}") for s in length_sources if movie.get(f"length_{s}")), None)
         if length and length != movie.get("length"):
             update_data["length"] = length
+
+        # Plakat: preferujemy lokalne plakaty z kin, TMDB jako ostateczny fallback (dla filmów bez plakatu z kina)
+        if movie.get("poster") is None:
+            poster = next((movie.get(f"poster_{s}") for s in poster_sources if movie.get(f"poster_{s}")), None)
+            if poster:
+                update_data["poster"] = poster
+
+        # Gatunek: na razie dostarcza go tylko Cinema Lumiere; docelowo dojdą TMDB/CC/Helios
+        if movie.get("genre") is None:
+            genre = movie.get("genre_lumiere")
+            if genre:
+                update_data["genre"] = genre
 
         if update_data:
             supabase.table("movies").update(update_data).eq("id", movie["id"]).execute()
             updated_count += 1
 
-    logger.info(f"Zaktualizowano datę/rok premiery dla {updated_count} filmów.")
+    logger.info(f"Zaktualizowano dane po enrich dla {updated_count} filmów.")
 
 def _normalize_title_key(title: str) -> str:
     """Klucz porównawczy tytułu: bez diakrytyków, bez wielkości liter, ze zbitymi spacjami.

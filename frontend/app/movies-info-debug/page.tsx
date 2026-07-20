@@ -119,7 +119,8 @@ export default async function MoviesInfoPage() {
                         { label: "Rok wydania", value: movie.release_year },
                         { label: "Data premiery", value: movie.release_date },
                         { label: "Czas", value: movie.length !== null ? `${movie.length} min` : null },
-                        { label: "Typ", value: movie.movie_type }
+                        { label: "Typ", value: movie.movie_type },
+                        { label: "Gatunek", value: movie.genre }
                       ]}
                     />
                     <InfoBlock 
@@ -188,6 +189,14 @@ export default async function MoviesInfoPage() {
                         { label: "Data premiery", value: movie.release_date_muza },
                         { label: "Czas", value: movie.length_muza !== null ? `${movie.length_muza} min` : null },
                         { label: "Opis", value: movie.description_muza }
+                      ]}
+                    />
+                    <InfoBlock
+                      title="Cinema Lumiere"
+                      items={[
+                        { label: "Czas", value: movie.length_lumiere !== null ? `${movie.length_lumiere} min` : null },
+                        { label: "Gatunek", value: movie.genre_lumiere },
+                        { label: "Opis", value: movie.description_lumiere }
                       ]}
                     />
                   </div>
