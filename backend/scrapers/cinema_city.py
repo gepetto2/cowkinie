@@ -2,6 +2,7 @@ import logging
 import asyncio
 import json
 import re
+from html import unescape
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -9,6 +10,13 @@ from utils import parse_start_time, clean_title, get_valid_poster, normalize_lan
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked, load_existing_movies
 
 logger = logging.getLogger(__name__)
+
+
+def _strip_html(text: str):
+    """Usuwa tagi HTML i dekoduje encje z opisu (synopsis CC ma m.in. &nbsp;)."""
+    if not text:
+        return None
+    return unescape(re.sub(r"<[^>]+>", "", text)).replace("\xa0", " ").strip() or None
 
 # Mapowanie tokenów formatu/technologii z attributeIds na czytelną formę (spójną z Multikinem).
 # Pozostałe attributeIds to gatunki, kategorie wiekowe, języki, typ foteli itp. - nie są formatem.
@@ -18,6 +26,16 @@ CC_FORMAT_MAP = {
     "4dx": "4DX", "4dx-3d": "4DX 3D", "4dx-2d": "4DX",
     "screenx": "ScreenX", "vip": "VIP",
     "dolby-atmos": "Dolby Atmos", "dbox": "D-BOX", "d-box": "D-BOX",
+}
+
+# Tokeny gatunków z attributeIds filmu -> polskie nazwy. Whitelist, bo attributeIds miesza
+# gatunki z formatem/językiem/kategorią wiekową - nieznane tokeny ignorujemy.
+CC_GENRE_MAP = {
+    "action": "Akcja", "adventure": "Przygodowy", "animation": "Animacja", "anime": "Anime",
+    "biography": "Biograficzny", "black-comedy": "Czarna komedia", "comedy": "Komedia",
+    "crime": "Kryminał", "documentary": "Dokumentalny", "drama": "Dramat", "family": "Familijny",
+    "fantasy": "Fantasy", "history": "Historyczny", "horror": "Horror", "musical": "Musical",
+    "romance": "Romans", "sci-fi": "Sci-Fi", "thriller": "Thriller", "war": "Wojenny", "western": "Western",
 }
 
 async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
@@ -90,9 +108,10 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 return
 
             movies_cache = {}  # Pamięć podręczna dla pobranych/dodanych filmów z bazy
-            global_film_details_cache = {}  # Pamięć dla szczegółów z API (reżyser itp.)
-            # Filmy już w bazie - pozwala pominąć pobieranie szczegółów (reżysera) przy scrapie bez czyszczenia
-            existing_cc = load_existing_movies(supabase, ["director_cc"])
+            global_film_details_cache = {}  # Pamięć dla szczegółów z API (reżyser, obsada, opis)
+            # Filmy już w bazie - pozwala pominąć pobieranie szczegółów przy scrapie bez czyszczenia.
+            # Bierzemy pola ze szczegółów; brak description_cc = szczegóły jeszcze niepobrane (dociągniemy).
+            existing_cc = load_existing_movies(supabase, ["director_cc", "cast_cc", "description_cc"])
 
             sem = asyncio.Semaphore(10)  # Ograniczenie do max. 10 jednoczesnych połączeń
 
@@ -148,12 +167,13 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     all_events_api_list.extend(body.get("events", []))
 
                 # Filtrowanie unikalnych filmów i pobieranie brakujących szczegółów.
-                # Pomijamy szczegóły filmów już w bazie (tytuł znamy z listy, reżysera weźmiemy z bazy).
+                # Pomijamy szczegóły tylko dla filmów, które mają już w bazie opis (czyli szczegóły
+                # zostały wcześniej pobrane); resztę - w tym nowe i te sprzed dodania opisu/obsady - dociągamy.
                 unique_films = {f["id"]: f for f in all_films_api_list if f.get("id")}.values()
                 missing_details_ids = [
                     f["id"] for f in unique_films
                     if f["id"] not in global_film_details_cache
-                    and clean_title((f.get("name") or "").strip()) not in existing_cc
+                    and not existing_cc.get(clean_title((f.get("name") or "").strip()), {}).get("description_cc")
                 ]
 
                 if missing_details_ids:
@@ -176,9 +196,6 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         # CC nie zawsze taguje seans atrybutem 'ladies-night' - łapiemy po prefiksie tytułu.
                         # Tytuł zostaje z prefiksem, by film nie skolidował po upsert(on_conflict=title) ze zwykłą wersją.
                         movie_type_override = "LADIES NIGHT/KNO"
-                    elif re.match(r"^Unlimited\s*Show\b", title, re.IGNORECASE):
-                        # Przedpremiera dla członków Unlimited - brak taga, rozpoznanie po prefiksie tytułu (tytuł zostaje).
-                        movie_type_override = "UNLIMITED SHOW"
                     title = clean_title(title)
 
                     if title and title not in movies_cache and title not in all_movies_to_upsert:
@@ -193,15 +210,26 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                             "sport-event": "SPORT",
                             "sport": "SPORT",
                             "dubbed-lang-uk": "UKRAIŃSKI DUBBING",
-                            "ladies-night": "LADIES NIGHT/KNO"
+                            "ladies-night": "LADIES NIGHT/KNO",
+                            # Przedpremiera dla członków Unlimited - CC daje osobny rekord filmu z tym atrybutem
+                            # (tytuł bywa "Unlimited Show: X" lub "UL - X", więc łapiemy po atrybucie, nie po tytule).
+                            "unlimited-screening": "UNLIMITED SHOW"
                         }
                         movie_type = movie_type_override or next((val for key, val in type_mapping.items() if key in attribute_ids), None)
 
                         raw_release_year = film.get("releaseYear")
                         release_year = str(raw_release_year).replace('/', ',').split(',')[0].strip() if raw_release_year else None
 
-                        # Reżyser: ze świeżo pobranych szczegółów, a dla pominiętych (znanych) filmów z bazy
-                        director_cc = details.get("directors") or existing_cc.get(title, {}).get("director_cc")
+                        # Dane ze szczegółów (reżyser/obsada/opis): ze świeżo pobranych, a dla pominiętych
+                        # (znanych) filmów reużywamy wartości z bazy, by nie nadpisać ich nullem.
+                        cached = existing_cc.get(title, {})
+                        director_cc = details.get("directors") or cached.get("director_cc")
+                        cast_cc = details.get("cast") or cached.get("cast_cc")
+                        description_cc = _strip_html(details.get("synopsis")) or cached.get("description_cc")
+
+                        # Gatunek: tokeny gatunków z attributeIds (bez dodatkowego zapytania), złączone przecinkiem
+                        genres = [CC_GENRE_MAP[a] for a in attribute_ids if a in CC_GENRE_MAP]
+                        genre_cc = ", ".join(dict.fromkeys(genres)) or None
 
                         all_movies_to_upsert[title] = {
                             "title": title,
@@ -210,7 +238,10 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                             "poster_cc": get_valid_poster(film.get("posterLink")),
                             "release_year_cc": release_year,
                             "release_date_cc": parse_release_date(film.get("releaseDate")),
-                            "director_cc": director_cc
+                            "director_cc": director_cc,
+                            "cast_cc": cast_cc,
+                            "description_cc": description_cc,
+                            "genre_cc": genre_cc
                         }
                         
                 # Zbiorczy Upsert wszystkich nowych filmów ze wszystkich dni

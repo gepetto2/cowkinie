@@ -62,7 +62,7 @@ def consolidate_movie_data(supabase):
 
     # Źródła per pole (kolejność = priorytet tam, gdzie bierzemy pierwszą niepustą wartość).
     cinemas = ("multikino", "cc", "helios", "muza")
-    ot_sources = ("helios", "muza")  # original_title: bez Multikina, priorytet Helios -> CC -> Muza
+    ot_sources = ("helios", "muza")  # original_title: tylko Helios i Muza (CC/Multikino nie dostarczają), priorytet Helios -> Muza
 
     # Pobieramy filmy, które nie mają jeszcze głównego release_year, movie_type, director lub original_title
     select_cols = ["id", "title", "release_year", "movie_type", "director", "original_title"]
@@ -136,12 +136,14 @@ def consolidate_post_enrich(supabase):
     date_sources = ("multikino", "cc", "helios", "tmdb", "filmweb", "muza")
     length_sources = ("tmdb", "filmweb", "helios", "cc", "multikino", "muza", "lumiere")
     poster_sources = ("cc", "helios", "multikino", "muza", "tmdb")  # lokalne (PL) plakaty z kin, TMDB jako fallback
+    genre_sources = ("cc", "lumiere")  # CC daje kilka gatunków naraz, Lumiere jeden - CC ma priorytet
 
-    select_cols = ["id", "title", "release_year", "length", "poster", "genre", "genre_lumiere"]
+    select_cols = ["id", "title", "release_year", "length", "poster", "genre"]
     select_cols += [f"release_date_{s}" for s in date_sources]
     select_cols += [f"release_year_{s}" for s in date_sources]
     select_cols += [f"length_{s}" for s in length_sources]
     select_cols += [f"poster_{s}" for s in poster_sources]
+    select_cols += [f"genre_{s}" for s in genre_sources]
     response = supabase.table("movies").select(", ".join(select_cols)).execute()
     movies = response.data
 
@@ -177,9 +179,9 @@ def consolidate_post_enrich(supabase):
             if poster:
                 update_data["poster"] = poster
 
-        # Gatunek: na razie dostarcza go tylko Cinema Lumiere; docelowo dojdą TMDB/CC/Helios
+        # Gatunek: pierwszy niepusty wg priorytetu (CC ma kilka gatunków, potem Lumiere)
         if movie.get("genre") is None:
-            genre = movie.get("genre_lumiere")
+            genre = next((movie.get(f"genre_{s}") for s in genre_sources if movie.get(f"genre_{s}")), None)
             if genre:
                 update_data["genre"] = genre
 

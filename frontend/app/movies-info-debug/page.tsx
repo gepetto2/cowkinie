@@ -147,15 +147,17 @@ export default async function MoviesInfoPage() {
                       ]} 
                     />
                     <InfoBlock 
-                      title="Cinema City" 
+                      title="Cinema City"
                       items={[
-                        { label: "Tytuł oryg.", value: movie.original_title_cc },
                         { label: "Reżyser", value: movie.director_cc },
                         { label: "Rok", value: movie.release_year_cc },
                         { label: "Data premiery", value: movie.release_date_cc },
                         { label: "Czas", value: movie.length_cc !== null ? `${movie.length_cc} min` : null },
-                        { label: "Typ", value: movie.movie_type_cc }
-                      ]} 
+                        { label: "Typ", value: movie.movie_type_cc },
+                        { label: "Gatunek", value: movie.genre_cc },
+                        { label: "Obsada", value: movie.cast_cc },
+                        { label: "Opis", value: movie.description_cc }
+                      ]}
                     />
                     <InfoBlock 
                       title="Multikino" 

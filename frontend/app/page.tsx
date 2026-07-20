@@ -150,6 +150,12 @@ export default async function Home({
     return acc;
   }, {} as Record<string, typeof enhancedMovies>);
 
+  // Filmy w obrębie każdej sekcji (STANDARD, KULTOWE, Kino Studyjne, typy wydarzeń) sortujemy
+  // alfabetycznie po tytule (locale pl - poprawne ą/ć/ł itd.).
+  for (const list of Object.values(groupedMovies)) {
+    list.sort((a, b) => a.title.localeCompare(b.title, 'pl'));
+  }
+
   // Kolejność: główna kategoria, potem "Kino Studyjne", potem reszta alfabetycznie.
   const mainCategory = query ? 'Wyniki wyszukiwania' : 'STANDARD';
   const categoryRank = (c: string) => (c === mainCategory ? 0 : c === 'Kino Studyjne' ? 1 : 2);

@@ -40,8 +40,10 @@ export type Database = {
       }
       movies: {
         Row: {
+          cast_cc: string | null
           cast_multikino: string | null
           created_at: string | null
+          description_cc: string | null
           description_lumiere: string | null
           description_multikino: string | null
           description_muza: string | null
@@ -54,6 +56,7 @@ export type Database = {
           director_muza: string | null
           director_tmdb: string | null
           genre: string | null
+          genre_cc: string | null
           genre_lumiere: string | null
           id: string
           length: number | null
@@ -99,8 +102,10 @@ export type Database = {
           tmdb_id: number | null
         }
         Insert: {
+          cast_cc?: string | null
           cast_multikino?: string | null
           created_at?: string | null
+          description_cc?: string | null
           description_lumiere?: string | null
           description_multikino?: string | null
           description_muza?: string | null
@@ -113,6 +118,7 @@ export type Database = {
           director_muza?: string | null
           director_tmdb?: string | null
           genre?: string | null
+          genre_cc?: string | null
           genre_lumiere?: string | null
           id?: string
           length?: number | null
@@ -158,8 +164,10 @@ export type Database = {
           tmdb_id?: number | null
         }
         Update: {
+          cast_cc?: string | null
           cast_multikino?: string | null
           created_at?: string | null
+          description_cc?: string | null
           description_lumiere?: string | null
           description_multikino?: string | null
           description_muza?: string | null
@@ -172,6 +180,7 @@ export type Database = {
           director_muza?: string | null
           director_tmdb?: string | null
           genre?: string | null
+          genre_cc?: string | null
           genre_lumiere?: string | null
           id?: string
           length?: number | null
