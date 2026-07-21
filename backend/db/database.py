@@ -135,8 +135,8 @@ def consolidate_post_enrich(supabase):
     # Datę/rok premiery bierzemy z kin + TMDB/Filmweb (bez Lumiere - jego premiera bywa datą wznowienia).
     date_sources = ("multikino", "cc", "helios", "tmdb", "filmweb", "muza")
     length_sources = ("tmdb", "filmweb", "helios", "cc", "multikino", "muza", "lumiere")
-    poster_sources = ("cc", "helios", "multikino", "muza", "tmdb")  # lokalne (PL) plakaty z kin, TMDB jako fallback
-    genre_sources = ("cc", "lumiere")  # CC daje kilka gatunków naraz, Lumiere jeden - CC ma priorytet
+    poster_sources = ("cc", "helios", "multikino", "muza", "tmdb", "filmweb")  # lokalne (PL) plakaty z kin, TMDB/Filmweb jako fallback
+    genre_sources = ("cc", "filmweb", "lumiere")  # CC daje kilka gatunków naraz (priorytet), Filmweb dla filmów spoza CC, Lumiere na końcu
 
     select_cols = ["id", "title", "release_year", "length", "poster", "genre"]
     select_cols += [f"release_date_{s}" for s in date_sources]

@@ -1,7 +1,9 @@
 import logging
 import asyncio
 import aiohttp
+import re
 import urllib.parse
+from html import unescape
 from typing import Optional
 
 from utils import parse_release_date
@@ -37,6 +39,33 @@ def _extract_filmweb_pl_date(dates_json):
     if node.get("country") == "PL" and node.get("dateInt"):
         return parse_release_date(node.get("dateInt"))
     return None
+
+def _fw_poster_url(info_json):
+    """Buduje URL plakatu z /info (posterPath ma placeholder '$' na rozmiar; 3 = duży)."""
+    path = (info_json or {}).get("posterPath")
+    if not path:
+        return None
+    return f"https://fwcdn.pl/fpo{path.replace('$', '3')}"
+
+def _fw_description(description_json, preview_data):
+    """Opis: pełny z /description, a w razie braku krótki z /preview (plot.synopsis)."""
+    text = (description_json or {}).get("synopsis") or ((preview_data.get("plot") or {}).get("synopsis"))
+    if not text:
+        return None
+    # Filmweb wstawia tagi bbcode, np. [person=5182]Michael Jordan[/person] - usuwamy tagi,
+    # zostawiając tekst w środku (nazwisko/tytuł).
+    text = re.sub(r"\[/?[a-zA-Z]+(?:=[^\]]*)?\]", "", text)
+    return unescape(text).strip() or None
+
+def _fw_cast(preview_data):
+    """Główna obsada z /preview (mainCast - topowe nazwiska), złączona przecinkiem."""
+    cast = [c.get("name") for c in preview_data.get("mainCast", []) if c.get("name")]
+    return ", ".join(cast) or None
+
+def _fw_genre(preview_data):
+    """Gatunki z /preview (genres - lista {name:{text}}), złączone przecinkiem."""
+    genres = [(g.get("name") or {}).get("text") for g in preview_data.get("genres", [])]
+    return ", ".join(g for g in genres if g) or None
 
 async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp.ClientSession):
     # Kodowanie tytułu do formatu URL (zamiana spacji na %20 itp.)
@@ -76,13 +105,16 @@ async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp
 
 async def get_filmweb_movie_details(movie_id: int, session: aiohttp.ClientSession):
     """Pobiera szczegółowe informacje o filmie na podstawie jego ID."""
-    url = f"https://www.filmweb.pl/api/v1/film/{movie_id}/preview"
-    dates_url = f"https://www.filmweb.pl/api/v1/film/{movie_id}/dates"
+    base = f"https://www.filmweb.pl/api/v1/film/{movie_id}"
 
-    # Równolegle: podstawowe dane (preview) i daty premier (dates), każde z ponowieniami
-    data, dates_json = await asyncio.gather(
-        _fetch_json(session, url),
-        _fetch_json(session, dates_url)
+    # Równolegle: preview (podstawa + obsada), dates (data PL), rating (ocena),
+    # description (pełny opis), info (plakat). Każde z ponowieniami; brakujące zwracają None.
+    data, dates_json, rating_json, description_json, info_json = await asyncio.gather(
+        _fetch_json(session, f"{base}/preview"),
+        _fetch_json(session, f"{base}/dates"),
+        _fetch_json(session, f"{base}/rating"),
+        _fetch_json(session, f"{base}/description"),
+        _fetch_json(session, f"{base}/info"),
     )
 
     if data is None:
@@ -98,12 +130,22 @@ async def get_filmweb_movie_details(movie_id: int, session: aiohttp.ClientSessio
     orig_title_obj = data.get("originalTitle") or {}
     film_title = title_obj.get("title") or orig_title_obj.get("title")
 
+    # Ocena: rate zaokrąglamy do 1 miejsca (jak wyświetla Filmweb)
+    rate = (rating_json or {}).get("rate")
+    rating = round(rate, 1) if isinstance(rate, (int, float)) else None
+
     return {
         "title": film_title,
         "year": data.get("year"),
         "duration": data.get("duration"),
         "directors": directors,
-        "release_date": _extract_filmweb_pl_date(dates_json)
+        "release_date": _extract_filmweb_pl_date(dates_json),
+        "rating": rating,
+        "rating_count": (rating_json or {}).get("count"),
+        "description": _fw_description(description_json, data),
+        "cast": _fw_cast(data),
+        "genre": _fw_genre(data),
+        "poster": _fw_poster_url(info_json),
     }
 
 async def search_movie_details(title: str, year: Optional[int] = None, session: Optional[aiohttp.ClientSession] = None):

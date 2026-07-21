@@ -98,7 +98,13 @@ async def enrich_movies_data(supabase: Client):
                     "release_year_filmweb": filmweb_data.get("year"),
                     "release_date_filmweb": filmweb_data.get("release_date"),
                     "length_filmweb": filmweb_data.get("duration"),
-                    "director_filmweb": filmweb_data.get("directors")
+                    "director_filmweb": filmweb_data.get("directors"),
+                    "rating_filmweb": filmweb_data.get("rating"),
+                    "rating_count_filmweb": filmweb_data.get("rating_count"),
+                    "description_filmweb": filmweb_data.get("description"),
+                    "cast_filmweb": filmweb_data.get("cast"),
+                    "genre_filmweb": filmweb_data.get("genre"),
+                    "poster_filmweb": filmweb_data.get("poster")
                 })
                 
             if update_data:

@@ -5,7 +5,12 @@ export const revalidate = 0;
 
 type InfoItem = { label: string; value: string | number | null };
 
-const InfoBlock = ({ title, items }: { title: string; items: InfoItem[] }) => (
+const InfoBlock = ({ title, items }: { title: string; items: InfoItem[] }) => {
+  // Ukrywamy cały blok źródła, jeśli nie ma w nim żadnej wartości (wszystkie pola puste).
+  const hasData = items.some((item) => item.value != null && item.value !== '');
+  if (!hasData) return null;
+
+  return (
   <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/60 shadow-inner">
     <h3 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800/80 pb-2 uppercase tracking-wider">{title}</h3>
     <dl className="space-y-2 text-sm">
@@ -25,7 +30,8 @@ const InfoBlock = ({ title, items }: { title: string; items: InfoItem[] }) => (
       })}
     </dl>
   </div>
-);
+  );
+};
 
 const PosterImage = ({ src, source }: { src: string | null; source: string }) => {
   if (!src) return null;
@@ -99,7 +105,7 @@ export default async function MoviesInfoPage() {
                   <div className="flex flex-nowrap overflow-x-auto gap-6 pb-2" style={{ scrollbarWidth: 'thin' }}>
                     <PosterImage src={movie.poster} source="Główny złączony" />
                     <PosterImage src={movie.poster_tmdb} source="TMDB" />
-                    {/*<PosterImage src={movie.poster_filmweb} source="Filmweb" />*/}
+                    <PosterImage src={movie.poster_filmweb} source="Filmweb" />
                     <PosterImage src={movie.poster_cc} source="Cinema City" />
                     <PosterImage src={movie.poster_multikino} source="Multikino" />
                     <PosterImage src={movie.poster_helios} source="Helios" />
@@ -137,14 +143,18 @@ export default async function MoviesInfoPage() {
                       ]} 
                     />
                     <InfoBlock 
-                      title="Filmweb" 
+                      title="Filmweb"
                       items={[
                         { label: "Tytuł", value: movie.title_filmweb },
                         { label: "Reżyser", value: movie.director_filmweb },
                         { label: "Rok", value: movie.release_year_filmweb },
                         { label: "Data premiery", value: movie.release_date_filmweb },
-                        { label: "Czas", value: movie.length_filmweb !== null ? `${movie.length_filmweb} min` : null }
-                      ]} 
+                        { label: "Czas", value: movie.length_filmweb !== null ? `${movie.length_filmweb} min` : null },
+                        { label: "Ocena", value: movie.rating_filmweb !== null ? `${movie.rating_filmweb} (${movie.rating_count_filmweb ?? 0} głosów)` : null },
+                        { label: "Gatunek", value: movie.genre_filmweb },
+                        { label: "Obsada", value: movie.cast_filmweb },
+                        { label: "Opis", value: movie.description_filmweb }
+                      ]}
                     />
                     <InfoBlock 
                       title="Cinema City"
