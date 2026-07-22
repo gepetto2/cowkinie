@@ -200,7 +200,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     "room_name": room_name,
                     "lang": normalize_lang(_muza_lang(it)),
                     "booking_link": it.get("ticketLink") or None,
-                    "format": "35mm" if it.get("tape35mm") else None,
+                    # Muza (studyjne) - na razie traktujemy wszystko jako 2D
+                    "format": "2D",
                 }
 
             if new_screenings:

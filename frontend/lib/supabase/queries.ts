@@ -91,6 +91,24 @@ export const getTopScreenings = unstable_cache(
   { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
 );
 
+// Dostępne formaty do filtra - dokładne wartości z bazy (widok screening_format_options = distinct format).
+// Bez rozbijania kombinacji: "2D IMAX", "3D 4DX" itd. to osobne opcje (multi-select po dokładnym dopasowaniu).
+export const getAvailableFormats = unstable_cache(
+  async (): Promise<string[]> => {
+    const { data, error } = await supabase.from('screening_format_options').select('format');
+    if (error || !data) {
+      console.error('Błąd podczas pobierania formatów:', error);
+      return [];
+    }
+    const formats = (data as { format: string | null }[])
+      .map((r) => r.format)
+      .filter((f): f is string => Boolean(f));
+    return [...new Set(formats)].sort((a, b) => a.localeCompare(b));
+  },
+  ['format-options'],
+  { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
+);
+
 export function getAvailableDates(days = 14) {
   const dates = [];
   const now = new Date();
@@ -111,12 +129,16 @@ export function getDateDaysAgo(days: number) {
 // pasujących do filtrów. Klucze = filmy z seansem w zakresie; wartości sterują badge'ami kin.
 // Dzięki agregacji w bazie payload jest minimalny (1 wiersz na film) i nie ma limitu 1000 wierszy.
 // Pod przyszłe filtry (format itd.) wystarczy dodać kolejny parametr do funkcji i klauzulę WHERE.
-export async function getFilteredAvailability(from: string, to: string, cityStr?: string): Promise<Map<string, string[]>> {
+export async function getFilteredAvailability(
+  from?: string, to?: string, cityStr?: string, formats?: string[],
+): Promise<Map<string, string[]>> {
   const { data, error } = await supabase.rpc('filtered_movie_franchises', {
-    date_from: from,
-    date_to: to,
-    // Pomijamy przy braku miasta - funkcja ma default null (traktuje jako "wszystkie miasta").
+    // Puste pomijamy - funkcja ma dla każdego parametru default null (= brak tego filtra).
+    // format_filter to lista dokładnych formatów (multi-select) - dopasowanie s.format = any(...).
+    date_from: from || undefined,
+    date_to: to || undefined,
     city_filter: cityStr || undefined,
+    format_filter: formats && formats.length ? formats : undefined,
   });
 
   const map = new Map<string, string[]>();

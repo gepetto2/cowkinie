@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import {
   getCities, getMovies, getAvailableDates, getFilteredAvailability, getDateDaysAgo,
-  getCinemaAvailabilities, getTopScreenings,
+  getCinemaAvailabilities, getTopScreenings, getAvailableFormats,
 } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
 import FilterBar from '@/components/FilterBar';
@@ -29,6 +29,12 @@ export default async function Home({
   const rangeFrom = fromQuery || toQuery;
   const rangeTo = toQuery || fromQuery;
   const rangeActive = Boolean(rangeFrom);
+  // Format to lista (multi-select), w URL rozdzielona przecinkami.
+  const selectedFormats = typeof params?.format === 'string' && params.format
+    ? params.format.split(',').filter(Boolean)
+    : [];
+  // Filtr daty i formatu wymaga danych na poziomie seansu -> liczymy je po stronie serwera (RPC).
+  const serverFilterActive = rangeActive || selectedFormats.length > 0;
 
   // Zrównoleglenie pobierania wszystkich danych (odczyty z bazy są cache'owane w queries.ts)
   const [
@@ -37,15 +43,17 @@ export default async function Home({
     cinemaAvailabilities,
     topScreenings,
     availableDates,
-    datedAvail
+    formats,
+    serverAvail
   ] = await Promise.all([
     getCities(),
     getMovies(),
     getCinemaAvailabilities(),
     getTopScreenings(),
     Promise.resolve(getAvailableDates(1)), // dzisiejsza data dla karuzel
-    // Gdy aktywny filtr daty: dostępność (film -> franczyzy) z seansów w zakresie, po stronie serwera.
-    rangeActive ? getFilteredAvailability(rangeFrom, rangeTo, cityQuery) : Promise.resolve(null)
+    getAvailableFormats(),
+    // Gdy aktywny filtr daty/formatu: dostępność (film -> franczyzy) z pasujących seansów, po stronie serwera.
+    serverFilterActive ? getFilteredAvailability(rangeFrom, rangeTo, cityQuery, selectedFormats) : Promise.resolve(null)
   ]);
 
   // Dostępność per film: miasta oraz franczyzy w rozbiciu na miasto. Dzięki temu badge'y kin
@@ -67,7 +75,7 @@ export default async function Home({
 
   // Wzbogacenie filmów o dostępność kin ZALEŻNĄ OD AKTYWNYCH FILTRÓW. Zarówno badge'y (available_franchises),
   // jak i przynależność do wyników (matchesFilters) liczą się z tego samego zbioru, więc są zawsze spójne:
-  //  - filtr daty aktywny  -> franczyzy/przynależność z seansów w zakresie (miasto uwzględnione już w RPC),
+  //  - filtr daty/formatu  -> franczyzy/przynależność z pasujących seansów (miasto uwzględnione już w RPC),
   //  - samo miasto         -> franczyzy tego miasta z globalnego agregatu,
   //  - brak filtrów        -> wszystkie franczyzy filmu.
   const enhancedMovies = movies.map(movie => {
@@ -75,8 +83,8 @@ export default async function Home({
     let franchises: string[];
     let matchesFilters: boolean;
 
-    if (datedAvail) {
-      const fr = datedAvail.get(movie.id);
+    if (serverAvail) {
+      const fr = serverAvail.get(movie.id);
       matchesFilters = fr !== undefined;
       franchises = fr ? [...fr].sort() : [];
     } else if (cityQuery) {
@@ -218,7 +226,7 @@ export default async function Home({
       <h1 className="text-4xl font-extrabold mb-8 text-slate-100 tracking-tight">Repertuar Kin</h1>
 
       <Suspense fallback={<div className="h-14 mb-6" />}>
-        <FilterBar cities={cities} resultCount={filteredMovies.length} />
+        <FilterBar cities={cities} formats={formats} resultCount={filteredMovies.length} />
       </Suspense>
 
       <div className="space-y-10">
@@ -272,7 +280,7 @@ export default async function Home({
         {newReleases.length > 0 && (
           <section className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-emerald-500 rounded-sm">
-              Nowości
+              Nowe premiery
             </h2>
             <div
               className="flex overflow-x-auto gap-5 pb-6 snap-x -mx-4 px-4 sm:mx-0 sm:px-0"

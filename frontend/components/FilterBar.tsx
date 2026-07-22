@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Calendar as CalendarIcon, MapPin, X, ChevronDown } from "lucide-react";
+import { Search, Calendar as CalendarIcon, MapPin, X, ChevronDown, Film, Check } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -36,7 +36,7 @@ function formatCount(n: number) {
   return `${n} filmów`;
 }
 
-export default function FilterBar({ cities, resultCount }: { cities: string[]; resultCount: number }) {
+export default function FilterBar({ cities, formats, resultCount }: { cities: string[]; formats: string[]; resultCount: number }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -44,6 +44,7 @@ export default function FilterBar({ cities, resultCount }: { cities: string[]; r
   const city = searchParams.get("city") || "";
   const from = searchParams.get("from") || "";
   const to = searchParams.get("to") || "";
+  const selectedFormats = (searchParams.get("format") || "").split(",").filter(Boolean);
 
   const setParams = (updates: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -98,12 +99,24 @@ export default function FilterBar({ cities, resultCount }: { cities: string[]; r
   };
 
   const [cityOpen, setCityOpen] = useState(false);
+  const [formatOpen, setFormatOpen] = useState(false);
+
+  // Przełączenie formatu w multi-select (dropdown zostaje otwarty)
+  const toggleFormat = (f: string) => {
+    const next = selectedFormats.includes(f) ? selectedFormats.filter((x) => x !== f) : [...selectedFormats, f];
+    setParams({ format: next.join(",") });
+  };
+  const formatLabel = selectedFormats.length === 0 ? "Każdy format"
+    : selectedFormats.length === 1 ? selectedFormats[0] : `Formaty (${selectedFormats.length})`;
 
   // --- Aktywne filtry (pigułki) ---
   const pills: { label: string; clear: () => void }[] = [];
   if (q) pills.push({ label: `„${q}”`, clear: () => { setQuery(""); setParams({ q: "" }); } });
   if (from || to) pills.push({ label: dateLabel, clear: () => setParams({ from: "", to: "" }) });
   if (city) pills.push({ label: city, clear: () => setParams({ city: "" }) });
+  for (const f of selectedFormats) {
+    pills.push({ label: f, clear: () => setParams({ format: selectedFormats.filter((x) => x !== f).join(",") }) });
+  }
 
   return (
     <div className="sticky top-0 z-30 -mx-4 px-4 py-3 mb-6 bg-slate-950/85 backdrop-blur border-b border-slate-800/70">
@@ -182,6 +195,46 @@ export default function FilterBar({ cities, resultCount }: { cities: string[]; r
             ))}
           </PopoverContent>
         </Popover>
+
+        {/* Format (multi-select) */}
+        {formats.length > 0 && (
+        <Popover open={formatOpen} onOpenChange={setFormatOpen}>
+          <PopoverTrigger asChild>
+            <button className={triggerCls(selectedFormats.length > 0)}>
+              <Film className="h-4 w-4" />
+              <span className="max-w-[120px] truncate">{formatLabel}</span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-48 p-2">
+            {formats.map((f) => {
+              const on = selectedFormats.includes(f);
+              return (
+                <button
+                  key={f}
+                  onClick={() => toggleFormat(f)}
+                  className="w-full flex items-center gap-2.5 text-left text-sm px-2.5 py-1.5 rounded-md text-slate-200 hover:bg-slate-800 transition-colors"
+                >
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                    on ? "bg-indigo-600 border-indigo-500" : "border-slate-600"
+                  }`}>
+                    {on && <Check className="h-3 w-3 text-white" />}
+                  </span>
+                  {f}
+                </button>
+              );
+            })}
+            {selectedFormats.length > 0 && (
+              <button
+                onClick={() => { setParams({ format: "" }); setFormatOpen(false); }}
+                className="mt-1 w-full text-left text-sm px-2.5 py-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors border-t border-slate-800"
+              >
+                Wyczyść
+              </button>
+            )}
+          </PopoverContent>
+        </Popover>
+        )}
 
         {/* Licznik wyników */}
         <span className="text-sm text-slate-400 ml-auto shrink-0 tabular-nums">{formatCount(resultCount)}</span>

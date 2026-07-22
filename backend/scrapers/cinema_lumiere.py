@@ -80,6 +80,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 total = ev.get("msiTotalSeatsNumber")
                 avail = round(free / total, 2) if isinstance(free, (int, float)) and isinstance(total, (int, float)) and total > 0 else None
                 event_id = ev.get("eventId")
+                # Format: Lumiere ma flagi is_3D/is_2D (zwykle puste). 3D gdy zaznaczone, inaczej domyślnie 2D.
+                fmt = "3D" if (ev.get("details") or {}).get("is_3D") else "2D"
 
                 # Lumiere nie podaje sali - room_name pusty
                 screening_key = (movie_id, start_time, "")
@@ -91,6 +93,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     "lang": normalize_lang(lang),
                     "booking_link": BOOKING_URL.format(event_id) if event_id else None,
                     "availability_ratio": avail,
+                    "format": fmt,
                 }
 
             if new_screenings:

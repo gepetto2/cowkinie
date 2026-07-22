@@ -377,10 +377,21 @@ export type Database = {
           },
         ]
       }
+      screening_format_options: {
+        Row: {
+          format: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       filtered_movie_franchises: {
-        Args: { city_filter?: string; date_from: string; date_to: string }
+        Args: {
+          city_filter?: string
+          date_from?: string
+          date_to?: string
+          format_filter?: string[]
+        }
         Returns: {
           franchises: string[]
           movie_id: string
