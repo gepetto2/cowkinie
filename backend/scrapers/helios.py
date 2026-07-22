@@ -1,5 +1,7 @@
 import logging
 import asyncio
+import re
+from html import unescape
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -8,6 +10,18 @@ from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_ch
 
 
 logger = logging.getLogger(__name__)
+
+def _clean_text(text: str):
+    """Usuwa ewentualne tagi HTML i dekoduje encje (opis/obsada z Heliosa)."""
+    if not text:
+        return None
+    return unescape(re.sub(r"<[^>]+>", "", text)).strip() or None
+
+def _helios_genre(movie_info: dict):
+    """Gatunki z detali Helios (lista {name}, małe litery) -> 'Akcja, Przygodowy' (spójnie z CC)."""
+    genres = (movie_info or {}).get("genres") or []
+    names = [(g.get("name") or "").strip().capitalize() for g in genres]
+    return ", ".join(dict.fromkeys(n for n in names if n)) or None
 
 def _helios_premiere_date(movie_info: dict):
     """Polska data premiery z detali filmu Helios: nationalPremiereDates -> premiereDate."""
@@ -235,7 +249,10 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "release_year_helios": movie_info.get("yearOfProduction"),
                         "release_date_helios": _helios_premiere_date(movie_info) or parse_release_date(ev.get("releaseDate")),
                         "director_helios": movie_info.get("director"),
-                        "original_title_helios": movie_info.get("originalTitle")
+                        "original_title_helios": movie_info.get("originalTitle"),
+                        "genre_helios": _helios_genre(movie_info),
+                        "description_helios": _clean_text(movie_info.get("description")),
+                        "cast_helios": _clean_text(movie_info.get("filmCast"))
                     }
 
                 for scr in screenings_data:
@@ -258,7 +275,10 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "release_year_helios": movie_info.get("yearOfProduction"),
                         "release_date_helios": _helios_premiere_date(movie_info),
                         "director_helios": movie_info.get("director"),
-                        "original_title_helios": movie_info.get("originalTitle")
+                        "original_title_helios": movie_info.get("originalTitle"),
+                        "genre_helios": _helios_genre(movie_info),
+                        "description_helios": _clean_text(movie_info.get("description")),
+                        "cast_helios": _clean_text(movie_info.get("filmCast"))
                     }
 
                 if movies_to_upsert:

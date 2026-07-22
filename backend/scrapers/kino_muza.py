@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 # Kino Muza (Poznań, studyjne) - repertuar jako JSON per dzień: /repertoire/day/{N}.json, N = offset dni.
 BASE_URL = "https://www.kinomuza.pl/repertoire/day/{}.json"
 DAYS_AHEAD = 45  # Muza publikuje repertuar ~5-6 tygodni w przód; nadmiar dni zwraca pusty repertuar
+DAY_CHUNK = 10   # pobieramy dniami-porcjami; cała pusta porcja = koniec repertuaru (przerywamy dalsze)
 
 
 def _strip_html(text: str):
@@ -61,14 +62,21 @@ def _extract_poster(page_html: str):
     return None
 
 
-async def _fetch_day(client: requests.AsyncSession, n: int, sem: asyncio.Semaphore) -> list:
+async def _fetch_day(client: requests.AsyncSession, n: int, sem: asyncio.Semaphore, retries: int = 1) -> list:
+    """Repertuar jednego dnia. Ponawiamy przy timeout/błędzie sieci (mały serwer Muzy bywa chwilowo
+    przeciążony); status != 200 traktujemy jako brak dnia (bez ponawiania)."""
     async with sem:
-        try:
-            resp = await client.get(BASE_URL.format(n), timeout=30.0)
-            if resp.status_code == 200:
-                return resp.json().get("repertoire", []) or []
-        except Exception as e:
-            logger.error(f"Błąd pobierania dnia +{n}: {e}")
+        for attempt in range(retries + 1):
+            try:
+                resp = await client.get(BASE_URL.format(n), timeout=15.0)
+                if resp.status_code == 200:
+                    return resp.json().get("repertoire", []) or []
+                return []
+            except Exception as e:
+                if attempt < retries:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+                    continue
+                logger.error(f"Błąd pobierania dnia +{n} (po {retries + 1} próbach): {e}")
         return []
 
 
@@ -94,12 +102,23 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             logger.info("Rozpoczynam scraping Kina Muza (Poznań)...")
             db_cinema_id = upsert_cinema(supabase, "Kino Muza", "Poznań", "Kina Studyjne")
 
-            sem = asyncio.Semaphore(5)  # mały serwer Muzy - ograniczamy współbieżność
+            # Serwer Muzy dławi się przy większej współbieżności (przy 5 częste timeouty i utrata dni).
+            # Przy 2 równoległych żądaniach jest zarazem szybciej i bez timeoutów (zmierzone).
+            sem = asyncio.Semaphore(2)
 
             logger.info(f"Pobieranie repertuaru (do {DAYS_AHEAD} dni)...")
-            days = await asyncio.gather(*[_fetch_day(client, n, sem) for n in range(DAYS_AHEAD)])
-            items = [it for day in days for it in day]
-            days_with_rep = sum(1 for d in days if d)
+            # Repertuar Muzy jest ciągły od dziś - pobieramy porcjami po DAY_CHUNK dni i przerywamy,
+            # gdy cała porcja jest pusta (dalsze dni też będą puste). Skraca to czas i odciąża serwer,
+            # gdy repertuar jest krótszy niż DAYS_AHEAD.
+            items = []
+            days_with_rep = 0
+            for start in range(0, DAYS_AHEAD, DAY_CHUNK):
+                batch = range(start, min(start + DAY_CHUNK, DAYS_AHEAD))
+                results = await asyncio.gather(*[_fetch_day(client, n, sem) for n in batch])
+                items.extend(it for day in results for it in day)
+                days_with_rep += sum(1 for d in results if d)
+                if not any(results):
+                    break
             logger.info(f"Pobrano {len(items)} seansów z {days_with_rep} dni.")
 
             if not items:

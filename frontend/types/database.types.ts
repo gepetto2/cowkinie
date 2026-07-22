@@ -42,10 +42,12 @@ export type Database = {
         Row: {
           cast_cc: string | null
           cast_filmweb: string | null
+          cast_helios: string | null
           cast_multikino: string | null
           created_at: string | null
           description_cc: string | null
           description_filmweb: string | null
+          description_helios: string | null
           description_lumiere: string | null
           description_multikino: string | null
           description_muza: string | null
@@ -60,8 +62,10 @@ export type Database = {
           genre: string | null
           genre_cc: string | null
           genre_filmweb: string | null
+          genre_helios: string | null
           genre_lumiere: string | null
           id: string
+          imdb_id: string | null
           length: number | null
           length_cc: number | null
           length_filmweb: number | null
@@ -69,6 +73,7 @@ export type Database = {
           length_lumiere: number | null
           length_multikino: number | null
           length_muza: number | null
+          length_omdb: number | null
           length_tmdb: number | null
           movie_type: string | null
           movie_type_cc: string | null
@@ -87,7 +92,11 @@ export type Database = {
           poster_muza: string | null
           poster_tmdb: string | null
           rating_count_filmweb: number | null
+          rating_count_imdb: number | null
           rating_filmweb: number | null
+          rating_imdb: number | null
+          rating_metacritic: number | null
+          rating_rt: number | null
           release_date: string | null
           release_date_cc: string | null
           release_date_filmweb: string | null
@@ -101,19 +110,23 @@ export type Database = {
           release_year_helios: number | null
           release_year_multikino: number | null
           release_year_muza: number | null
+          release_year_omdb: number | null
           release_year_tmdb: number | null
           title: string
           title_filmweb: string | null
+          title_omdb: string | null
           title_tmdb: string | null
           tmdb_id: number | null
         }
         Insert: {
           cast_cc?: string | null
           cast_filmweb?: string | null
+          cast_helios?: string | null
           cast_multikino?: string | null
           created_at?: string | null
           description_cc?: string | null
           description_filmweb?: string | null
+          description_helios?: string | null
           description_lumiere?: string | null
           description_multikino?: string | null
           description_muza?: string | null
@@ -128,8 +141,10 @@ export type Database = {
           genre?: string | null
           genre_cc?: string | null
           genre_filmweb?: string | null
+          genre_helios?: string | null
           genre_lumiere?: string | null
           id?: string
+          imdb_id?: string | null
           length?: number | null
           length_cc?: number | null
           length_filmweb?: number | null
@@ -137,6 +152,7 @@ export type Database = {
           length_lumiere?: number | null
           length_multikino?: number | null
           length_muza?: number | null
+          length_omdb?: number | null
           length_tmdb?: number | null
           movie_type?: string | null
           movie_type_cc?: string | null
@@ -155,7 +171,11 @@ export type Database = {
           poster_muza?: string | null
           poster_tmdb?: string | null
           rating_count_filmweb?: number | null
+          rating_count_imdb?: number | null
           rating_filmweb?: number | null
+          rating_imdb?: number | null
+          rating_metacritic?: number | null
+          rating_rt?: number | null
           release_date?: string | null
           release_date_cc?: string | null
           release_date_filmweb?: string | null
@@ -169,19 +189,23 @@ export type Database = {
           release_year_helios?: number | null
           release_year_multikino?: number | null
           release_year_muza?: number | null
+          release_year_omdb?: number | null
           release_year_tmdb?: number | null
           title: string
           title_filmweb?: string | null
+          title_omdb?: string | null
           title_tmdb?: string | null
           tmdb_id?: number | null
         }
         Update: {
           cast_cc?: string | null
           cast_filmweb?: string | null
+          cast_helios?: string | null
           cast_multikino?: string | null
           created_at?: string | null
           description_cc?: string | null
           description_filmweb?: string | null
+          description_helios?: string | null
           description_lumiere?: string | null
           description_multikino?: string | null
           description_muza?: string | null
@@ -196,8 +220,10 @@ export type Database = {
           genre?: string | null
           genre_cc?: string | null
           genre_filmweb?: string | null
+          genre_helios?: string | null
           genre_lumiere?: string | null
           id?: string
+          imdb_id?: string | null
           length?: number | null
           length_cc?: number | null
           length_filmweb?: number | null
@@ -205,6 +231,7 @@ export type Database = {
           length_lumiere?: number | null
           length_multikino?: number | null
           length_muza?: number | null
+          length_omdb?: number | null
           length_tmdb?: number | null
           movie_type?: string | null
           movie_type_cc?: string | null
@@ -223,7 +250,11 @@ export type Database = {
           poster_muza?: string | null
           poster_tmdb?: string | null
           rating_count_filmweb?: number | null
+          rating_count_imdb?: number | null
           rating_filmweb?: number | null
+          rating_imdb?: number | null
+          rating_metacritic?: number | null
+          rating_rt?: number | null
           release_date?: string | null
           release_date_cc?: string | null
           release_date_filmweb?: string | null
@@ -237,9 +268,11 @@ export type Database = {
           release_year_helios?: number | null
           release_year_multikino?: number | null
           release_year_muza?: number | null
+          release_year_omdb?: number | null
           release_year_tmdb?: number | null
           title?: string
           title_filmweb?: string | null
+          title_omdb?: string | null
           title_tmdb?: string | null
           tmdb_id?: number | null
         }

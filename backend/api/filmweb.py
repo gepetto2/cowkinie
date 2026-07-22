@@ -130,9 +130,13 @@ async def get_filmweb_movie_details(movie_id: int, session: aiohttp.ClientSessio
     orig_title_obj = data.get("originalTitle") or {}
     film_title = title_obj.get("title") or orig_title_obj.get("title")
 
-    # Ocena: rate zaokrąglamy do 1 miejsca (jak wyświetla Filmweb)
+    # Ocena: rate zaokrąglamy do 1 miejsca (jak wyświetla Filmweb). Bez głosów Filmweb zwraca rate=0 -
+    # traktujemy to jako brak oceny (None), by film nie wyglądał na oceniony na 0.
     rate = (rating_json or {}).get("rate")
-    rating = round(rate, 1) if isinstance(rate, (int, float)) else None
+    count = (rating_json or {}).get("count")
+    has_votes = isinstance(rate, (int, float)) and rate and count
+    rating = round(rate, 1) if has_votes else None
+    rating_count = count if has_votes else None
 
     return {
         "title": film_title,
@@ -141,7 +145,7 @@ async def get_filmweb_movie_details(movie_id: int, session: aiohttp.ClientSessio
         "directors": directors,
         "release_date": _extract_filmweb_pl_date(dates_json),
         "rating": rating,
-        "rating_count": (rating_json or {}).get("count"),
+        "rating_count": rating_count,
         "description": _fw_description(description_json, data),
         "cast": _fw_cast(data),
         "genre": _fw_genre(data),

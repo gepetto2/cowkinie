@@ -129,21 +129,27 @@ def consolidate_post_enrich(supabase):
     Korekta roku jest kluczowa dla wznowień: kina podają rok WZNOWIENIA, a TMDB/Filmweb rok produkcji.
     Czas trwania bierzemy w priorytecie TMDB -> Filmweb -> kina (kanoniczny czas filmu; kina bywają z reklamami).
     Plakat preferuje lokalne (PL) plakaty z kin, a TMDB jest ostatecznym fallbackiem."""
-    logger.info("Konsolidacja po enrich (release_date, release_year, length, poster, genre)...")
+    logger.info("Konsolidacja po enrich (release_date, release_year, length, poster, genre, director, original_title)...")
 
     # Źródła per pole. Kolejność = priorytet dla length i poster (pierwsza niepusta wygrywa).
     # Datę/rok premiery bierzemy z kin + TMDB/Filmweb (bez Lumiere - jego premiera bywa datą wznowienia).
     date_sources = ("multikino", "cc", "helios", "tmdb", "filmweb", "muza")
     length_sources = ("tmdb", "filmweb", "helios", "cc", "multikino", "muza", "lumiere")
     poster_sources = ("cc", "helios", "multikino", "muza", "tmdb", "filmweb")  # lokalne (PL) plakaty z kin, TMDB/Filmweb jako fallback
-    genre_sources = ("cc", "filmweb", "lumiere")  # CC daje kilka gatunków naraz (priorytet), Filmweb dla filmów spoza CC, Lumiere na końcu
+    genre_sources = ("cc", "helios", "filmweb", "lumiere")  # kina (CC/Helios) dają kilka gatunków; Filmweb dla filmów spoza kin; Lumiere na końcu
+    # Reżyser i tytuł oryginalny: kina konsolidowane są przed-enrich; tu DOPEŁNIAMY z TMDB/Filmweb
+    # dla filmów, które nie mają tych danych z kin (TMDB ma kanoniczny original_title).
+    director_fallback = ("tmdb", "filmweb")
+    original_title_fallback = ("tmdb",)
 
-    select_cols = ["id", "title", "release_year", "length", "poster", "genre"]
+    select_cols = ["id", "title", "release_year", "length", "poster", "genre", "director", "original_title"]
     select_cols += [f"release_date_{s}" for s in date_sources]
     select_cols += [f"release_year_{s}" for s in date_sources]
     select_cols += [f"length_{s}" for s in length_sources]
     select_cols += [f"poster_{s}" for s in poster_sources]
     select_cols += [f"genre_{s}" for s in genre_sources]
+    select_cols += [f"director_{s}" for s in director_fallback]
+    select_cols += [f"original_title_{s}" for s in original_title_fallback]
     response = supabase.table("movies").select(", ".join(select_cols)).execute()
     movies = response.data
 
@@ -184,6 +190,18 @@ def consolidate_post_enrich(supabase):
             genre = next((movie.get(f"genre_{s}") for s in genre_sources if movie.get(f"genre_{s}")), None)
             if genre:
                 update_data["genre"] = genre
+
+        # Reżyser: dopełnienie z TMDB/Filmweb, gdy kina go nie podały (konsolidacja kin jest przed-enrich)
+        if movie.get("director") is None:
+            director = next((movie.get(f"director_{s}") for s in director_fallback if movie.get(f"director_{s}")), None)
+            if director:
+                update_data["director"] = director
+
+        # Tytuł oryginalny: dopełnienie z TMDB, gdy kina go nie podały (TMDB ma kanoniczny original_title)
+        if movie.get("original_title") is None:
+            original_title = next((movie.get(f"original_title_{s}") for s in original_title_fallback if movie.get(f"original_title_{s}")), None)
+            if original_title:
+                update_data["original_title"] = original_title
 
         if update_data:
             supabase.table("movies").update(update_data).eq("id", movie["id"]).execute()

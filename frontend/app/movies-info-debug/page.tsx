@@ -189,7 +189,22 @@ export default async function MoviesInfoPage() {
                         { label: "Rok", value: movie.release_year_helios },
                         { label: "Data premiery", value: movie.release_date_helios },
                         { label: "Czas", value: movie.length_helios !== null ? `${movie.length_helios} min` : null },
-                        { label: "Typ", value: movie.movie_type_helios }
+                        { label: "Typ", value: movie.movie_type_helios },
+                        { label: "Gatunek", value: movie.genre_helios },
+                        { label: "Obsada", value: movie.cast_helios },
+                        { label: "Opis", value: movie.description_helios }
+                      ]}
+                    />
+                    <InfoBlock
+                      title="OMDb / IMDb"
+                      items={[
+                        { label: "Tytuł", value: movie.title_omdb },
+                        { label: "Rok", value: movie.release_year_omdb },
+                        { label: "Czas", value: movie.length_omdb !== null ? `${movie.length_omdb} min` : null },
+                        { label: "IMDb ID", value: movie.imdb_id },
+                        { label: "Ocena IMDb", value: movie.rating_imdb !== null ? `${movie.rating_imdb} (${movie.rating_count_imdb ?? 0} głosów)` : null },
+                        { label: "Rotten Tomatoes", value: movie.rating_rt !== null ? `${movie.rating_rt}%` : null },
+                        { label: "Metacritic", value: movie.rating_metacritic !== null ? `${movie.rating_metacritic}/100` : null }
                       ]}
                     />
                     <InfoBlock

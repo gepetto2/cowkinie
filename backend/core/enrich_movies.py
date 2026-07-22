@@ -6,6 +6,7 @@ from supabase import Client
 
 from api.tmdb import get_tmdb_movie_details
 from api.filmweb import search_movie_details
+from api.omdb import get_omdb_ratings
 from core.merge_movies import check_and_merge_movie
 from utils import search_title
 
@@ -80,7 +81,7 @@ async def enrich_movies_data(supabase: Client):
 
                 poster_path = tmdb_data.get("poster_path")
                 poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None
-                
+
                 update_data.update({
                     "title_tmdb": tmdb_data.get("title"),
                     "original_title_tmdb": tmdb_data.get("original_title"),
@@ -91,7 +92,16 @@ async def enrich_movies_data(supabase: Client):
                     "poster_tmdb": poster_url,
                     "description_tmdb": tmdb_data.get("overview")
                 })
-                
+
+                # OMDb: oceny IMDb/RT/Metacritic po imdb_id z TMDB (jednoznaczne dopasowanie).
+                # Sekwencyjnie po TMDB, bo imdb_id pochodzi z jego szczegółów.
+                imdb_id = tmdb_data.get("imdb_id")
+                if imdb_id:
+                    update_data["imdb_id"] = imdb_id
+                    omdb_data = await get_omdb_ratings(imdb_id, session)
+                    if omdb_data:
+                        update_data.update(omdb_data)
+
             if filmweb_data:
                 update_data.update({
                     "title_filmweb": filmweb_data.get("title"),
