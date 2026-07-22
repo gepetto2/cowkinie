@@ -93,10 +93,12 @@ export type Database = {
           poster_tmdb: string | null
           rating_count_filmweb: number | null
           rating_count_imdb: number | null
+          rating_count_tmdb: number | null
           rating_filmweb: number | null
           rating_imdb: number | null
           rating_metacritic: number | null
           rating_rt: number | null
+          rating_tmdb: number | null
           release_date: string | null
           release_date_cc: string | null
           release_date_filmweb: string | null
@@ -172,10 +174,12 @@ export type Database = {
           poster_tmdb?: string | null
           rating_count_filmweb?: number | null
           rating_count_imdb?: number | null
+          rating_count_tmdb?: number | null
           rating_filmweb?: number | null
           rating_imdb?: number | null
           rating_metacritic?: number | null
           rating_rt?: number | null
+          rating_tmdb?: number | null
           release_date?: string | null
           release_date_cc?: string | null
           release_date_filmweb?: string | null
@@ -251,10 +255,12 @@ export type Database = {
           poster_tmdb?: string | null
           rating_count_filmweb?: number | null
           rating_count_imdb?: number | null
+          rating_count_tmdb?: number | null
           rating_filmweb?: number | null
           rating_imdb?: number | null
           rating_metacritic?: number | null
           rating_rt?: number | null
+          rating_tmdb?: number | null
           release_date?: string | null
           release_date_cc?: string | null
           release_date_filmweb?: string | null

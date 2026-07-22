@@ -196,6 +196,12 @@ def _format_tmdb_response(tmdb_movie, dirs):
     director_str = ", ".join(dirs) if dirs else None
     
     runtime = tmdb_movie.get("runtime")
+
+    # Ocena TMDB (0-10). Bez głosów TMDB zwraca 0 - traktujemy jako brak oceny.
+    vote_avg = tmdb_movie.get("vote_average")
+    vote_count = tmdb_movie.get("vote_count") or 0
+    tmdb_rating = round(vote_avg, 1) if isinstance(vote_avg, (int, float)) and vote_avg and vote_count > 0 else None
+
     return {
         "tmdb_id": tmdb_movie.get("id"),
         "imdb_id": tmdb_movie.get("imdb_id"),
@@ -207,5 +213,7 @@ def _format_tmdb_response(tmdb_movie, dirs):
         "length": runtime if runtime and runtime > 0 else None,
         "director": director_str,
         "poster_path": tmdb_movie.get("poster_path"),
-        "overview": tmdb_movie.get("overview")
+        "overview": tmdb_movie.get("overview"),
+        "rating": tmdb_rating,
+        "rating_count": vote_count if tmdb_rating is not None else None
     }

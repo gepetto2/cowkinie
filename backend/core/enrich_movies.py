@@ -90,7 +90,9 @@ async def enrich_movies_data(supabase: Client):
                     "length_tmdb": tmdb_data.get("length"),
                     "director_tmdb": tmdb_data.get("director"),
                     "poster_tmdb": poster_url,
-                    "description_tmdb": tmdb_data.get("overview")
+                    "description_tmdb": tmdb_data.get("overview"),
+                    "rating_tmdb": tmdb_data.get("rating"),
+                    "rating_count_tmdb": tmdb_data.get("rating_count")
                 })
 
                 # OMDb: oceny IMDb/RT/Metacritic po imdb_id z TMDB (jednoznaczne dopasowanie).

@@ -5,6 +5,7 @@ import {
 } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
 import FilterBar from '@/components/FilterBar';
+import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
 
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
 const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY'];
@@ -118,6 +119,18 @@ export default async function Home({
     .sort((a, b) => (b.release_date ?? '').localeCompare(a.release_date ?? ''))
     .slice(0, 10);
 
+  // Najlepiej oceniane: wynik bayesowski łączony (Filmweb+IMDb+TMDB), ważony liczbą głosów.
+  // Średnie ocen liczymy z pełnego zbioru (stabilne), a kandydatów bierzemy z przefiltrowanych po
+  // mieście/dacie. Dopuszczamy też klasyki/KULTOWE - pomijamy tylko typy wydarzeń.
+  const ratingMeans = computeRatingMeans(enhancedMovies);
+  let topRated = filteredMovies
+    .filter((m) => !CAROUSEL_EXCLUDED_TYPES.includes(m.movie_type ?? ''))
+    .map((m) => ({ movie: m, score: bayesianScore(m, ratingMeans) }))
+    .filter((x): x is { movie: typeof enhancedMovies[number]; score: number } => x.score !== null)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10)
+    .map((x) => x.movie);
+
   // Odfiltrowanie filmów w przypadku aktywnego wyszukiwania
   if (query) {
     filteredMovies = enhancedMovies.filter((movie) =>
@@ -127,6 +140,7 @@ export default async function Home({
     topMovies = [];
     newReleases = [];
     upcoming = [];
+    topRated = [];
   }
 
   // Grupowanie filmów po typie. Filmy bez movie_type grane WYŁĄCZNIE w kinach studyjnych
@@ -204,6 +218,25 @@ export default async function Home({
             >
               {topMovies.map((movie) => (
                 <div key={`top-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
+                  <MovieCard movie={movie} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Karuzela "Najlepiej oceniane" - wynik bayesowski (Filmweb+IMDb+TMDB) ważony liczbą głosów */}
+        {topRated.length > 0 && (
+          <section className="flex flex-col">
+            <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-yellow-500 rounded-sm">
+              Najlepiej oceniane
+            </h2>
+            <div
+              className="flex overflow-x-auto gap-5 pb-6 snap-x -mx-4 px-4 sm:mx-0 sm:px-0"
+              style={{ scrollbarWidth: 'thin' }}
+            >
+              {topRated.map((movie) => (
+                <div key={`rated-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
                   <MovieCard movie={movie} />
                 </div>
               ))}

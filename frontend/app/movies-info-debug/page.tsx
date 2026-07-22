@@ -139,8 +139,9 @@ export default async function MoviesInfoPage() {
                         { label: "Rok", value: movie.release_year_tmdb },
                         { label: "Data premiery", value: movie.release_date_tmdb },
                         { label: "Czas", value: movie.length_tmdb !== null ? `${movie.length_tmdb} min` : null },
+                        { label: "Ocena", value: movie.rating_tmdb !== null ? `${movie.rating_tmdb} (${movie.rating_count_tmdb ?? 0} głosów)` : null },
                         { label: "Opis", value: movie.description_tmdb }
-                      ]} 
+                      ]}
                     />
                     <InfoBlock 
                       title="Filmweb"

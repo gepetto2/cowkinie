@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Database } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
+import { movieRatings } from "@/lib/ratings";
 import {
   Dialog,
   DialogContent,
@@ -133,6 +134,9 @@ export default function MovieCard({ movie }: { movie: Movie }) {
 
   const uniqueDays = Object.keys(screeningsPerDay).sort();
 
+  // Dostępne oceny (Filmweb/IMDb/TMDB) do wyświetlenia pod tytułem
+  const ratings = movieRatings(movie);
+
   // Filtrowanie po wybranej dacie (również w strefie kina)
   const filteredScreenings = screenings.filter(s => toWarsawDay(s.start_time) === selectedDate);
 
@@ -165,6 +169,15 @@ export default function MovieCard({ movie }: { movie: Movie }) {
           </div>
           <h3 className="font-semibold text-sm leading-tight text-slate-100 line-clamp-2">{movie.title}</h3>
           <p className="text-xs text-slate-400 mt-1">{movie.release_year || ''}</p>
+          {ratings.length > 0 && (
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[11px] text-slate-400">
+              {ratings.map((r) => (
+                <span key={r.label} className="whitespace-nowrap">
+                  <span className="text-amber-400">★</span> {r.value.toFixed(1)} <span className="text-slate-500">{r.label}</span>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </DialogTrigger>
       
