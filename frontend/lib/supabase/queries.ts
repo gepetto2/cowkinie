@@ -115,7 +115,8 @@ export async function getFilteredAvailability(from: string, to: string, cityStr?
   const { data, error } = await supabase.rpc('filtered_movie_franchises', {
     date_from: from,
     date_to: to,
-    city_filter: cityStr || null,
+    // Pomijamy przy braku miasta - funkcja ma default null (traktuje jako "wszystkie miasta").
+    city_filter: cityStr || undefined,
   });
 
   const map = new Map<string, string[]>();
