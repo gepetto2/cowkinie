@@ -183,6 +183,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         elif "HELIOS REPLAY" in flags_upper: movie_type = "KULTOWE"
                         elif "KINO KOBIET" in flags_upper: movie_type = "LADIES NIGHT/KNO"
                         elif "WERSJA JĘZYKOWA UA" in flags_upper: movie_type = "UKRAIŃSKI DUBBING"
+                        elif "HELIOS DLA DZIECI" in flags_upper: movie_type = "DLA DZIECI"
+                        elif "SALON KULTURY" in flags_upper: movie_type = "SALON KULTURY"
                             
                         if movie_type:
                             v1_movie_types[source_id] = movie_type
@@ -216,13 +218,16 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     elif "MARATON FILMOWY" in event_tags: movie_type = "MARATON"
                     elif "HELIOS REPLAY" in event_tags: movie_type = "KULTOWE"
                     elif "KINO KOBIET" in event_tags: movie_type = "LADIES NIGHT/KNO"
+                    elif "HELIOS DLA DZIECI" in event_tags: movie_type = "DLA DZIECI"
+                    elif "SALON KULTURY" in event_tags: movie_type = "SALON KULTURY"
 
                     event_source_id = ev.get("id")
                     if not movie_type:
                         movie_type = v1_movie_types.get(event_source_id)
-                        
-                    # Ustalanie czystego tytułu (usuwanie dopisków dla specjalnych pokazów)
-                    if movie_type in ["MARATON", "SPORT", "LADIES NIGHT/KNO"]:
+
+                    # Ustalanie tytułu. Dla typów, których event wskazuje na BAZOWY film (movieId = zwykły film),
+                    # bierzemy nazwę eventu, by były osobnym rekordem, a nie scaliły się z filmem głównym.
+                    if movie_type in ["MARATON", "SPORT", "LADIES NIGHT/KNO", "SALON KULTURY"]:
                         title = ev.get("name")
                     else:
                         title = movie_info.get("title") or (items[0].get("movieName") if items else None) or ev.get("name")

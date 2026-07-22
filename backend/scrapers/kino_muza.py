@@ -62,13 +62,15 @@ def _extract_poster(page_html: str):
     return None
 
 
-async def _fetch_day(client: requests.AsyncSession, n: int, sem: asyncio.Semaphore, retries: int = 1) -> list:
-    """Repertuar jednego dnia. Ponawiamy przy timeout/błędzie sieci (mały serwer Muzy bywa chwilowo
-    przeciążony); status != 200 traktujemy jako brak dnia (bez ponawiania)."""
+async def _fetch_day(client: requests.AsyncSession, n: int, sem: asyncio.Semaphore,
+                     timeout: float = 15.0, retries: int = 1):
+    """Repertuar jednego dnia. Zwraca listę seansów (może pustą) przy sukcesie,
+    albo None gdy wszystkie próby sieciowe zawiodły (żeby dało się ponowić TYLKO te dni).
+    Status != 200 traktujemy jako brak dnia (pusta lista, bez ponawiania)."""
     async with sem:
         for attempt in range(retries + 1):
             try:
-                resp = await client.get(BASE_URL.format(n), timeout=15.0)
+                resp = await client.get(BASE_URL.format(n), timeout=timeout)
                 if resp.status_code == 200:
                     return resp.json().get("repertoire", []) or []
                 return []
@@ -76,8 +78,8 @@ async def _fetch_day(client: requests.AsyncSession, n: int, sem: asyncio.Semapho
                 if attempt < retries:
                     await asyncio.sleep(0.5 * (attempt + 1))
                     continue
-                logger.error(f"Błąd pobierania dnia +{n} (po {retries + 1} próbach): {e}")
-        return []
+                logger.warning(f"Dzień +{n}: nieudany po {retries + 1} próbach ({e}) - do ponowienia.")
+        return None
 
 
 async def _fetch_poster(client: requests.AsyncSession, title: str, movie_link: str, sem: asyncio.Semaphore):
@@ -112,13 +114,37 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             # gdy repertuar jest krótszy niż DAYS_AHEAD.
             items = []
             days_with_rep = 0
+            failed_days = []
             for start in range(0, DAYS_AHEAD, DAY_CHUNK):
-                batch = range(start, min(start + DAY_CHUNK, DAYS_AHEAD))
-                results = await asyncio.gather(*[_fetch_day(client, n, sem) for n in batch])
-                items.extend(it for day in results for it in day)
-                days_with_rep += sum(1 for d in results if d)
-                if not any(results):
+                batch = list(range(start, min(start + DAY_CHUNK, DAYS_AHEAD)))
+                # Główna tura: pojedyncza próba (fail-fast) - padłe dni i tak solidnie ponawia druga tura.
+                results = await asyncio.gather(*[_fetch_day(client, n, sem, retries=0) for n in batch])
+                for n, day in zip(batch, results):
+                    if day is None:
+                        failed_days.append(n)  # błąd sieci - ponowimy na końcu
+                    else:
+                        items.extend(day)
+                        if day:
+                            days_with_rep += 1
+                # Koniec repertuaru: cała porcja pobrana i PUSTA (bez błędów). Błędne dni ([]==None jest False)
+                # nie zatrzymują pętli - zostaną ponowione.
+                if all(day == [] for day in results):
                     break
+
+            # Druga tura: dni, które padły, ponawiamy POJEDYNCZO (sem=1) z dłuższym timeoutem i większą
+            # liczbą prób. Bez presji współbieżności serwer Muzy zwykle odpowiada.
+            if failed_days:
+                logger.info(f"Ponawiam {len(failed_days)} nieudanych dni pojedynczo (timeout 30s, 3 próby)...")
+                single = asyncio.Semaphore(1)
+                retry = await asyncio.gather(*[_fetch_day(client, n, single, timeout=30.0, retries=2) for n in failed_days])
+                still_failed = [n for n, day in zip(failed_days, retry) if day is None]
+                for day in retry:
+                    if day:
+                        items.extend(day)
+                        days_with_rep += 1
+                if still_failed:
+                    logger.error(f"Nie udało się pobrać {len(still_failed)} dni Muzy mimo ponowień: {still_failed}")
+
             logger.info(f"Pobrano {len(items)} seansów z {days_with_rep} dni.")
 
             if not items:

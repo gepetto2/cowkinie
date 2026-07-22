@@ -20,7 +20,7 @@ async def enrich_movies_data(supabase: Client):
     movies = response.data
 
     # Pomijamy typy wydarzeniowe, które nie są filmami (nie mają sensownego odpowiednika w TMDB/Filmweb)
-    SKIP_ENRICH_TYPES = ("SPORT", "MARATON", "TEATR", "CYRK", "OPERA", "BALET", "WYSTAWY")
+    SKIP_ENRICH_TYPES = ("SPORT", "MARATON", "TEATR", "CYRK", "OPERA", "BALET", "WYSTAWY", "DLA DZIECI", "SALON KULTURY")
     movies = [m for m in movies if m.get("movie_type") not in SKIP_ENRICH_TYPES]
 
     if not movies:
