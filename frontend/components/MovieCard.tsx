@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Database } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
 import { movieRatings } from "@/lib/ratings";
+import { MovieListItem } from "@/lib/supabase/queries";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-type Movie = Database["public"]["Tables"]["movies"]["Row"] & {
+// Karta potrzebuje tylko odchudzonego zestawu kolumn (MovieListItem) + danych o dostępności kin.
+type Movie = MovieListItem & {
   available_cities?: string[];
   available_franchises?: string[];
 };

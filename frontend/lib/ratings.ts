@@ -1,6 +1,11 @@
 import { Database } from "@/types/database.types";
 
-type Movie = Database["public"]["Tables"]["movies"]["Row"];
+// Funkcje ocen potrzebują tylko kolumn ocen - dzięki temu działają zarówno na pełnym wierszu movies,
+// jak i na odchudzonym typie karty (MovieListItem).
+type Movie = Pick<
+  Database["public"]["Tables"]["movies"]["Row"],
+  "rating_filmweb" | "rating_count_filmweb" | "rating_imdb" | "rating_count_imdb" | "rating_tmdb" | "rating_count_tmdb"
+>;
 
 // Źródła ocen w skali 0-10 (Filmweb, IMDb, TMDB).
 // - `m`        = prior bayesowski ("siła ściągania" oceny do średniej przy małej liczbie głosów).

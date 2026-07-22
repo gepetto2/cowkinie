@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import {
-  getCities, getMovies, getAvailableDates, getMovieIdsByDateRange, getDateDaysAgo,
+  getCities, getMovies, getAvailableDates, getFilteredAvailability, getDateDaysAgo,
   getCinemaAvailabilities, getTopScreenings,
 } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
@@ -37,60 +37,73 @@ export default async function Home({
     cinemaAvailabilities,
     topScreenings,
     availableDates,
-    moviesInRange
+    datedAvail
   ] = await Promise.all([
     getCities(),
     getMovies(),
     getCinemaAvailabilities(),
     getTopScreenings(),
     Promise.resolve(getAvailableDates(1)), // dzisiejsza data dla karuzel
-    rangeActive ? getMovieIdsByDateRange(rangeFrom, rangeTo, cityQuery) : Promise.resolve(null)
+    // Gdy aktywny filtr daty: dostępność (film -> franczyzy) z seansów w zakresie, po stronie serwera.
+    rangeActive ? getFilteredAvailability(rangeFrom, rangeTo, cityQuery) : Promise.resolve(null)
   ]);
 
-  // Optymalizacja O(1) do szybkiego wyszukiwania dostępności kin dla filmu
-  const availabilitiesMap = new Map(
-    cinemaAvailabilities.map(a => [a.movie_id, a])
-  );
+  // Dostępność per film: miasta oraz franczyzy w rozbiciu na miasto. Dzięki temu badge'y kin
+  // można zawęzić do wybranego miasta (bez filtra pokazujemy wszystkie franczyzy filmu).
+  const availabilityByMovie = new Map<string, { cities: Set<string>; franchisesByCity: Map<string, Set<string>> }>();
+  for (const row of cinemaAvailabilities) {
+    let entry = availabilityByMovie.get(row.movie_id);
+    if (!entry) {
+      entry = { cities: new Set(), franchisesByCity: new Map() };
+      availabilityByMovie.set(row.movie_id, entry);
+    }
+    entry.cities.add(row.city);
+    if (row.franchise) {
+      let set = entry.franchisesByCity.get(row.city);
+      if (!set) { set = new Set(); entry.franchisesByCity.set(row.city, set); }
+      set.add(row.franchise);
+    }
+  }
 
-  // Wzbogacenie obiektów filmów o dane o kinach
+  // Wzbogacenie filmów o dostępność kin ZALEŻNĄ OD AKTYWNYCH FILTRÓW. Zarówno badge'y (available_franchises),
+  // jak i przynależność do wyników (matchesFilters) liczą się z tego samego zbioru, więc są zawsze spójne:
+  //  - filtr daty aktywny  -> franczyzy/przynależność z seansów w zakresie (miasto uwzględnione już w RPC),
+  //  - samo miasto         -> franczyzy tego miasta z globalnego agregatu,
+  //  - brak filtrów        -> wszystkie franczyzy filmu.
   const enhancedMovies = movies.map(movie => {
-    const availability = availabilitiesMap.get(movie.id);
+    const entry = availabilityByMovie.get(movie.id);
+    let franchises: string[];
+    let matchesFilters: boolean;
+
+    if (datedAvail) {
+      const fr = datedAvail.get(movie.id);
+      matchesFilters = fr !== undefined;
+      franchises = fr ? [...fr].sort() : [];
+    } else if (cityQuery) {
+      matchesFilters = entry?.cities.has(cityQuery) ?? false;
+      franchises = [...(entry?.franchisesByCity.get(cityQuery) ?? [])].sort();
+    } else {
+      matchesFilters = true;
+      franchises = entry ? [...new Set([...entry.franchisesByCity.values()].flatMap(s => [...s]))].sort() : [];
+    }
+
     return {
       ...movie,
-      available_cities: availability?.cities || [],
-      available_franchises: availability?.franchises || [],
+      available_cities: entry ? [...entry.cities] : [],
+      available_franchises: franchises,
+      matchesFilters,
     };
   });
 
   // Optymalizacja O(1) do szybkiego wyszukiwania pełnych danych filmu po id
   const moviesMap = new Map(enhancedMovies.map(m => [m.id, m]));
 
-  // Dopasowanie pobranych idków do pełnych danych filmów
+  // Filtr miasta/daty jest już zakodowany w matchesFilters (jeden spójny zbiór dla listy i badge'ów).
   let topMovies = (topScreenings || [])
     .map((ts) => (ts.movie_id ? moviesMap.get(ts.movie_id) : undefined))
-    .filter(Boolean) as typeof enhancedMovies;
+    .filter((m): m is typeof enhancedMovies[number] => m !== undefined && m.matchesFilters);
 
-  let filteredMovies = enhancedMovies;
-
-  // Filtrowanie po wybranym mieście
-  if (cityQuery) {
-    filteredMovies = filteredMovies.filter((movie) =>
-      movie.available_cities.includes(cityQuery)
-    );
-    topMovies = topMovies.filter((movie) =>
-      movie.available_cities.includes(cityQuery)
-    );
-  }
-
-  // Filtrowanie po wybranym zakresie dat
-  if (rangeActive && moviesInRange) {
-    filteredMovies = filteredMovies.filter((movie) =>
-      moviesInRange.has(movie.id)
-    );
-    topMovies = topMovies.filter((movie) =>
-      moviesInRange.has(movie.id)
-    );
-  }
+  let filteredMovies = enhancedMovies.filter((m) => m.matchesFilters);
 
   // Karuzele wg daty premiery (na już przefiltrowanym po mieście/dacie zbiorze).
   // release_date to string 'YYYY-MM-DD', więc porównania i sortowanie działają leksykograficznie.
@@ -131,12 +144,23 @@ export default async function Home({
     .slice(0, 10)
     .map((x) => x.movie);
 
-  // Odfiltrowanie filmów w przypadku aktywnego wyszukiwania
+  // Odfiltrowanie filmów w przypadku aktywnego wyszukiwania (w obrębie aktywnych filtrów miasta/daty)
   if (query) {
     filteredMovies = enhancedMovies.filter((movie) =>
-      movie.title.toLowerCase().includes(query)
+      movie.matchesFilters && movie.title.toLowerCase().includes(query)
     );
     // Wyszukiwanie nadpisuje osobne sekcje-karuzele
+    topMovies = [];
+    newReleases = [];
+    upcoming = [];
+    topRated = [];
+  }
+
+  // Przy małym zbiorze (np. po wyborze mniejszego miasta jak Suwałki) karuzele "odkrywcze"
+  // pokazują w kółko te same kilka filmów i dublują je z sekcjami wg typu. Wtedy same sekcje
+  // (które dzielą filmy bez powtórzeń) są czytelniejsze - chowamy karuzele.
+  const DISCOVERY_MIN_MOVIES = 25;
+  if (filteredMovies.length < DISCOVERY_MIN_MOVIES) {
     topMovies = [];
     newReleases = [];
     upcoming = [];

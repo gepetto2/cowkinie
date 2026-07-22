@@ -1,9 +1,23 @@
 import { unstable_cache } from 'next/cache';
 import { supabase } from './client';
+import { Database } from '@/types/database.types';
 
 // Dane repertuaru zmieniają się tylko przy scrapie, więc cache'ujemy odczyty na krótko,
 // zamiast uderzać do Supabase pełnym zapytaniem przy każdym żądaniu (strona i tak filtruje w JS).
 const CACHE_REVALIDATE_SECONDS = 120;
+
+// Tylko kolumny potrzebne na stronie głównej (karta + karuzele + ranking ocen). Reszta wierszy movies
+// (opisy, obsada, dane per-źródło) to zbędny balast przy renderze kafelków - nie pobieramy jej.
+// UWAGA: trzymaj tę listę zsynchronizowaną z typem MovieListItem poniżej.
+const MOVIE_CARD_COLUMNS =
+  'id, title, poster, movie_type, release_year, release_date, director, ' +
+  'rating_filmweb, rating_count_filmweb, rating_imdb, rating_count_imdb, rating_tmdb, rating_count_tmdb';
+
+export type MovieListItem = Pick<
+  Database['public']['Tables']['movies']['Row'],
+  | 'id' | 'title' | 'poster' | 'movie_type' | 'release_year' | 'release_date' | 'director'
+  | 'rating_filmweb' | 'rating_count_filmweb' | 'rating_imdb' | 'rating_count_imdb' | 'rating_tmdb' | 'rating_count_tmdb'
+>;
 
 // Wspólny formatter daty YYYY-MM-DD w strefie Europe/Warsaw (używany przez helpery dat)
 const warsawDateFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -28,26 +42,33 @@ export const getCities = unstable_cache(
 );
 
 export const getMovies = unstable_cache(
-  async () => {
-    const { data, error } = await supabase.from('movies').select('*');
+  async (): Promise<MovieListItem[]> => {
+    const { data, error } = await supabase.from('movies').select(MOVIE_CARD_COLUMNS);
     if (error) {
       console.error('Błąd podczas pobierania filmów:', error);
       return [];
     }
-    return data;
+    return (data ?? []) as unknown as MovieListItem[];
   },
   ['movies'],
   { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
 );
 
+// Ziarnista dostępność: jeden wiersz na (film, miasto, franczyza). Pozwala policzyć franczyzy
+// zawężone do wybranego miasta (badge'y na plakacie mają odpowiadać aktywnemu filtrowi), a nie
+// wszystkie franczyzy filmu w ogóle. Wymaga widoku movie_cinema_availability (patrz SQL).
+export type CinemaAvailabilityRow = { movie_id: string; city: string; franchise: string | null };
+
 export const getCinemaAvailabilities = unstable_cache(
-  async () => {
-    const { data, error } = await supabase.from('movie_cinemas_view').select('*');
+  async (): Promise<CinemaAvailabilityRow[]> => {
+    const { data, error } = await supabase
+      .from('movie_cinema_availability')
+      .select('movie_id, city, franchise');
     if (error) {
       console.error('Błąd podczas pobierania dostępności kin:', error);
       return [];
     }
-    return data ?? [];
+    return (data ?? []) as unknown as CinemaAvailabilityRow[];
   },
   ['cinema-availabilities'],
   { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
@@ -85,25 +106,25 @@ export function getDateDaysAgo(days: number) {
   return warsawDateFormatter.format(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
 }
 
-// Zbiór id filmów mających seans w zakresie [from, to] (włącznie), opcjonalnie w danym mieście.
-// Pojedynczy dzień to from === to. Widok movie_dates_view ma kolumny movie_id, screening_date, city.
-export async function getMovieIdsByDateRange(from: string, to: string, cityStr?: string) {
-  let query = supabase
-    .from('movie_dates_view')
-    .select('movie_id')
-    .gte('screening_date', from)
-    .lte('screening_date', to);
+// Dostępność przefiltrowana po dacie [from, to] (włącznie) i opcjonalnie po mieście - agregacja
+// po stronie serwera (RPC filtered_movie_franchises). Zwraca mapę movie_id -> franczyzy seansów
+// pasujących do filtrów. Klucze = filmy z seansem w zakresie; wartości sterują badge'ami kin.
+// Dzięki agregacji w bazie payload jest minimalny (1 wiersz na film) i nie ma limitu 1000 wierszy.
+// Pod przyszłe filtry (format itd.) wystarczy dodać kolejny parametr do funkcji i klauzulę WHERE.
+export async function getFilteredAvailability(from: string, to: string, cityStr?: string): Promise<Map<string, string[]>> {
+  const { data, error } = await supabase.rpc('filtered_movie_franchises', {
+    date_from: from,
+    date_to: to,
+    city_filter: cityStr || null,
+  });
 
-  if (cityStr) {
-    query = query.eq('city', cityStr);
-  }
-
-  const { data, error } = await query;
-
+  const map = new Map<string, string[]>();
   if (error || !data) {
-    console.error('Błąd podczas pobierania id filmów dla zakresu dat:', error);
-    return new Set<string>();
+    console.error('Błąd podczas pobierania dostępności dla zakresu dat:', error);
+    return map;
   }
-
-  return new Set(data.map(row => row.movie_id as string));
+  for (const row of data as { movie_id: string; franchises: string[] | null }[]) {
+    if (row.movie_id) map.set(row.movie_id, row.franchises ?? []);
+  }
+  return map;
 }

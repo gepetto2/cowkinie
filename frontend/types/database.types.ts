@@ -346,27 +346,11 @@ export type Database = {
       }
     }
     Views: {
-      movie_cinemas_view: {
-        Row: {
-          cities: string[] | null
-          franchises: string[] | null
-          movie_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "screenings_movie_id_fkey"
-            columns: ["movie_id"]
-            isOneToOne: false
-            referencedRelation: "movies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      movie_dates_view: {
+      movie_cinema_availability: {
         Row: {
           city: string | null
+          franchise: string | null
           movie_id: string | null
-          screening_date: string | null
         }
         Relationships: [
           {
@@ -395,7 +379,13 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      filtered_movie_franchises: {
+        Args: { city_filter?: string; date_from: string; date_to: string }
+        Returns: {
+          franchises: string[]
+          movie_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
