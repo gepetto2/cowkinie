@@ -7,10 +7,12 @@ from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
-def upsert_cinema(supabase, name: str, city: str, franchise: str) -> str:
-    """Dodaje lub aktualizuje kino w bazie danych i zwraca jego ID."""
+def upsert_cinema(supabase, name: str, city: str, franchise: str, category: str) -> str:
+    """Dodaje lub aktualizuje kino i zwraca jego ID.
+    franchise = realna marka (Cinema City, Kino Muza...); category = klasyfikacja do grupowania
+    badge'ów i sekcji: 'sieć' | 'studyjne' | 'niezależne'."""
     cinema_res = supabase.table("cinemas").upsert(
-        {"name": name, "city": city, "franchise": franchise},
+        {"name": name, "city": city, "franchise": franchise, "category": category},
         on_conflict="name,franchise"
     ).execute()
     return cinema_res.data[0]["id"]

@@ -35,7 +35,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             logger.info("Rozpoczynam scraping Cinema Lumiere (Suwałki)...")
-            db_cinema_id = upsert_cinema(supabase, "Cinema Lumiere", CITY, "Kina Studyjne")
+            db_cinema_id = upsert_cinema(supabase, "Cinema Lumiere", CITY, "Cinema Lumiere", "niezależne")
 
             resp = await client.get(API_URL, timeout=30.0, headers={"X-Requested-With": "XMLHttpRequest"})
             if resp.status_code != 200:

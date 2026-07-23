@@ -127,7 +127,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 logger.info(f"--- Rozpoczynam scraping dla: {cinema_name} (ID: {cinema_id_api}) ---")
 
                 # Upsert kina w Supabase (wymaga nałożonego UNIQUE na kolumnach 'name, franchise')
-                db_cinema_id = upsert_cinema(supabase, cinema_name, cinema_city, "Cinema City")
+                db_cinema_id = upsert_cinema(supabase, cinema_name, cinema_city, "Cinema City", "sieć")
 
                 # Pobranie dostępnych dat
                 until_date = (datetime.now(ZoneInfo("Europe/Warsaw")) + timedelta(days=365)).strftime("%Y-%m-%d")

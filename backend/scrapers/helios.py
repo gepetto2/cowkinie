@@ -104,7 +104,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 logger.info(f"--- Rozpoczynam scraping dla: {cinema_name} ---")
                 
                 # Zapis kina do bazy
-                db_cinema_id = upsert_cinema(supabase, cinema_name, cinema_city, "Helios")
+                db_cinema_id = upsert_cinema(supabase, cinema_name, cinema_city, "Helios", "sieć")
                 
                 # 1. Pobranie sal (Screen mapping)
                 screens_mapping = {}

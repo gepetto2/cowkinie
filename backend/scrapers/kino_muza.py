@@ -102,7 +102,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             logger.info("Rozpoczynam scraping Kina Muza (Poznań)...")
-            db_cinema_id = upsert_cinema(supabase, "Kino Muza", "Poznań", "Kina Studyjne")
+            db_cinema_id = upsert_cinema(supabase, "Kino Muza", "Poznań", "Kino Muza", "studyjne")
 
             # Serwer Muzy dławi się przy większej współbieżności (przy 5 częste timeouty i utrata dni).
             # Przy 2 równoległych żądaniach jest zarazem szybciej i bez timeoutów (zmierzone).

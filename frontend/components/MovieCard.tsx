@@ -22,8 +22,19 @@ type Movie = MovieListItem & {
   available_franchises?: string[];
 };
 type Screening = Database["public"]["Tables"]["screenings"]["Row"] & {
-  cinemas: { name: string; city: string; franchise: string | null } | null;
+  cinemas: { name: string; city: string; franchise: string | null; category: string | null } | null;
 };
+
+// Grupa do badge'a: dla sieci realna marka, dla reszty kategoria (studyjne/niezależne) - spójnie z widokiem.
+function cinemaGroup(cinema: { franchise: string | null; category: string | null } | null): string | null {
+  if (!cinema) return null;
+  return cinema.category === "sieć" ? cinema.franchise : cinema.category;
+}
+
+// Klucz badge'a: sieci osobno (marka), a studyjne i niezależne łączymy w jedno "Inne".
+function badgeKey(group: string): string {
+  return group === "studyjne" || group === "niezależne" ? "Inne" : group;
+}
 
 // Dzień seansu liczymy w strefie kina (Europe/Warsaw), spójnie z chipami "Wybierz datę" na stronie głównej,
 // zamiast w lokalnej strefie przeglądarki (inaczej seans o 23:30 mógłby wpaść do innego dnia).
@@ -40,7 +51,7 @@ function franchiseVisual(franchise: string) {
   if (lower.includes("cinema") && lower.includes("city")) { bgColor = "bg-orange-500"; initial = "CC"; }
   else if (lower.includes("multikino")) bgColor = "bg-red-600";
   else if (lower.includes("helios")) bgColor = "bg-blue-600";
-  else if (lower.includes("studyjne")) { bgColor = "bg-indigo-600"; initial = "KS"; }
+  else if (lower === "inne") { bgColor = "bg-teal-600"; initial = "IN"; }
   return { bgColor, initial };
 }
 
@@ -100,7 +111,7 @@ export default function MovieCard({ movie }: { movie: Movie }) {
       // Filtr po mieście robimy po stronie zapytania (join !inner), by nie ściągać seansów z innych miast
       let queryBuilder = supabase
         .from("screenings")
-        .select("*, cinemas!inner(name, city, franchise)")
+        .select("*, cinemas!inner(name, city, franchise, category)")
         .eq("movie_id", movie.id)
         .order("start_time", { ascending: true });
 
@@ -138,9 +149,9 @@ export default function MovieCard({ movie }: { movie: Movie }) {
   // Zbiór sieci kin grających film danego dnia (do ikon po prawej stronie wiersza)
   const franchisesPerDay = screenings.reduce((acc, s) => {
     const dateStr = toWarsawDay(s.start_time);
-    const franchise = s.cinemas?.franchise;
-    if (franchise) {
-      (acc[dateStr] ??= new Set<string>()).add(franchise);
+    const group = cinemaGroup(s.cinemas);
+    if (group) {
+      (acc[dateStr] ??= new Set<string>()).add(badgeKey(group));
     }
     return acc;
   }, {} as Record<string, Set<string>>);
@@ -149,6 +160,9 @@ export default function MovieCard({ movie }: { movie: Movie }) {
 
   // Dostępne oceny (Filmweb/IMDb/TMDB) do wyświetlenia pod tytułem
   const ratings = movieRatings(movie);
+
+  // Badge'y na plakacie: sieci osobno, studyjne+niezależne złączone w "Inne" (bez duplikatów)
+  const posterBadges = [...new Set((movie.available_franchises ?? []).map(badgeKey))];
 
   // Filtrowanie po wybranej dacie (również w strefie kina)
   const filteredScreenings = screenings.filter(s => toWarsawDay(s.start_time) === selectedDate);
@@ -171,10 +185,10 @@ export default function MovieCard({ movie }: { movie: Movie }) {
               <div className="flex items-center justify-center w-full h-full text-slate-500 text-xs text-center p-2">Brak plakatu</div>
             )}
             
-            {/* Ikony kin */}
-            {movie.available_franchises && movie.available_franchises.length > 0 && (
+            {/* Ikony kin (studyjne + niezależne złączone w jedno "Inne", z deduplikacją) */}
+            {posterBadges.length > 0 && (
               <div className="absolute bottom-2 right-2 flex flex-row gap-1.5 z-10">
-                {movie.available_franchises.map(franchise => (
+                {posterBadges.map(franchise => (
                   <FranchiseBadge key={franchise} franchise={franchise} className="hover:scale-110 transition-transform" />
                 ))}
               </div>

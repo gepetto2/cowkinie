@@ -76,7 +76,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 logger.info(f"--- Rozpoczynam scraping dla: {cinema_name} (ID: {cinema_id_api}) ---")
                 
                 # Upsert kina w Supabase
-                db_cinema_id = upsert_cinema(supabase, cinema_name, cinema_city, "Multikino")
+                db_cinema_id = upsert_cinema(supabase, cinema_name, cinema_city, "Multikino", "sieć")
                 
                 # Właściwe zapytanie do API kina
                 target_url = f"https://www.multikino.pl/api/microservice/showings/cinemas/{cinema_id_api}/films"

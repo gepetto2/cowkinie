@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       cinemas: {
         Row: {
+          category: string | null
           city: string
           created_at: string | null
           franchise: string | null
@@ -23,6 +24,7 @@ export type Database = {
           name: string
         }
         Insert: {
+          category?: string | null
           city: string
           created_at?: string | null
           franchise?: string | null
@@ -30,6 +32,7 @@ export type Database = {
           name: string
         }
         Update: {
+          category?: string | null
           city?: string
           created_at?: string | null
           franchise?: string | null
