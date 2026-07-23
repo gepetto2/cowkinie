@@ -383,6 +383,12 @@ export type Database = {
         }
         Relationships: []
       }
+      screening_lang_options: {
+        Row: {
+          lang: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       filtered_movie_franchises: {
@@ -391,6 +397,7 @@ export type Database = {
           date_from?: string
           date_to?: string
           format_filter?: string[]
+          lang_filter?: string[]
         }
         Returns: {
           franchises: string[]

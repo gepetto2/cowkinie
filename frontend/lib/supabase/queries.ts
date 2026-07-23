@@ -109,6 +109,23 @@ export const getAvailableFormats = unstable_cache(
   { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
 );
 
+// Dostępne wersje językowe do filtra - dokładne wartości z bazy (widok screening_lang_options).
+export const getAvailableLangs = unstable_cache(
+  async (): Promise<string[]> => {
+    const { data, error } = await supabase.from('screening_lang_options').select('lang');
+    if (error || !data) {
+      console.error('Błąd podczas pobierania wersji językowych:', error);
+      return [];
+    }
+    const langs = (data as { lang: string | null }[])
+      .map((r) => r.lang)
+      .filter((l): l is string => Boolean(l));
+    return [...new Set(langs)].sort((a, b) => a.localeCompare(b));
+  },
+  ['lang-options'],
+  { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
+);
+
 export function getAvailableDates(days = 14) {
   const dates = [];
   const now = new Date();
@@ -130,15 +147,16 @@ export function getDateDaysAgo(days: number) {
 // Dzięki agregacji w bazie payload jest minimalny (1 wiersz na film) i nie ma limitu 1000 wierszy.
 // Pod przyszłe filtry (format itd.) wystarczy dodać kolejny parametr do funkcji i klauzulę WHERE.
 export async function getFilteredAvailability(
-  from?: string, to?: string, cityStr?: string, formats?: string[],
+  from?: string, to?: string, cityStr?: string, formats?: string[], langs?: string[],
 ): Promise<Map<string, string[]>> {
   const { data, error } = await supabase.rpc('filtered_movie_franchises', {
     // Puste pomijamy - funkcja ma dla każdego parametru default null (= brak tego filtra).
-    // format_filter to lista dokładnych formatów (multi-select) - dopasowanie s.format = any(...).
+    // format_filter / lang_filter to listy dokładnych wartości (multi-select) - dopasowanie = any(...).
     date_from: from || undefined,
     date_to: to || undefined,
     city_filter: cityStr || undefined,
     format_filter: formats && formats.length ? formats : undefined,
+    lang_filter: langs && langs.length ? langs : undefined,
   });
 
   const map = new Map<string, string[]>();

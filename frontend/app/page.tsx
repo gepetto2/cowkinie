@@ -1,14 +1,14 @@
 import { Suspense } from 'react';
 import {
   getCities, getMovies, getAvailableDates, getFilteredAvailability, getDateDaysAgo,
-  getCinemaAvailabilities, getTopScreenings, getAvailableFormats,
+  getCinemaAvailabilities, getTopScreenings, getAvailableFormats, getAvailableLangs,
 } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
 import FilterBar from '@/components/FilterBar';
 import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
 
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
-const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY', 'DLA DZIECI', 'SALON KULTURY'];
+const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY', 'DLA DZIECI', 'SALON KULTURY', 'KONCERT'];
 
 // Maksymalna różnica (w latach) między rokiem produkcji a rokiem premiery kinowej.
 // Powyżej tej wartości traktujemy film jako wznowienie starego tytułu i pomijamy w karuzelach.
@@ -29,12 +29,15 @@ export default async function Home({
   const rangeFrom = fromQuery || toQuery;
   const rangeTo = toQuery || fromQuery;
   const rangeActive = Boolean(rangeFrom);
-  // Format to lista (multi-select), w URL rozdzielona przecinkami.
+  // Format i wersja językowa to listy (multi-select), w URL rozdzielone przecinkami.
   const selectedFormats = typeof params?.format === 'string' && params.format
     ? params.format.split(',').filter(Boolean)
     : [];
-  // Filtr daty i formatu wymaga danych na poziomie seansu -> liczymy je po stronie serwera (RPC).
-  const serverFilterActive = rangeActive || selectedFormats.length > 0;
+  const selectedLangs = typeof params?.lang === 'string' && params.lang
+    ? params.lang.split(',').filter(Boolean)
+    : [];
+  // Filtr daty/formatu/języka wymaga danych na poziomie seansu -> liczymy je po stronie serwera (RPC).
+  const serverFilterActive = rangeActive || selectedFormats.length > 0 || selectedLangs.length > 0;
 
   // Zrównoleglenie pobierania wszystkich danych (odczyty z bazy są cache'owane w queries.ts)
   const [
@@ -44,6 +47,7 @@ export default async function Home({
     topScreenings,
     availableDates,
     formats,
+    langs,
     serverAvail
   ] = await Promise.all([
     getCities(),
@@ -52,8 +56,9 @@ export default async function Home({
     getTopScreenings(),
     Promise.resolve(getAvailableDates(1)), // dzisiejsza data dla karuzel
     getAvailableFormats(),
-    // Gdy aktywny filtr daty/formatu: dostępność (film -> franczyzy) z pasujących seansów, po stronie serwera.
-    serverFilterActive ? getFilteredAvailability(rangeFrom, rangeTo, cityQuery, selectedFormats) : Promise.resolve(null)
+    getAvailableLangs(),
+    // Gdy aktywny filtr daty/formatu/języka: dostępność (film -> franczyzy) z pasujących seansów, po stronie serwera.
+    serverFilterActive ? getFilteredAvailability(rangeFrom, rangeTo, cityQuery, selectedFormats, selectedLangs) : Promise.resolve(null)
   ]);
 
   // Dostępność per film: miasta oraz franczyzy w rozbiciu na miasto. Dzięki temu badge'y kin
@@ -149,7 +154,7 @@ export default async function Home({
     .map((m) => ({ movie: m, score: bayesianScore(m, ratingMeans) }))
     .filter((x): x is { movie: typeof enhancedMovies[number]; score: number } => x.score !== null)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 10)
+    .slice(0, 15)
     .map((x) => x.movie);
 
   // Odfiltrowanie filmów w przypadku aktywnego wyszukiwania (w obrębie aktywnych filtrów miasta/daty)
@@ -226,7 +231,7 @@ export default async function Home({
       <h1 className="text-4xl font-extrabold mb-8 text-slate-100 tracking-tight">Repertuar Kin</h1>
 
       <Suspense fallback={<div className="h-14 mb-6" />}>
-        <FilterBar cities={cities} formats={formats} resultCount={filteredMovies.length} />
+        <FilterBar cities={cities} formats={formats} langs={langs} resultCount={filteredMovies.length} />
       </Suspense>
 
       <div className="space-y-10">
@@ -299,7 +304,7 @@ export default async function Home({
         {upcoming.length > 0 && (
           <section className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-sky-500 rounded-sm">
-              Wkrótce
+              Wkrótce premiera
             </h2>
             <div
               className="flex overflow-x-auto gap-5 pb-6 snap-x -mx-4 px-4 sm:mx-0 sm:px-0"

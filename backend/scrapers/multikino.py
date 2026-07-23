@@ -180,17 +180,22 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                             if booking_url and not booking_url.startswith("http"):
                                 booking_url = f"https://www.multikino.pl{booking_url}"
                             
-                            # Jednym przejściem po atrybutach wyciągamy język (pierwszy typu Language)
-                            # oraz format/technologię seansu (2D/3D/IMAX/4DX/VIP/ScreenX...)
-                            lang = None
+                            # Jednym przejściem zbieramy atrybuty Language oraz format/technologię seansu.
+                            lang_names = []
                             formats = []
                             for attr in session.get("attributes", []):
                                 name = (attr.get("name") or "").strip()
                                 if attr.get("attributeType") == "Language":
-                                    if lang is None:
-                                        lang = name
+                                    if name:
+                                        lang_names.append(name)
                                 elif name.upper() in KNOWN_FORMATS:
                                     formats.append(name)
+                            # Seans może mieć kilka atrybutów Language (np. koncerty: "ANGIELSKIE" + "NAPISY").
+                            # Preferujemy typ wersji (napisy/dubbing) nad samą nazwą języka audio, żeby
+                            # nie zgubić, że seans jest z polskimi napisami.
+                            VERSION_LANGS = ("NAPISY", "DUBBING", "UA")
+                            lang = next((n for n in lang_names if n.upper() in VERSION_LANGS),
+                                        lang_names[0] if lang_names else None)
                             # dict.fromkeys usuwa duplikaty zachowując kolejność
                             screening_format = " ".join(dict.fromkeys(formats)) or None
 

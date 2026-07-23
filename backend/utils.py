@@ -95,7 +95,9 @@ _LANG_MAP = {
     "ORYGINALNY": "ORYGINALNY",
     "ANGIELSKIE": "ORYGINALNY",
     "ORIGINAL": "ORYGINALNY",
+    "ORG": "ORYGINALNY",        # Helios: wersja oryginalna
     "LEKTOR": "LEKTOR",
+    "LEC": "LEKTOR",
 }
 
 def normalize_lang(raw: str):

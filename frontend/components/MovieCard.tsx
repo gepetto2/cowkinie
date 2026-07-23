@@ -71,6 +71,7 @@ export default function MovieCard({ movie }: { movie: Movie }) {
   const searchParams = useSearchParams();
   const cityQuery = searchParams.get("city");
   const formatQuery = searchParams.get("format");
+  const langQuery = searchParams.get("lang");
   const fromQuery = searchParams.get("from");
   const toQuery = searchParams.get("to");
   // Preselekcja dnia w modalu ma sens tylko dla pojedynczego dnia (from === to), nie dla zakresu
@@ -106,10 +107,14 @@ export default function MovieCard({ movie }: { movie: Movie }) {
       if (cityQuery) {
         queryBuilder = queryBuilder.eq("cinemas.city", cityQuery);
       }
-      // Filtr formatu: lista dokładnych formatów (multi-select), spójnie z listą filmów.
+      // Filtr formatu / wersji językowej: listy dokładnych wartości (multi-select), spójnie z listą filmów.
       const formats = (formatQuery || "").split(",").filter(Boolean);
       if (formats.length) {
         queryBuilder = queryBuilder.in("format", formats);
+      }
+      const langs = (langQuery || "").split(",").filter(Boolean);
+      if (langs.length) {
+        queryBuilder = queryBuilder.in("lang", langs);
       }
 
       const { data, error } = await queryBuilder;
@@ -121,7 +126,7 @@ export default function MovieCard({ movie }: { movie: Movie }) {
     }
 
     fetchScreenings();
-  }, [isOpen, movie.id, cityQuery, formatQuery]);
+  }, [isOpen, movie.id, cityQuery, formatQuery, langQuery]);
 
   // Wyodrębnienie unikalnych dat seansów i zliczenie ich ilości (dzień w strefie kina - Europe/Warsaw)
   const screeningsPerDay = screenings.reduce((acc, s) => {
