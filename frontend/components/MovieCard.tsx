@@ -180,7 +180,7 @@ export default function MovieCard({ movie }: { movie: Movie }) {
         <div className="flex flex-col group cursor-pointer">
           <div className="relative w-full aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-3 shadow-sm group-hover:shadow-md transition-shadow">
             {movie.poster ? (
-              <Image src={movie.poster} alt={movie.title} fill sizes="(max-width: 640px) 140px, (max-width: 1024px) 160px, 180px" className="object-cover" />
+              <Image src={movie.poster} alt={movie.title} fill sizes="(max-width: 640px) 30vw, (max-width: 1024px) 20vw, 180px" className="object-cover" />
             ) : (
               <div className="flex items-center justify-center w-full h-full text-slate-500 text-xs text-center p-2">Brak plakatu</div>
             )}

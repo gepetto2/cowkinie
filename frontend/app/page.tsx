@@ -191,7 +191,7 @@ export default async function Home({
     } else {
       const franchises = movie.available_franchises;
       const studyjneOnly = franchises.length > 0 && franchises.every((f) => /studyjne/i.test(f));
-      type = studyjneOnly ? 'Kino Studyjne' : 'STANDARD';
+      type = studyjneOnly ? 'Kina Studyjne' : 'STANDARD';
     }
 
     if (!acc[type]) {
@@ -207,9 +207,10 @@ export default async function Home({
     list.sort((a, b) => a.title.localeCompare(b.title, 'pl'));
   }
 
-  // Kolejność: główna kategoria, potem "Kino Studyjne", potem reszta alfabetycznie.
+  // Kolejność: główna kategoria, potem KULTOWE, potem "Kino Studyjne", potem reszta alfabetycznie.
   const mainCategory = query ? 'Wyniki wyszukiwania' : 'STANDARD';
-  const categoryRank = (c: string) => (c === mainCategory ? 0 : c === 'Kino Studyjne' ? 1 : 2);
+  const categoryRank = (c: string) =>
+    c === mainCategory ? 0 : c === 'KULTOWE' ? 1 : c === 'Kina Studyjne' ? 2 : 3;
   const sortedCategories = Object.keys(groupedMovies).sort((a, b) => {
     const diff = categoryRank(a) - categoryRank(b);
     return diff !== 0 ? diff : a.localeCompare(b);
@@ -217,8 +218,8 @@ export default async function Home({
 
   // Krótkie sekcje (mało filmów) upakowujemy obok siebie w siatce; duże zostają pełną szerokością.
   const NARROW_SECTION_MAX = 4;
-  // Główna kategoria i "Kino Studyjne" zawsze pełną szerokością (jak STANDARD).
-  const alwaysWide = (c: string) => c === mainCategory || c === 'Kino Studyjne';
+  // Główna kategoria, KULTOWE i "Kino Studyjne" zawsze pełną szerokością (rozwinięta siatka).
+  const alwaysWide = (c: string) => c === mainCategory || c === 'KULTOWE' || c === 'Kina Studyjne';
   const wideCategories = sortedCategories.filter(
     (c) => alwaysWide(c) || groupedMovies[c].length > NARROW_SECTION_MAX
   );
@@ -329,17 +330,25 @@ export default async function Home({
               {category}
             </h2>
 
-            {/* Rozwinięta siatka (flex-wrap) albo pozioma karuzela */}
-            <div
-              className={`flex gap-5 pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 ${expanded ? 'flex-wrap' : 'overflow-x-auto snap-x'}`}
-              style={expanded ? undefined : { scrollbarWidth: 'thin' }}
-            >
-              {groupedMovies[category].map((movie) => (
-                <div key={movie.id} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
-                  <MovieCard movie={movie} />
-                </div>
-              ))}
-            </div>
+            {/* Rozwinięta: responsywna siatka wypełniająca szerokość. Karuzela: poziomy scroll. */}
+            {expanded ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4 pb-6">
+                {groupedMovies[category].map((movie) => (
+                  <MovieCard key={movie.id} movie={movie} />
+                ))}
+              </div>
+            ) : (
+              <div
+                className="flex overflow-x-auto snap-x gap-5 pb-6 -mx-4 px-4 sm:mx-0 sm:px-0"
+                style={{ scrollbarWidth: 'thin' }}
+              >
+                {groupedMovies[category].map((movie) => (
+                  <div key={movie.id} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
+                    <MovieCard movie={movie} />
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
           );
         })}

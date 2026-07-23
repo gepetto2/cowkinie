@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Calendar as CalendarIcon, MapPin, X, ChevronDown, Film, Check, Languages } from "lucide-react";
+import { Search, Calendar as CalendarIcon, MapPin, X, ChevronDown, Film, Check, Languages, SlidersHorizontal } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -102,6 +102,8 @@ export default function FilterBar({ cities, formats, langs, resultCount }: { cit
   const [cityOpen, setCityOpen] = useState(false);
   const [formatOpen, setFormatOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false); // zwijanie filtrów na telefonie
+  const activeFilterCount = (from || to ? 1 : 0) + (city ? 1 : 0) + selectedFormats.length + selectedLangs.length;
 
   // Przełączenie w multi-select (dropdown zostaje otwarty)
   const toggleFormat = (f: string) => {
@@ -144,6 +146,19 @@ export default function FilterBar({ cities, formats, langs, resultCount }: { cit
           />
         </div>
 
+        {/* Przełącznik filtrów - tylko na telefonie */}
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((o) => !o)}
+          className={`sm:hidden ${triggerCls(activeFilterCount > 0)}`}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          <span>Filtry{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}</span>
+          <ChevronDown className={`h-3.5 w-3.5 opacity-60 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+        </button>
+
+        {/* Filtry: zwijane na telefonie, w rzędzie na desktopie */}
+        <div className={`${filtersOpen ? "flex" : "hidden"} sm:flex w-full sm:w-auto flex-wrap items-center gap-2`}>
         {/* Kiedy? */}
         <Popover open={dateOpen} onOpenChange={openDate}>
           <PopoverTrigger asChild>
@@ -286,9 +301,10 @@ export default function FilterBar({ cities, formats, langs, resultCount }: { cit
           </PopoverContent>
         </Popover>
         )}
+        </div>
 
-        {/* Licznik wyników */}
-        <span className="text-sm text-slate-400 ml-auto shrink-0 tabular-nums">{formatCount(resultCount)}</span>
+        {/* Licznik wyników (na telefonie chowamy, by nie zabierał miejsca) */}
+        <span className="hidden sm:block text-sm text-slate-400 ml-auto shrink-0 tabular-nums">{formatCount(resultCount)}</span>
       </div>
 
       {/* Aktywne filtry */}
