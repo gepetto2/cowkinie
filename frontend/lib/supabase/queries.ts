@@ -10,12 +10,12 @@ const CACHE_REVALIDATE_SECONDS = 120;
 // (opisy, obsada, dane per-źródło) to zbędny balast przy renderze kafelków - nie pobieramy jej.
 // UWAGA: trzymaj tę listę zsynchronizowaną z typem MovieListItem poniżej.
 const MOVIE_CARD_COLUMNS =
-  'id, title, poster, movie_type, release_year, release_date, director, ' +
+  'id, title, poster, movie_type, release_year, release_date, director, length, ' +
   'rating_filmweb, rating_count_filmweb, rating_imdb, rating_count_imdb, rating_tmdb, rating_count_tmdb';
 
 export type MovieListItem = Pick<
   Database['public']['Tables']['movies']['Row'],
-  | 'id' | 'title' | 'poster' | 'movie_type' | 'release_year' | 'release_date' | 'director'
+  | 'id' | 'title' | 'poster' | 'movie_type' | 'release_year' | 'release_date' | 'director' | 'length'
   | 'rating_filmweb' | 'rating_count_filmweb' | 'rating_imdb' | 'rating_count_imdb' | 'rating_tmdb' | 'rating_count_tmdb'
 >;
 

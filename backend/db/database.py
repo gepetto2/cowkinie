@@ -178,8 +178,11 @@ def consolidate_post_enrich(supabase):
             if new_year != movie.get("release_year"):
                 update_data["release_year"] = new_year
 
-        # Czas trwania: pierwszy sensowny wg priorytetu źródeł (TMDB/Filmweb kanoniczne, potem kina)
-        length = next((movie.get(f"length_{s}") for s in length_sources if movie.get(f"length_{s}")), None)
+        # Czas trwania: mediana dostępnych źródeł (odporna na błędne pojedyncze wartości, np. TMDB=5 min
+        # dla Wall-E). Przy parzystej liczbie źródeł bierzemy górny środek - zwraca zawsze realną wartość
+        # któregoś źródła (bez uśredniania) i preferuje dłuższy czas przy wersjach rozszerzonych.
+        lengths = sorted(v for s in length_sources if (v := movie.get(f"length_{s}")))
+        length = lengths[len(lengths) // 2] if lengths else None
         if length and length != movie.get("length"):
             update_data["length"] = length
 

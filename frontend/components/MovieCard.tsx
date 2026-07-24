@@ -68,6 +68,16 @@ function FranchiseBadge({ franchise, size = "md", className = "" }: { franchise:
   );
 }
 
+// Czas trwania w formacie "2 godz. 15 min" / "48 min" / "2 godz."
+function formatRuntime(length: number | null): string | null {
+  if (!length || length <= 0) return null;
+  const h = Math.floor(length / 60);
+  const m = length % 60;
+  if (h && m) return `${h} godz. ${m} min`;
+  if (h) return `${h} godz.`;
+  return `${m} min`;
+}
+
 const formatScreeningsCount = (count: number) => {
   if (count === 1) return "1 seans";
   const lastDigit = count % 10;
@@ -78,7 +88,7 @@ const formatScreeningsCount = (count: number) => {
   return `${count} seansów`;
 };
 
-export default function MovieCard({ movie }: { movie: Movie }) {
+export default function MovieCard({ movie, priority = false }: { movie: Movie; priority?: boolean }) {
   const searchParams = useSearchParams();
   const cityQuery = searchParams.get("city");
   const formatQuery = searchParams.get("format");
@@ -180,7 +190,7 @@ export default function MovieCard({ movie }: { movie: Movie }) {
         <div className="flex flex-col group cursor-pointer">
           <div className="relative w-full aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-3 shadow-sm group-hover:shadow-md transition-shadow">
             {movie.poster ? (
-              <Image src={movie.poster} alt={movie.title} fill sizes="(max-width: 640px) 30vw, (max-width: 1024px) 20vw, 180px" className="object-cover" />
+              <Image src={movie.poster} alt={movie.title} fill priority={priority} sizes="(max-width: 640px) 30vw, (max-width: 1024px) 20vw, 180px" className="object-cover" />
             ) : (
               <div className="flex items-center justify-center w-full h-full text-slate-500 text-xs text-center p-2">Brak plakatu</div>
             )}
@@ -195,7 +205,9 @@ export default function MovieCard({ movie }: { movie: Movie }) {
             )}
           </div>
           <h3 className="font-semibold text-sm leading-tight text-slate-100 line-clamp-2">{movie.title}</h3>
-          <p className="text-xs text-slate-400 mt-1">{movie.release_year || ''}</p>
+          <p className="text-xs text-slate-400 mt-1">
+            {[movie.release_year, formatRuntime(movie.length)].filter(Boolean).join(' · ')}
+          </p>
           {ratings.length > 0 && (
             <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[11px] text-slate-400">
               {ratings.map((r) => (

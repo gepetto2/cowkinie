@@ -227,6 +227,14 @@ export default async function Home({
     (c) => !alwaysWide(c) && groupedMovies[c].length <= NARROW_SECTION_MAX
   );
 
+  // Pierwsze plakaty w kolejności renderowania dostają priority (obraz LCP „nad zgięciem" - eager load).
+  const renderOrder = [
+    ...topMovies, ...topRated, ...newReleases, ...upcoming,
+    ...wideCategories.flatMap((c) => groupedMovies[c]),
+    ...narrowCategories.flatMap((c) => groupedMovies[c]),
+  ];
+  const priorityIds = new Set(renderOrder.slice(0, 6).map((m) => m.id));
+
   return (
     <main className="container mx-auto p-4 pt-8 pb-16 overflow-x-clip">
       <h1 className="text-4xl font-extrabold mb-8 text-slate-100 tracking-tight">Repertuar Kin</h1>
@@ -256,7 +264,7 @@ export default async function Home({
             >
               {topMovies.map((movie) => (
                 <div key={`top-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
-                  <MovieCard movie={movie} />
+                  <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                 </div>
               ))}
             </div>
@@ -275,7 +283,7 @@ export default async function Home({
             >
               {topRated.map((movie) => (
                 <div key={`rated-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
-                  <MovieCard movie={movie} />
+                  <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                 </div>
               ))}
             </div>
@@ -294,7 +302,7 @@ export default async function Home({
             >
               {newReleases.map((movie) => (
                 <div key={`new-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
-                  <MovieCard movie={movie} />
+                  <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                 </div>
               ))}
             </div>
@@ -313,7 +321,7 @@ export default async function Home({
             >
               {upcoming.map((movie) => (
                 <div key={`soon-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
-                  <MovieCard movie={movie} />
+                  <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                 </div>
               ))}
             </div>
@@ -334,7 +342,7 @@ export default async function Home({
             {expanded ? (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4 pb-6">
                 {groupedMovies[category].map((movie) => (
-                  <MovieCard key={movie.id} movie={movie} />
+                  <MovieCard key={movie.id} movie={movie} priority={priorityIds.has(movie.id)} />
                 ))}
               </div>
             ) : (
@@ -344,7 +352,7 @@ export default async function Home({
               >
                 {groupedMovies[category].map((movie) => (
                   <div key={movie.id} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
-                    <MovieCard movie={movie} />
+                    <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                   </div>
                 ))}
               </div>
@@ -368,7 +376,7 @@ export default async function Home({
                 <div className="flex flex-wrap gap-4">
                   {groupedMovies[category].map((movie) => (
                     <div key={movie.id} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0">
-                      <MovieCard movie={movie} />
+                      <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                     </div>
                   ))}
                 </div>

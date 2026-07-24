@@ -114,16 +114,24 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
         if not director:
             return None
         director_lower = director.lower()
+        matched = []
         for candidate in results_list[:20]:
             # Do sprawdzenia reżysera wystarczą same credits (1 zapytanie zamiast 3).
             credits_data = await fetch_credits(candidate["id"])
             dirs = extract_directors({"credits": credits_data or {}})
             if any(d.lower() in director_lower or director_lower in d.lower() for d in dirs):
-                logger.debug(f"[TMDB] Dopasowano film po reżyserze: {', '.join(dirs)}")
-                # Pełne dane (details + release_dates) dociągamy dopiero dla trafionego filmu.
-                full = await get_movie_details(candidate["id"])
-                if full:
-                    return _format_tmdb_response(full, extract_directors(full))
+                matched.append(candidate)
+        if not matched:
+            return None
+        # Wśród filmów tego samego reżysera bierzemy NAJPOPULARNIEJSZY (vote_count), a nie pierwszy z listy.
+        # Odsiewa to dodatki/krótkie metraże twórcy, które TMDB czasem stawia wyżej niż właściwy film
+        # (np. 'WALL·E's Treasures & Trinkets' [5 głosów] zamiast filmu WALL·E [20 tys. głosów]).
+        best = max(matched, key=lambda c: c.get("vote_count") or 0)
+        logger.debug(f"[TMDB] Dopasowano po reżyserze (najwięcej głosów): {best.get('title')} (id {best.get('id')})")
+        # Pełne dane (details + release_dates) dociągamy dopiero dla trafionego filmu.
+        full = await get_movie_details(best["id"])
+        if full:
+            return _format_tmdb_response(full, extract_directors(full))
         return None
 
     async def perform_search(query: str, search_year: Optional[int] = None):
