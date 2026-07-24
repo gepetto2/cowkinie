@@ -110,6 +110,7 @@ export default async function MoviesInfoPage() {
                     <PosterImage src={movie.poster_multikino} source="Multikino" />
                     <PosterImage src={movie.poster_helios} source="Helios" />
                     <PosterImage src={movie.poster_muza} source="Kino Muza" />
+                    <PosterImage src={movie.poster_apollo} source="Kino Apollo" />
                   </div>
                 </div>
 
@@ -225,6 +226,14 @@ export default async function MoviesInfoPage() {
                         { label: "Czas", value: movie.length_lumiere !== null ? `${movie.length_lumiere} min` : null },
                         { label: "Gatunek", value: movie.genre_lumiere },
                         { label: "Opis", value: movie.description_lumiere }
+                      ]}
+                    />
+                    <InfoBlock
+                      title="Kino Apollo"
+                      items={[
+                        { label: "Rok", value: movie.release_year_apollo },
+                        { label: "Typ", value: movie.movie_type_apollo },
+                        { label: "Opis", value: movie.description_apollo }
                       ]}
                     />
                   </div>

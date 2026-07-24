@@ -14,6 +14,7 @@ from scrapers.cinema_city import scrape_and_save as scrape_cinema_city
 from scrapers.helios import scrape_and_save as scrape_helios
 from scrapers.kino_muza import scrape_and_save as scrape_muza
 from scrapers.cinema_lumiere import scrape_and_save as scrape_lumiere
+from scrapers.kino_apollo import scrape_and_save as scrape_apollo
 from db.database import (
     consolidate_movie_data, consolidate_post_enrich, dedupe_by_normalized_title,
     dedupe_ukrainian_by_tmdb, delete_past_screenings, delete_orphan_movies, log_run_summary,
@@ -28,7 +29,7 @@ async def run_all() -> bool:
     """Zwraca True, jeśli wszystkie źródła zeskrapowały się bez błędu."""
     logger.info("=== START: pobieranie danych ze wszystkich kin dla miast: %s ===", ", ".join(TARGET_CITIES))
 
-    sources = ["Multikino", "Cinema City", "Helios", "Kino Muza", "Cinema Lumiere"]
+    sources = ["Multikino", "Cinema City", "Helios", "Kino Muza", "Cinema Lumiere", "Kino Apollo"]
     # return_exceptions=True: awaria jednego źródła nie przerywa pozostałych ani konsolidacji.
     results = await asyncio.gather(
         scrape_multikina(supabase, TARGET_CITIES),
@@ -36,6 +37,7 @@ async def run_all() -> bool:
         scrape_helios(supabase, TARGET_CITIES),
         scrape_muza(supabase, TARGET_CITIES),
         scrape_lumiere(supabase, TARGET_CITIES),
+        scrape_apollo(supabase, TARGET_CITIES),
         return_exceptions=True
     )
 

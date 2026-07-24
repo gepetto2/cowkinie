@@ -64,12 +64,13 @@ def consolidate_movie_data(supabase):
 
     # Źródła per pole (kolejność = priorytet tam, gdzie bierzemy pierwszą niepustą wartość).
     cinemas = ("multikino", "cc", "helios", "muza")
+    yt_sources = cinemas + ("apollo",)  # rok produkcji i movie_type: kina + Apollo (rok z nawiasu, NzN=NAJLEPSZE Z NAJGORSZYCH)
     ot_sources = ("helios", "muza")  # original_title: tylko Helios i Muza (CC/Multikino nie dostarczają), priorytet Helios -> Muza
 
     # Pobieramy filmy, które nie mają jeszcze głównego release_year, movie_type, director lub original_title
     select_cols = ["id", "title", "release_year", "movie_type", "director", "original_title"]
-    select_cols += [f"release_year_{s}" for s in cinemas]
-    select_cols += [f"movie_type_{s}" for s in cinemas]
+    select_cols += [f"release_year_{s}" for s in yt_sources]
+    select_cols += [f"movie_type_{s}" for s in yt_sources]
     select_cols += [f"director_{s}" for s in cinemas]
     select_cols += [f"original_title_{s}" for s in ot_sources]
     response = supabase.table("movies").select(", ".join(select_cols)).or_(
@@ -86,13 +87,13 @@ def consolidate_movie_data(supabase):
         update_data = {}
 
         if movie.get("release_year") is None:
-            valid_years = [y for y in (movie.get(f"release_year_{s}") for s in cinemas) if y is not None]
+            valid_years = [y for y in (movie.get(f"release_year_{s}") for s in yt_sources) if y is not None]
             if valid_years:
                 # Wybieramy najstarszy zeskrapowany rok
                 update_data["release_year"] = min(valid_years)
 
         if movie.get("movie_type") is None:
-            valid_types = [t for t in (movie.get(f"movie_type_{s}") for s in cinemas) if t]
+            valid_types = [t for t in (movie.get(f"movie_type_{s}") for s in yt_sources) if t]
             if valid_types:
                 unique_types = list(set(valid_types))
                 if len(unique_types) > 1:
@@ -136,8 +137,9 @@ def consolidate_post_enrich(supabase):
     # Źródła per pole. Kolejność = priorytet dla length i poster (pierwsza niepusta wygrywa).
     # Datę/rok premiery bierzemy z kin + TMDB/Filmweb (bez Lumiere - jego premiera bywa datą wznowienia).
     date_sources = ("multikino", "cc", "helios", "tmdb", "filmweb", "muza")
+    year_sources = date_sources + ("apollo",)  # rok produkcji też z Apollo (Apollo nie podaje daty premiery)
     length_sources = ("tmdb", "filmweb", "helios", "cc", "multikino", "muza", "lumiere")
-    poster_sources = ("cc", "helios", "multikino", "muza", "tmdb", "filmweb")  # lokalne (PL) plakaty z kin, TMDB/Filmweb jako fallback
+    poster_sources = ("cc", "helios", "multikino", "muza", "apollo", "tmdb", "filmweb")  # lokalne (PL) plakaty z kin, TMDB/Filmweb jako fallback
     genre_sources = ("cc", "helios", "filmweb", "lumiere")  # kina (CC/Helios) dają kilka gatunków; Filmweb dla filmów spoza kin; Lumiere na końcu
     # Reżyser i tytuł oryginalny: kina konsolidowane są przed-enrich; tu DOPEŁNIAMY z TMDB/Filmweb
     # dla filmów, które nie mają tych danych z kin (TMDB ma kanoniczny original_title).
@@ -146,7 +148,7 @@ def consolidate_post_enrich(supabase):
 
     select_cols = ["id", "title", "release_year", "length", "poster", "genre", "director", "original_title"]
     select_cols += [f"release_date_{s}" for s in date_sources]
-    select_cols += [f"release_year_{s}" for s in date_sources]
+    select_cols += [f"release_year_{s}" for s in year_sources]
     select_cols += [f"length_{s}" for s in length_sources]
     select_cols += [f"poster_{s}" for s in poster_sources]
     select_cols += [f"genre_{s}" for s in genre_sources]
@@ -170,7 +172,7 @@ def consolidate_post_enrich(supabase):
 
         # Rok produkcji: najwcześniejszy ze WSZYSTKICH źródeł. Nadpisuje ewentualny rok wznowienia
         # ustawiony w konsolidacji przed-enrich (która nie zna jeszcze lat z TMDB/Filmweb).
-        valid_years = [int(y) for y in (movie.get(f"release_year_{s}") for s in date_sources) if y is not None]
+        valid_years = [int(y) for y in (movie.get(f"release_year_{s}") for s in year_sources) if y is not None]
         if valid_years:
             new_year = min(valid_years)
             if new_year != movie.get("release_year"):
