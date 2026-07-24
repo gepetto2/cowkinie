@@ -34,10 +34,22 @@ def _match_key(title: str):
     return re.sub(r"\s+", " ", t).strip().lower()
 
 
+_QUOTES = "„“”‟«»\""  # „ " " ‟ « » "
+
+
 def _clean_apollo_name(name: str):
     """Zdejmuje z tytułu Apollo dopiski i zwraca (czysta_nazwa, rok_produkcji, movie_type):
+    - tytuł opakowany w cudzysłów + opis (retransmisje: „André Rieu..." Retransmisja...) -> część w cudzysłowie,
     - 'NzN' (np. 'Big Shark NzN') = Najlepsze z Najgorszych -> movie_type,
     - rok w nawiasie (np. 'Milczenie owiec (1991)') -> rok produkcji (i lepszy tytuł do dopasowania/TMDB)."""
+    # Tytuł zaczynający się od cudzysłowu ma dwa warianty:
+    #   „Film" opis...        -> tytuł jest w cudzysłowie (np. „André Rieu..." Retransmisja...),
+    #   „Cykl": Film          -> w cudzysłowie jest nazwa cyklu, film jest PO dwukropku (Traviata).
+    m = re.match(rf"^\s*[{_QUOTES}]([^{_QUOTES}]+)[{_QUOTES}]\s*(.*)$", name)
+    if m:
+        quoted, rest = m.group(1).strip(), m.group(2).strip()
+        name = (rest.lstrip(":").strip() or quoted) if rest.startswith(":") else quoted
+
     movie_type = None
     if re.search(r"[,\s]+NzN\s*$", name, flags=re.IGNORECASE):
         movie_type = "NAJLEPSZE Z NAJGORSZYCH"
