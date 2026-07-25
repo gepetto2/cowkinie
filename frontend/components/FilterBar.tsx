@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Calendar as CalendarIcon, MapPin, X, ChevronDown, Film, Check, Languages, SlidersHorizontal } from "lucide-react";
+import { Search, Calendar as CalendarIcon, MapPin, X, ChevronDown, Film, Check, Languages, SlidersHorizontal, Tag } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -36,7 +36,7 @@ function formatCount(n: number) {
   return `${n} filmów`;
 }
 
-export default function FilterBar({ cities, formats, langs, resultCount }: { cities: string[]; formats: string[]; langs: string[]; resultCount: number }) {
+export default function FilterBar({ cities, formats, langs, genres, resultCount }: { cities: string[]; formats: string[]; langs: string[]; genres: { name: string; count: number }[]; resultCount: number }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -46,6 +46,7 @@ export default function FilterBar({ cities, formats, langs, resultCount }: { cit
   const to = searchParams.get("to") || "";
   const selectedFormats = (searchParams.get("format") || "").split(",").filter(Boolean);
   const selectedLangs = (searchParams.get("lang") || "").split(",").filter(Boolean);
+  const selectedGenres = (searchParams.get("genre") || "").split(",").filter(Boolean);
 
   const setParams = (updates: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -102,8 +103,9 @@ export default function FilterBar({ cities, formats, langs, resultCount }: { cit
   const [cityOpen, setCityOpen] = useState(false);
   const [formatOpen, setFormatOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [genreOpen, setGenreOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false); // zwijanie filtrów na telefonie
-  const activeFilterCount = (from || to ? 1 : 0) + (city ? 1 : 0) + selectedFormats.length + selectedLangs.length;
+  const activeFilterCount = (from || to ? 1 : 0) + (city ? 1 : 0) + selectedFormats.length + selectedLangs.length + selectedGenres.length;
 
   // Przełączenie w multi-select (dropdown zostaje otwarty)
   const toggleFormat = (f: string) => {
@@ -118,6 +120,12 @@ export default function FilterBar({ cities, formats, langs, resultCount }: { cit
   };
   const langLabel = selectedLangs.length === 0 ? "Wersja językowa"
     : selectedLangs.length === 1 ? selectedLangs[0] : `Wersje (${selectedLangs.length})`;
+  const toggleGenre = (g: string) => {
+    const next = selectedGenres.includes(g) ? selectedGenres.filter((x) => x !== g) : [...selectedGenres, g];
+    setParams({ genre: next.join(",") });
+  };
+  const genreLabel = selectedGenres.length === 0 ? "Gatunek"
+    : selectedGenres.length === 1 ? selectedGenres[0] : `Gatunki (${selectedGenres.length})`;
 
   // --- Aktywne filtry (pigułki) ---
   const pills: { label: string; clear: () => void }[] = [];
@@ -129,6 +137,9 @@ export default function FilterBar({ cities, formats, langs, resultCount }: { cit
   }
   for (const l of selectedLangs) {
     pills.push({ label: l, clear: () => setParams({ lang: selectedLangs.filter((x) => x !== l).join(",") }) });
+  }
+  for (const g of selectedGenres) {
+    pills.push({ label: g, clear: () => setParams({ genre: selectedGenres.filter((x) => x !== g).join(",") }) });
   }
 
   return (
@@ -293,6 +304,47 @@ export default function FilterBar({ cities, formats, langs, resultCount }: { cit
             {selectedLangs.length > 0 && (
               <button
                 onClick={() => { setParams({ lang: "" }); setLangOpen(false); }}
+                className="mt-1 w-full text-left text-sm px-2.5 py-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors border-t border-slate-800"
+              >
+                Wyczyść
+              </button>
+            )}
+          </PopoverContent>
+        </Popover>
+        )}
+
+        {/* Gatunek (multi-select) */}
+        {genres.length > 0 && (
+        <Popover open={genreOpen} onOpenChange={setGenreOpen}>
+          <PopoverTrigger asChild>
+            <button className={triggerCls(selectedGenres.length > 0)}>
+              <Tag className="h-4 w-4" />
+              <span className="max-w-[130px] truncate">{genreLabel}</span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-52 p-2 max-h-80 overflow-y-auto">
+            {genres.map(({ name, count }) => {
+              const on = selectedGenres.includes(name);
+              return (
+                <button
+                  key={name}
+                  onClick={() => toggleGenre(name)}
+                  className="w-full flex items-center gap-2.5 text-left text-sm px-2.5 py-1.5 rounded-md text-slate-200 hover:bg-slate-800 transition-colors"
+                >
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                    on ? "bg-indigo-600 border-indigo-500" : "border-slate-600"
+                  }`}>
+                    {on && <Check className="h-3 w-3 text-white" />}
+                  </span>
+                  <span className="flex-1 truncate">{name}</span>
+                  <span className="shrink-0 text-xs text-slate-500 tabular-nums">{count}</span>
+                </button>
+              );
+            })}
+            {selectedGenres.length > 0 && (
+              <button
+                onClick={() => { setParams({ genre: "" }); setGenreOpen(false); }}
                 className="mt-1 w-full text-left text-sm px-2.5 py-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors border-t border-slate-800"
               >
                 Wyczyść

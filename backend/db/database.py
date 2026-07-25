@@ -130,6 +130,43 @@ def _is_truncated_desc(text: str) -> bool:
     """Opis to urwany teaser, jeśli kończy się wielokropkiem (Filmweb /preview tak zwraca zajawki)."""
     return text.rstrip().endswith(("...", "…", "[...]", "(...)"))
 
+# Kanonizacja gatunków: różne źródła używają synonimów ("Animowany"/"Animacja",
+# "Science fiction"/"Sci-Fi", "Fantastyczny"/"Fantasy") oraz pod-gatunków ("Dramat obyczajowy").
+# Sprowadzamy do jednej, kontrolowanej formy; tokeny spoza mapy przechodzą bez zmian.
+# Wartość może być krotką - wtedy złożony gatunek ROZBIJAMY na istniejące składowe
+# ("Komedia romantyczna" -> "Komedia" + "Romans"). None = token nie jest gatunkiem (pomijamy).
+_GENRE_CANON = {
+    "Animowany": "Animacja",
+    "Science fiction": "Sci-Fi",
+    "Fantastyczny": "Fantasy",
+    "Komedia rom.": ("Komedia", "Romans"),
+    "Komedia romantyczna": ("Komedia", "Romans"),
+    "Komedia kryminalna": ("Komedia", "Kryminał"),
+    "Dokument muzyczny": ("Dokumentalny", "Muzyczny"),
+    "Dramat obyczajowy": ("Dramat", "Obyczajowy"),
+    # "Obyczajowy": "Dramat",
+    # "Psychologiczny": "Dramat",
+    "Poetycki": "Dramat",
+    "Dramat historyczny": ("Dramat", "Historyczny"),
+    "Melodramat": "Romans",
+    "Sensacyjny": "Akcja",
+    "Sztuki walki": "Akcja",
+    "Przyrodniczy": "Dokumentalny",
+    "Dla dzieci": "Familijny",
+    "Musical": "Muzyczny",
+    "Niemy": None,
+}
+
+def _canon_genre(token: str):
+    """Znormalizowane tokeny gatunku: lista 0/1/2 elementów (złożone rozbijamy na składowe)."""
+    t = (token or "").strip()
+    if not t:
+        return []
+    mapped = _GENRE_CANON.get(t, t)
+    if mapped is None:
+        return []
+    return list(mapped) if isinstance(mapped, tuple) else [mapped]
+
 def consolidate_post_enrich(supabase):
     """Po enrich: konsoliduje pola, które NIE są potrzebne do wyszukiwania w API, więc korzystają
     już z danych TMDB/Filmweb - release_date, release_year (finalny), length, poster, genre.
@@ -144,7 +181,10 @@ def consolidate_post_enrich(supabase):
     year_sources = date_sources + ("apollo",)  # rok produkcji też z Apollo (Apollo nie podaje daty premiery)
     length_sources = ("tmdb", "filmweb", "helios", "cc", "multikino", "muza", "lumiere")
     poster_sources = ("cc", "helios", "multikino", "muza", "apollo", "tmdb", "filmweb")  # lokalne (PL) plakaty z kin, TMDB/Filmweb jako fallback
-    genre_sources = ("cc", "helios", "filmweb", "lumiere")  # kina (CC/Helios) dają kilka gatunków; Filmweb dla filmów spoza kin; Lumiere na końcu
+    # Gatunek konsolidujemy jako UNIĘ znormalizowanych tokenów ze wszystkich źródeł. Kolejność źródeł
+    # steruje kolejnością wyświetlania (pierwszy gatunek = główny) - Filmweb najpierw (najbogatszy, 75% pokrycia).
+    genre_sources = ("filmweb", "cc", "helios", "lumiere")
+    GENRE_MAX = 4  # limit tokenów, by lista nie puchła
     # Opis: natywny PL i redakcyjny najpierw. Filmweb bywa urwanym teaserem z /preview ("…") - takie
     # DEGRADUJEMY: preferujemy pierwszy PEŁNY (nie urwany) opis, a urwany bierzemy dopiero jako fallback.
     desc_sources = ("filmweb", "tmdb", "cc", "multikino", "helios", "lumiere", "muza", "apollo")
@@ -203,11 +243,20 @@ def consolidate_post_enrich(supabase):
             if poster:
                 update_data["poster"] = poster
 
-        # Gatunek: pierwszy niepusty wg priorytetu (CC ma kilka gatunków, potem Lumiere)
-        if movie.get("genre") is None:
-            genre = next((movie.get(f"genre_{s}") for s in genre_sources if movie.get(f"genre_{s}")), None)
-            if genre:
-                update_data["genre"] = genre
+        # Gatunek: unia znormalizowanych tokenów ze wszystkich źródeł (dedup, kolejność wg priorytetu
+        # źródeł). Liczymy od nowa co przebieg - gatunek jest w całości pochodną źródeł (bez wartości ręcznych).
+        genre_toks = []
+        for s in genre_sources:
+            raw = movie.get(f"genre_{s}")
+            if not raw:
+                continue
+            for tok in raw.split(","):
+                for canon in _canon_genre(tok):
+                    if canon not in genre_toks:
+                        genre_toks.append(canon)
+        genre = ", ".join(genre_toks[:GENRE_MAX]) or None
+        if genre and genre != movie.get("genre"):
+            update_data["genre"] = genre
 
         # Reżyser: dopełnienie z TMDB/Filmweb, gdy kina go nie podały (konsolidacja kin jest przed-enrich)
         if movie.get("director") is None:

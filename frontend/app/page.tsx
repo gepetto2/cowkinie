@@ -37,6 +37,10 @@ export default async function Home({
   const selectedLangs = typeof params?.lang === 'string' && params.lang
     ? params.lang.split(',').filter(Boolean)
     : [];
+  // Gatunek to atrybut filmu (kolumna genre), więc filtrujemy po stronie klienta (bez RPC).
+  const selectedGenres = typeof params?.genre === 'string' && params.genre
+    ? params.genre.split(',').filter(Boolean)
+    : [];
   // Filtr daty/formatu/języka wymaga danych na poziomie seansu -> liczymy je po stronie serwera (RPC).
   const serverFilterActive = rangeActive || selectedFormats.length > 0 || selectedLangs.length > 0;
 
@@ -84,6 +88,12 @@ export default async function Home({
   //  - filtr daty/formatu  -> franczyzy/przynależność z pasujących seansów (miasto uwzględnione już w RPC),
   //  - samo miasto         -> franczyzy tego miasta z globalnego agregatu,
   //  - brak filtrów        -> wszystkie franczyzy filmu.
+  // Tokeny gatunku filmu (kolumna genre to lista rozdzielona przecinkami).
+  const movieGenres = (genre: string | null) => (genre ? genre.split(',').map(g => g.trim()).filter(Boolean) : []);
+  // Dopasowanie gatunku: brak wybranych = każdy; inaczej film musi mieć któryś z wybranych (OR, jak format/wersja).
+  const genreMatch = (genre: string | null) =>
+    selectedGenres.length === 0 || movieGenres(genre).some(g => selectedGenres.includes(g));
+
   const enhancedMovies = movies.map(movie => {
     const entry = availabilityByMovie.get(movie.id);
     let franchises: string[];
@@ -101,6 +111,9 @@ export default async function Home({
       franchises = entry ? [...new Set([...entry.franchisesByCity.values()].flatMap(s => [...s]))].sort() : [];
     }
 
+    // Filtr gatunku (po stronie klienta) zawężamy razem z dostępnością - spójnie dla listy i badge'ów.
+    matchesFilters = matchesFilters && genreMatch(movie.genre);
+
     return {
       ...movie,
       available_cities: entry ? [...entry.cities] : [],
@@ -111,6 +124,16 @@ export default async function Home({
 
   // Optymalizacja O(1) do szybkiego wyszukiwania pełnych danych filmu po id
   const moviesMap = new Map(enhancedMovies.map(m => [m.id, m]));
+
+  // Dostępne gatunki do filtra + licznik filmów per gatunek (ze wszystkich filmów).
+  // Sortowanie: malejąco po liczbie, remisy alfabetycznie.
+  const genreCounts = new Map<string, number>();
+  for (const m of movies) {
+    for (const g of movieGenres(m.genre)) genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1);
+  }
+  const availableGenres = [...genreCounts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'pl'));
 
   // Filtr miasta/daty jest już zakodowany w matchesFilters (jeden spójny zbiór dla listy i badge'ów).
   let topMovies = (topScreenings || [])
@@ -242,7 +265,7 @@ export default async function Home({
       <h1 className="text-4xl font-extrabold mb-8 text-slate-100 tracking-tight">Repertuar Kin</h1>
 
       <Suspense fallback={<div className="h-14 mb-6" />}>
-        <FilterBar cities={cities} formats={formats} langs={langs} resultCount={filteredMovies.length} />
+        <FilterBar cities={cities} formats={formats} langs={langs} genres={availableGenres} resultCount={filteredMovies.length} />
       </Suspense>
 
       <div className="space-y-10">
@@ -324,9 +347,12 @@ export default async function Home({
           const expanded = query || alwaysWide(category);
           return (
           <section key={category} className="flex flex-col">
-            <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-indigo-500 rounded-sm">
-              {category}
-            </h2>
+            {/* Sekcja STANDARD to zwykłe filmy bez wyróżnionego typu - bez nagłówka (nazwa niepotrzebna). */}
+            {category !== 'STANDARD' && (
+              <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-indigo-500 rounded-sm">
+                {category}
+              </h2>
+            )}
 
             {/* Rozwinięta: responsywna siatka wypełniająca szerokość. Karuzela: poziomy scroll. */}
             {expanded ? (
