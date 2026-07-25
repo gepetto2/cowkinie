@@ -15,6 +15,11 @@ const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'UNLIMI
 // Powyżej tej wartości traktujemy film jako wznowienie starego tytułu i pomijamy w karuzelach.
 const CAROUSEL_MAX_YEAR_GAP = 1;
 
+// Normalizacja do wyszukiwania: małe litery, bez diakrytyków (ł->l), by np. "zelazny" znalazł
+// "Żelazny", a "lea seydoux" -> "Léa Seydoux". Stosowana i do zapytania, i do przeszukiwanego tekstu.
+const normalizeSearch = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l');
+
 export default async function Home({
   searchParams,
 }: {
@@ -181,11 +186,15 @@ export default async function Home({
     .slice(0, 15)
     .map((x) => x.movie);
 
-  // Odfiltrowanie filmów w przypadku aktywnego wyszukiwania (w obrębie aktywnych filtrów miasta/daty)
+  // Odfiltrowanie filmów w przypadku aktywnego wyszukiwania (w obrębie aktywnych filtrów miasta/daty).
+  // Przeszukujemy tytuł, reżysera i obsadę (znormalizowane - bez diakrytyków, małe litery).
   if (query) {
-    filteredMovies = enhancedMovies.filter((movie) =>
-      movie.matchesFilters && movie.title.toLowerCase().includes(query)
-    );
+    const nq = normalizeSearch(query);
+    filteredMovies = enhancedMovies.filter((movie) => {
+      if (!movie.matchesFilters) return false;
+      const haystack = normalizeSearch([movie.title, movie.director, movie.cast].filter(Boolean).join(' '));
+      return haystack.includes(nq);
+    });
     // Wyszukiwanie nadpisuje osobne sekcje-karuzele
     topMovies = [];
     newReleases = [];

@@ -152,7 +152,7 @@ export default function FilterBar({ cities, formats, langs, genres, resultCount 
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Szukaj filmu..."
+            placeholder="Szukaj: tytuł, reżyser, aktor..."
             className="w-full bg-slate-900 border border-slate-800 text-slate-100 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-500"
           />
         </div>
