@@ -227,7 +227,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
 
                     # Ustalanie tytułu. Dla typów, których event wskazuje na BAZOWY film (movieId = zwykły film),
                     # bierzemy nazwę eventu, by były osobnym rekordem, a nie scaliły się z filmem głównym.
-                    if movie_type in ["MARATON", "SPORT", "LADIES NIGHT/KNO", "SALON KULTURY"]:
+                    if movie_type in ["MARATON", "SPORT", "LADIES NIGHT/KNO", "SALON KULTURY", "DLA DZIECI"]:
                         title = ev.get("name")
                     else:
                         title = movie_info.get("title") or (items[0].get("movieName") if items else None) or ev.get("name")

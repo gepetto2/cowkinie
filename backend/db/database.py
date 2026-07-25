@@ -165,10 +165,13 @@ def consolidate_post_enrich(supabase):
     for movie in movies:
         update_data = {}
 
-        # Data premiery: najwcześniejsza z dostępnych (stringi ISO 'YYYY-MM-DD' porównują się chronologicznie)
-        valid_dates = [d for d in (movie.get(f"release_date_{s}") for s in date_sources) if d]
+        # Data premiery: mediana dostępnych źródeł (stringi ISO 'YYYY-MM-DD' porównują się chronologicznie).
+        # Odporna na wczesne daty-outliery: TMDB czasem podaje datę festiwalu/premiery (np. lipiec),
+        # gdy właściwa premiera kinowa jest później (sierpień) i zgadzają się co do niej Filmweb + kina.
+        # Górny środek przy parzystej liczbie -> preferuje późniejszą, uzgodnioną datę.
+        valid_dates = sorted(d for s in date_sources if (d := movie.get(f"release_date_{s}")))
         if valid_dates:
-            update_data["release_date"] = min(valid_dates)
+            update_data["release_date"] = valid_dates[len(valid_dates) // 2]
 
         # Rok produkcji: najwcześniejszy ze WSZYSTKICH źródeł. Nadpisuje ewentualny rok wznowienia
         # ustawiony w konsolidacji przed-enrich (która nie zna jeszcze lat z TMDB/Filmweb).

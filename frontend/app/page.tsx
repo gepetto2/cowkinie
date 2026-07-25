@@ -4,6 +4,7 @@ import {
   getCinemaAvailabilities, getTopScreenings, getAvailableFormats, getAvailableLangs,
 } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
+import Carousel from '@/components/Carousel';
 import FilterBar from '@/components/FilterBar';
 import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
 
@@ -258,16 +259,13 @@ export default async function Home({
               Najpopularniejsze
             </h2>
             
-            <div 
-              className="flex overflow-x-auto gap-5 pb-6 snap-x -mx-4 px-4 sm:mx-0 sm:px-0" 
-              style={{ scrollbarWidth: 'thin' }}
-            >
+            <Carousel>
               {topMovies.map((movie) => (
                 <div key={`top-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
                   <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                 </div>
               ))}
-            </div>
+            </Carousel>
           </section>
         )}
 
@@ -277,16 +275,13 @@ export default async function Home({
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-yellow-500 rounded-sm">
               Najlepiej oceniane
             </h2>
-            <div
-              className="flex overflow-x-auto gap-5 pb-6 snap-x -mx-4 px-4 sm:mx-0 sm:px-0"
-              style={{ scrollbarWidth: 'thin' }}
-            >
+            <Carousel>
               {topRated.map((movie) => (
                 <div key={`rated-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
                   <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                 </div>
               ))}
-            </div>
+            </Carousel>
           </section>
         )}
 
@@ -296,16 +291,13 @@ export default async function Home({
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-emerald-500 rounded-sm">
               Nowe premiery
             </h2>
-            <div
-              className="flex overflow-x-auto gap-5 pb-6 snap-x -mx-4 px-4 sm:mx-0 sm:px-0"
-              style={{ scrollbarWidth: 'thin' }}
-            >
+            <Carousel>
               {newReleases.map((movie) => (
                 <div key={`new-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
                   <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                 </div>
               ))}
-            </div>
+            </Carousel>
           </section>
         )}
 
@@ -315,16 +307,13 @@ export default async function Home({
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-sky-500 rounded-sm">
               Wkrótce premiera
             </h2>
-            <div
-              className="flex overflow-x-auto gap-5 pb-6 snap-x -mx-4 px-4 sm:mx-0 sm:px-0"
-              style={{ scrollbarWidth: 'thin' }}
-            >
+            <Carousel>
               {upcoming.map((movie) => (
                 <div key={`soon-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
                   <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                 </div>
               ))}
-            </div>
+            </Carousel>
           </section>
         )}
 
@@ -346,16 +335,13 @@ export default async function Home({
                 ))}
               </div>
             ) : (
-              <div
-                className="flex overflow-x-auto snap-x gap-5 pb-6 -mx-4 px-4 sm:mx-0 sm:px-0"
-                style={{ scrollbarWidth: 'thin' }}
-              >
-                {groupedMovies[category].map((movie) => (
+              <Carousel>
+              {groupedMovies[category].map((movie) => (
                   <div key={movie.id} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
                     <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                   </div>
                 ))}
-              </div>
+            </Carousel>
             )}
           </section>
           );
