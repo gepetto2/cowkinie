@@ -48,6 +48,7 @@ export type Database = {
           cast_helios: string | null
           cast_multikino: string | null
           created_at: string | null
+          description: string | null
           description_apollo: string | null
           description_cc: string | null
           description_filmweb: string | null
@@ -133,6 +134,7 @@ export type Database = {
           cast_helios?: string | null
           cast_multikino?: string | null
           created_at?: string | null
+          description?: string | null
           description_apollo?: string | null
           description_cc?: string | null
           description_filmweb?: string | null
@@ -218,6 +220,7 @@ export type Database = {
           cast_helios?: string | null
           cast_multikino?: string | null
           created_at?: string | null
+          description?: string | null
           description_apollo?: string | null
           description_cc?: string | null
           description_filmweb?: string | null

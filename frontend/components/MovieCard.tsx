@@ -36,6 +36,49 @@ function badgeKey(group: string): string {
   return group === "studyjne" || group === "niezależne" ? "Inne" : group;
 }
 
+// Grupowanie seansów wybranego dnia do widoku: kino -> wersja (format + język) -> godziny.
+// Każde kino osobno (skanowanie do swojego kina), a w jego obrębie podsekcje per format/wersja.
+type VersionGroup = { key: string; label: string; screenings: Screening[] };
+type CinemaGroup = { key: string; name: string; badge: string | null; versions: VersionGroup[] };
+
+function buildCinemaGroups(screenings: Screening[]): CinemaGroup[] {
+  // Klucz kina musi uwzględniać franczyzę i miasto - nazwy sieciówek to często sama nazwa miasta
+  // (np. CC/Helios/Multikino w Bydgoszczy mają name="Bydgoszcz"), więc sama nazwa je scala.
+  const byCinema = new Map<string, Screening[]>();
+  for (const s of screenings) {
+    const c = s.cinemas;
+    const key = `${c?.franchise ?? ""}|${c?.city ?? ""}|${c?.name ?? ""}`;
+    const arr = byCinema.get(key);
+    if (arr) arr.push(s);
+    else byCinema.set(key, [s]);
+  }
+  const result: CinemaGroup[] = [];
+  for (const [key, list] of byCinema) {
+    const c = list[0].cinemas;
+    const rawName = c?.name || "Nieznane kino";
+    // Markę dołączamy do każdej nazwy dla spójności ("Helios Bydgoszcz", "Multikino Poznań Stary
+    // Browar"), poza kinami, których nazwa już jest marką (np. "Kino Muza" - bez dublowania).
+    const name = c?.franchise && rawName !== c.franchise ? `${c.franchise} ${rawName}` : rawName;
+    const group = cinemaGroup(c);
+    const byVersion = new Map<string, Screening[]>();
+    for (const s of list) {
+      const vkey = [s.format, s.lang].filter(Boolean).join(" · ") || "—";
+      const arr = byVersion.get(vkey);
+      if (arr) arr.push(s);
+      else byVersion.set(vkey, [s]);
+    }
+    const versions = [...byVersion.entries()]
+      .map(([vkey, scr]) => ({
+        key: vkey,
+        label: vkey === "—" ? "" : vkey,
+        screenings: [...scr].sort((a, b) => a.start_time.localeCompare(b.start_time)),
+      }))
+      .sort((a, b) => a.key.localeCompare(b.key));
+    result.push({ key, name, badge: group ? badgeKey(group) : null, versions });
+  }
+  return result.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // Dzień seansu liczymy w strefie kina (Europe/Warsaw), spójnie z chipami "Wybierz datę" na stronie głównej,
 // zamiast w lokalnej strefie przeglądarki (inaczej seans o 23:30 mógłby wpaść do innego dnia).
 const warsawDayFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -78,6 +121,32 @@ function formatRuntime(length: number | null): string | null {
   return `${m} min`;
 }
 
+// Opis bierzemy ze skonsolidowanej kolumny `description` (potok wybiera najlepsze źródło,
+// degradując urwane teasery) - front nie musi już ściągać 8 kolumn per-źródło.
+type MovieDetails = { genre: string | null; synopsis: string | null };
+
+// Opis fabuły bywa długi (Filmweb/Helios do 1500-2000 znaków), a lewa kolumna jest wąska,
+// więc domyślnie przycinamy do kilku linii z możliwością rozwinięcia. Toggle pokazujemy tylko
+// gdy tekst realnie się nie mieści (~heurystyka po długości, bez mierzenia DOM).
+function SynopsisBlock({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const clampable = text.length > 220;
+  return (
+    <div className="text-sm text-slate-300 leading-relaxed">
+      <p className={!expanded && clampable ? "line-clamp-5" : ""}>{text}</p>
+      {clampable && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1 text-xs text-indigo-400 hover:text-indigo-300"
+        >
+          {expanded ? "Pokaż mniej" : "Pokaż więcej"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 const formatScreeningsCount = (count: number) => {
   if (count === 1) return "1 seans";
   const lastDigit = count % 10;
@@ -102,6 +171,7 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
   const [screenings, setScreenings] = useState<Screening[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [details, setDetails] = useState<MovieDetails | null>(null);
 
   // Reset/inicjalizacja wybranej daty odbywa się w handlerze otwarcia, aby nie wołać
   // setState synchronicznie w efekcie (unika kaskadowych re-renderów).
@@ -149,6 +219,26 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
     fetchScreenings();
   }, [isOpen, movie.id, cityQuery, formatQuery, langQuery]);
 
+  // Szczegóły filmu (gatunek, opis) dociągamy leniwie przy otwarciu - nie ma ich w odchudzonym
+  // MovieListItem. Opis to skonsolidowana kolumna `description` (wybór źródła robi potok).
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    async function fetchDetails() {
+      const { data } = await supabase
+        .from("movies")
+        .select("genre, description")
+        .eq("id", movie.id)
+        .single();
+      if (cancelled || !data) return;
+      setDetails({ genre: data.genre, synopsis: (data.description || "").trim() || null });
+    }
+    fetchDetails();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, movie.id]);
+
   // Wyodrębnienie unikalnych dat seansów i zliczenie ich ilości (dzień w strefie kina - Europe/Warsaw)
   const screeningsPerDay = screenings.reduce((acc, s) => {
     const dateStr = toWarsawDay(s.start_time);
@@ -176,6 +266,7 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
 
   // Filtrowanie po wybranej dacie (również w strefie kina)
   const filteredScreenings = screenings.filter(s => toWarsawDay(s.start_time) === selectedDate);
+  const cinemaGroups = selectedDate ? buildCinemaGroups(filteredScreenings) : [];
 
   const formatDateLabel = (dateString: string) => {
     // dateString to już dzień w strefie Warsaw ('YYYY-MM-DD'); formatujemy w UTC, by nie przesunąć dnia
@@ -221,26 +312,83 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
       </DialogTrigger>
       
       {/* Zawartość okienka, które się pojawi */}
-      <DialogContent className="sm:max-w-[800px] bg-slate-950 border-slate-800 text-slate-50 p-0 flex flex-col sm:flex-row gap-0 overflow-hidden">
-        
-        {/* Lewa kolumna z plakatem */}
-        <div className="hidden sm:block w-[300px] shrink-0 bg-slate-900 relative">
-          {movie.poster ? (
-            <Image src={movie.poster} alt={movie.title} fill sizes="300px" className="object-cover" />
-          ) : (
-            <div className="flex items-center justify-center w-full h-full text-slate-500 text-sm p-4 text-center absolute inset-0">Brak plakatu</div>
-          )}
+      <DialogContent className="sm:max-w-[900px] bg-slate-950 border-slate-800 text-slate-50 p-0 flex flex-col sm:flex-row gap-0 overflow-hidden">
+
+        {/* Lewa kolumna: mały plakat o stałej szerokości + dane obok niego, a opis na pełną
+            szerokość poniżej. Plakat się nie rozciąga, więc zostaje miejsce na informacje i opis. */}
+        <div className="hidden sm:flex sm:flex-col w-[400px] shrink-0 self-start max-h-[85vh] overflow-y-auto bg-slate-900 p-5 gap-4">
+          <div className="flex gap-4">
+            <div className="relative w-[180px] shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-slate-800 shadow-md">
+              {movie.poster ? (
+                <Image src={movie.poster} alt={movie.title} fill sizes="180px" className="object-cover" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs p-2 text-center">Brak plakatu</div>
+              )}
+            </div>
+            <div className="flex flex-col gap-2.5 text-sm min-w-0">
+              {ratings.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  {ratings.map((r) => (
+                    <span key={r.label} className="whitespace-nowrap text-slate-200">
+                      <span className="text-amber-400">★</span> {r.value.toFixed(1)} <span className="text-slate-500 text-xs">{r.label}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-col gap-1.5">
+                {movie.release_year && (
+                  <div className="text-slate-300"><span className="text-slate-500">Rok:</span> {movie.release_year}</div>
+                )}
+                {formatRuntime(movie.length) && (
+                  <div className="text-slate-300"><span className="text-slate-500">Długość:</span> {formatRuntime(movie.length)}</div>
+                )}
+                {details?.genre && (
+                  <div className="text-slate-300"><span className="text-slate-500">Gatunek:</span> {details.genre}</div>
+                )}
+                {movie.director && (
+                  <div className="text-slate-300"><span className="text-slate-500">Reżyseria:</span> {movie.director}</div>
+                )}
+              </div>
+            </div>
+          </div>
+          {details?.synopsis && <SynopsisBlock text={details.synopsis} />}
         </div>
-        
+
         {/* Prawa kolumna z treścią */}
         <div className="flex-1 p-6 flex flex-col min-h-[450px] max-h-[85vh] overflow-hidden">
           <DialogHeader className="mb-4 shrink-0">
             <DialogTitle className="text-2xl">{movie.title}</DialogTitle>
             <DialogDescription className="text-slate-400">
-              {movie.director ? `Reżyseria: ${movie.director}` : 'Wybierz datę, aby zobaczyć godziny seansów.'}
+              Repertuar i godziny seansów.
             </DialogDescription>
           </DialogHeader>
-          
+
+          {/* Meta na mobile (bez lewej kolumny) - żeby oceny i podstawowe dane były widoczne na telefonie */}
+          <div className="sm:hidden shrink-0 mb-4 flex flex-col gap-1.5 text-sm">
+            {ratings.length > 0 && (
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {ratings.map((r) => (
+                  <span key={r.label} className="whitespace-nowrap text-slate-200">
+                    <span className="text-amber-400">★</span> {r.value.toFixed(1)} <span className="text-slate-500 text-xs">{r.label}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+            {movie.release_year && (
+              <div className="text-slate-300"><span className="text-slate-500">Rok:</span> {movie.release_year}</div>
+            )}
+            {formatRuntime(movie.length) && (
+              <div className="text-slate-300"><span className="text-slate-500">Długość:</span> {formatRuntime(movie.length)}</div>
+            )}
+            {details?.genre && (
+              <div className="text-slate-300"><span className="text-slate-500">Gatunek:</span> {details.genre}</div>
+            )}
+            {movie.director && (
+              <div className="text-slate-300"><span className="text-slate-500">Reżyseria:</span> {movie.director}</div>
+            )}
+            {details?.synopsis && <SynopsisBlock text={details.synopsis} />}
+          </div>
+
           <div className="flex flex-col gap-4 overflow-y-auto pr-2 flex-1 min-h-0">
             {isLoading ? (
               <div className="text-sm text-slate-400 text-center py-8 animate-pulse">Szukam seansów...</div>
@@ -285,32 +433,45 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
                 <h3 className="text-lg font-bold text-slate-200 capitalize border-b border-slate-800 pb-2 mb-2">
                   {formatDateLabel(selectedDate)}
                 </h3>
-                <div className="mb-4 bg-slate-900/50 p-3 rounded-lg border border-slate-800">
-                  <div className="flex flex-wrap gap-2">
-                    {filteredScreenings.length > 0 ? (
-                      filteredScreenings.map((s) => {
-                        const time = new Date(s.start_time).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
-                        const cinemaName = s.cinemas?.name || "Nieznane kino";
-                        
-                        return (
-                          <a
-                            key={s.id}
-                            href={s.booking_link || "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="group flex flex-col items-center justify-center bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-colors rounded-md p-2 text-xs text-slate-200 min-w-[72px]"
-                          >
-                            <span className="font-bold text-sm mb-0.5">{time}</span>
-                            <span className="text-[10px] text-slate-400 group-hover:text-indigo-100 text-center leading-tight mb-0.5">{cinemaName}</span>
-                            {s.lang && <span className="text-[9px] uppercase mt-0.5 opacity-70 bg-slate-950/50 px-1 rounded">{s.lang}</span>}
-                          </a>
-                        );
-                      })
-                    ) : (
-                      <div className="w-full text-center text-sm text-slate-400 py-4">Brak seansów tego dnia w wybranych kinach.</div>
-                    )}
+                {cinemaGroups.length > 0 ? (
+                  <div className="flex flex-col gap-3">
+                    {cinemaGroups.map((cg) => (
+                      <div key={cg.key} className="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                        <div className="flex items-center gap-2 mb-2.5">
+                          {cg.badge && <FranchiseBadge franchise={cg.badge} size="sm" />}
+                          <span className="font-semibold text-sm text-slate-200">{cg.name}</span>
+                        </div>
+                        <div className="flex flex-col gap-2.5">
+                          {cg.versions.map((v) => (
+                            <div key={v.key}>
+                              {v.label && (
+                                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5">{v.label}</div>
+                              )}
+                              <div className="flex flex-wrap gap-2">
+                                {v.screenings.map((s) => {
+                                  const time = new Date(s.start_time).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
+                                  return (
+                                    <a
+                                      key={s.id}
+                                      href={s.booking_link || "#"}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-colors rounded-md px-3 py-1.5 text-sm font-semibold text-slate-200"
+                                    >
+                                      {time}
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
+                ) : (
+                  <div className="w-full text-center text-sm text-slate-400 py-4">Brak seansów tego dnia w wybranych kinach.</div>
+                )}
               </div>
             )}
           </div>

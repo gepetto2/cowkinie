@@ -217,8 +217,9 @@ export default async function Home({
     return diff !== 0 ? diff : a.localeCompare(b);
   });
 
-  // Krótkie sekcje (mało filmów) upakowujemy obok siebie w siatce; duże zostają pełną szerokością.
-  const NARROW_SECTION_MAX = 4;
+  // Próg karuzeli: sekcje z tą liczbą filmów lub mniejszą nie renderują się jako karuzela.
+  // Kategorie idą wtedy w statyczne kafelki, a górne karuzele (poniżej) w ogóle się nie pokazują.
+  const NARROW_SECTION_MAX = 5;
   // Główna kategoria, KULTOWE i "Kino Studyjne" zawsze pełną szerokością (rozwinięta siatka).
   const alwaysWide = (c: string) => c === mainCategory || c === 'KULTOWE' || c === 'Kina Studyjne';
   const wideCategories = sortedCategories.filter(
@@ -253,7 +254,7 @@ export default async function Home({
         )}
 
         {/* Karuzela "Najwięcej seansów" */}
-        {topMovies.length > 0 && (
+        {topMovies.length > NARROW_SECTION_MAX && (
           <section className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-amber-500 rounded-sm">
               Najpopularniejsze
@@ -270,7 +271,7 @@ export default async function Home({
         )}
 
         {/* Karuzela "Najlepiej oceniane" - wynik bayesowski (Filmweb+IMDb+TMDB) ważony liczbą głosów */}
-        {topRated.length > 0 && (
+        {topRated.length > NARROW_SECTION_MAX && (
           <section className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-yellow-500 rounded-sm">
               Najlepiej oceniane
@@ -286,7 +287,7 @@ export default async function Home({
         )}
 
         {/* Karuzela "Nowości" - premiery z ostatniego miesiąca */}
-        {newReleases.length > 0 && (
+        {newReleases.length > NARROW_SECTION_MAX && (
           <section className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-emerald-500 rounded-sm">
               Nowe premiery
@@ -302,7 +303,7 @@ export default async function Home({
         )}
 
         {/* Karuzela "Wkrótce" - przyszłe premiery */}
-        {upcoming.length > 0 && (
+        {upcoming.length > NARROW_SECTION_MAX && (
           <section className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-sky-500 rounded-sm">
               Wkrótce premiera

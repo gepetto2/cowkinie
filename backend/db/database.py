@@ -126,6 +126,10 @@ def consolidate_movie_data(supabase):
 
     logger.info(f"Zaktualizowano dane dla {updated_count} filmów.")
 
+def _is_truncated_desc(text: str) -> bool:
+    """Opis to urwany teaser, jeśli kończy się wielokropkiem (Filmweb /preview tak zwraca zajawki)."""
+    return text.rstrip().endswith(("...", "…", "[...]", "(...)"))
+
 def consolidate_post_enrich(supabase):
     """Po enrich: konsoliduje pola, które NIE są potrzebne do wyszukiwania w API, więc korzystają
     już z danych TMDB/Filmweb - release_date, release_year (finalny), length, poster, genre.
@@ -141,12 +145,15 @@ def consolidate_post_enrich(supabase):
     length_sources = ("tmdb", "filmweb", "helios", "cc", "multikino", "muza", "lumiere")
     poster_sources = ("cc", "helios", "multikino", "muza", "apollo", "tmdb", "filmweb")  # lokalne (PL) plakaty z kin, TMDB/Filmweb jako fallback
     genre_sources = ("cc", "helios", "filmweb", "lumiere")  # kina (CC/Helios) dają kilka gatunków; Filmweb dla filmów spoza kin; Lumiere na końcu
+    # Opis: natywny PL i redakcyjny najpierw. Filmweb bywa urwanym teaserem z /preview ("…") - takie
+    # DEGRADUJEMY: preferujemy pierwszy PEŁNY (nie urwany) opis, a urwany bierzemy dopiero jako fallback.
+    desc_sources = ("filmweb", "tmdb", "cc", "multikino", "helios", "lumiere", "muza", "apollo")
     # Reżyser i tytuł oryginalny: kina konsolidowane są przed-enrich; tu DOPEŁNIAMY z TMDB/Filmweb
     # dla filmów, które nie mają tych danych z kin (TMDB ma kanoniczny original_title).
     director_fallback = ("tmdb", "filmweb")
     original_title_fallback = ("tmdb",)
 
-    select_cols = ["id", "title", "release_year", "length", "poster", "genre", "director", "original_title"]
+    select_cols = ["id", "title", "release_year", "length", "poster", "genre", "director", "original_title", "description"]
     select_cols += [f"release_date_{s}" for s in date_sources]
     select_cols += [f"release_year_{s}" for s in year_sources]
     select_cols += [f"length_{s}" for s in length_sources]
@@ -154,6 +161,7 @@ def consolidate_post_enrich(supabase):
     select_cols += [f"genre_{s}" for s in genre_sources]
     select_cols += [f"director_{s}" for s in director_fallback]
     select_cols += [f"original_title_{s}" for s in original_title_fallback]
+    select_cols += [f"description_{s}" for s in desc_sources]
     response = supabase.table("movies").select(", ".join(select_cols)).execute()
     movies = response.data
 
@@ -212,6 +220,22 @@ def consolidate_post_enrich(supabase):
             original_title = next((movie.get(f"original_title_{s}") for s in original_title_fallback if movie.get(f"original_title_{s}")), None)
             if original_title:
                 update_data["original_title"] = original_title
+
+        # Opis: pierwszy PEŁNY (nie urwany "…") wg priorytetu; urwany teaser tylko jako fallback.
+        # Wybór liczymy od nowa co przebieg (opis jest w całości pochodną źródeł, bez wartości ręcznych).
+        chosen_desc = None
+        trunc_fallback = None
+        for s in desc_sources:
+            v = movie.get(f"description_{s}")
+            if v and (v := v.strip()):
+                if not _is_truncated_desc(v):
+                    chosen_desc = v
+                    break
+                if trunc_fallback is None:
+                    trunc_fallback = v
+        chosen_desc = chosen_desc or trunc_fallback
+        if chosen_desc and chosen_desc != movie.get("description"):
+            update_data["description"] = chosen_desc
 
         if update_data:
             supabase.table("movies").update(update_data).eq("id", movie["id"]).execute()

@@ -30,15 +30,27 @@ export default function Carousel({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    update();
     const el = ref.current;
-    el?.addEventListener("scroll", update, { passive: true });
+    if (!el) return;
+    update();
+    el.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
+    // ResizeObserver łapie zmiany rozmiaru kontenera, których nie zgłasza window.resize
+    // (przebudowa layoutu, pojawienie się paska strony) - inaczej pomiar zostaje nieaktualny.
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
     return () => {
-      el?.removeEventListener("scroll", update);
+      el.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
+      ro.disconnect();
     };
   }, [update]);
+
+  // Przelicz też po każdej zmianie zawartości (filtrowanie zmienia liczbę kart, a więc scrollWidth,
+  // bez zmiany rozmiaru samego kontenera - inaczej pasek/strzałki zostają z nieaktualnym stanem).
+  useEffect(() => {
+    update();
+  }, [update, children]);
 
   const scroll = (dir: number) => {
     ref.current?.scrollBy({ left: dir * ref.current.clientWidth * STEP, behavior: "smooth" });
