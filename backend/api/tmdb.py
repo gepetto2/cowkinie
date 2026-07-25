@@ -198,6 +198,14 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
     dirs = extract_directors(tmdb_movie)
     return _format_tmdb_response(tmdb_movie, dirs)
 
+def _extract_cast(tmdb_movie, limit=8):
+    """Główna obsada z TMDB credits, uporządkowana wg 'order' (billing), złączona przecinkiem.
+    Nazwiska aktorów są niezależne od języka (credits pobieramy w en-US)."""
+    cast = ((tmdb_movie or {}).get("credits") or {}).get("cast") or []
+    cast = sorted(cast, key=lambda c: c.get("order") if c.get("order") is not None else 999)
+    actor_names = [c.get("name") for c in cast[:limit] if c.get("name")]
+    return ", ".join(actor_names) or None
+
 def _format_tmdb_response(tmdb_movie, dirs):
     release_date = tmdb_movie.get("release_date", "")
     release_year = int(release_date[:4]) if release_date else None
@@ -220,6 +228,7 @@ def _format_tmdb_response(tmdb_movie, dirs):
         "release_date_pl": _extract_pl_release_date(tmdb_movie),
         "length": runtime if runtime and runtime > 0 else None,
         "director": director_str,
+        "cast": _extract_cast(tmdb_movie),
         "poster_path": tmdb_movie.get("poster_path"),
         "overview": tmdb_movie.get("overview"),
         "rating": tmdb_rating,

@@ -185,6 +185,9 @@ def consolidate_post_enrich(supabase):
     # steruje kolejnością wyświetlania (pierwszy gatunek = główny) - Filmweb najpierw (najbogatszy, 75% pokrycia).
     genre_sources = ("filmweb", "cc", "helios", "lumiere")
     GENRE_MAX = 4  # limit tokenów, by lista nie puchła
+    # Obsada: priorytet z zachowaniem kolejności - TMDB (billing) -> najbogatsze kino -> Filmweb (płytki).
+    cast_sources = ("tmdb", "cc", "helios", "multikino", "filmweb")
+    CAST_MAX = 6  # limit nazwisk
     # Opis: natywny PL i redakcyjny najpierw. Filmweb bywa urwanym teaserem z /preview ("…") - takie
     # DEGRADUJEMY: preferujemy pierwszy PEŁNY (nie urwany) opis, a urwany bierzemy dopiero jako fallback.
     desc_sources = ("filmweb", "tmdb", "cc", "multikino", "helios", "lumiere", "muza", "apollo")
@@ -193,7 +196,7 @@ def consolidate_post_enrich(supabase):
     director_fallback = ("tmdb", "filmweb")
     original_title_fallback = ("tmdb",)
 
-    select_cols = ["id", "title", "release_year", "length", "poster", "genre", "director", "original_title", "description"]
+    select_cols = ["id", "title", "release_year", "length", "poster", "genre", "director", "original_title", "description", "cast"]
     select_cols += [f"release_date_{s}" for s in date_sources]
     select_cols += [f"release_year_{s}" for s in year_sources]
     select_cols += [f"length_{s}" for s in length_sources]
@@ -202,6 +205,7 @@ def consolidate_post_enrich(supabase):
     select_cols += [f"director_{s}" for s in director_fallback]
     select_cols += [f"original_title_{s}" for s in original_title_fallback]
     select_cols += [f"description_{s}" for s in desc_sources]
+    select_cols += [f"cast_{s}" for s in cast_sources]
     response = supabase.table("movies").select(", ".join(select_cols)).execute()
     movies = response.data
 
@@ -285,6 +289,17 @@ def consolidate_post_enrich(supabase):
         chosen_desc = chosen_desc or trunc_fallback
         if chosen_desc and chosen_desc != movie.get("description"):
             update_data["description"] = chosen_desc
+
+        # Obsada: priorytet z zachowaniem kolejności - TMDB (uporządkowana wg billingu), a gdy brak,
+        # najbogatsze kino (najwięcej nazwisk), na końcu Filmweb (tylko topka). Przycinamy do CAST_MAX.
+        cast = movie.get("cast_tmdb")
+        if not (cast and cast.strip()):
+            cinema_casts = [c for s in ("cc", "helios", "multikino") if (c := movie.get(f"cast_{s}")) and c.strip()]
+            cast = max(cinema_casts, key=lambda c: c.count(",")) if cinema_casts else movie.get("cast_filmweb")
+        if cast and cast.strip():
+            trimmed = ", ".join([n.strip() for n in cast.split(",") if n.strip()][:CAST_MAX])
+            if trimmed and trimmed != movie.get("cast"):
+                update_data["cast"] = trimmed
 
         if update_data:
             supabase.table("movies").update(update_data).eq("id", movie["id"]).execute()

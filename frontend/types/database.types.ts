@@ -43,10 +43,12 @@ export type Database = {
       }
       movies: {
         Row: {
+          cast: string | null
           cast_cc: string | null
           cast_filmweb: string | null
           cast_helios: string | null
           cast_multikino: string | null
+          cast_tmdb: string | null
           created_at: string | null
           description: string | null
           description_apollo: string | null
@@ -129,10 +131,12 @@ export type Database = {
           tmdb_id: number | null
         }
         Insert: {
+          cast?: string | null
           cast_cc?: string | null
           cast_filmweb?: string | null
           cast_helios?: string | null
           cast_multikino?: string | null
+          cast_tmdb?: string | null
           created_at?: string | null
           description?: string | null
           description_apollo?: string | null
@@ -215,10 +219,12 @@ export type Database = {
           tmdb_id?: number | null
         }
         Update: {
+          cast?: string | null
           cast_cc?: string | null
           cast_filmweb?: string | null
           cast_helios?: string | null
           cast_multikino?: string | null
+          cast_tmdb?: string | null
           created_at?: string | null
           description?: string | null
           description_apollo?: string | null

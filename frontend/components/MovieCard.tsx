@@ -123,7 +123,7 @@ function formatRuntime(length: number | null): string | null {
 
 // Opis bierzemy ze skonsolidowanej kolumny `description` (potok wybiera najlepsze źródło,
 // degradując urwane teasery) - front nie musi już ściągać 8 kolumn per-źródło.
-type MovieDetails = { genre: string | null; synopsis: string | null };
+type MovieDetails = { genre: string | null; synopsis: string | null; cast: string | null };
 
 // Opis fabuły bywa długi (Filmweb/Helios do 1500-2000 znaków), a lewa kolumna jest wąska,
 // więc domyślnie przycinamy do kilku linii z możliwością rozwinięcia. Toggle pokazujemy tylko
@@ -227,11 +227,16 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
     async function fetchDetails() {
       const { data } = await supabase
         .from("movies")
-        .select("genre, description")
+        .select("genre, description, cast")
         .eq("id", movie.id)
         .single();
       if (cancelled || !data) return;
-      setDetails({ genre: data.genre, synopsis: (data.description || "").trim() || null });
+      const d = data as unknown as Record<string, string | null>;
+      setDetails({
+        genre: d.genre,
+        synopsis: (d.description || "").trim() || null,
+        cast: (d.cast || "").trim() || null,
+      });
     }
     fetchDetails();
     return () => {
@@ -351,6 +356,9 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
               </div>
             </div>
           </div>
+          {details?.cast && (
+            <div className="text-sm text-slate-300"><span className="text-slate-500">Obsada:</span> {details.cast}</div>
+          )}
           {details?.synopsis && <SynopsisBlock text={details.synopsis} />}
         </div>
 
@@ -385,6 +393,9 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
             )}
             {movie.director && (
               <div className="text-slate-300"><span className="text-slate-500">Reżyseria:</span> {movie.director}</div>
+            )}
+            {details?.cast && (
+              <div className="text-slate-300"><span className="text-slate-500">Obsada:</span> {details.cast}</div>
             )}
             {details?.synopsis && <SynopsisBlock text={details.synopsis} />}
           </div>

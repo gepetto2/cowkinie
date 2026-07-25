@@ -89,6 +89,7 @@ async def enrich_movies_data(supabase: Client):
                     "release_date_tmdb": tmdb_data.get("release_date_pl"),
                     "length_tmdb": tmdb_data.get("length"),
                     "director_tmdb": tmdb_data.get("director"),
+                    "cast_tmdb": tmdb_data.get("cast"),
                     "poster_tmdb": poster_url,
                     "description_tmdb": tmdb_data.get("overview"),
                     "rating_tmdb": tmdb_data.get("rating"),
