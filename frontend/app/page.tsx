@@ -257,9 +257,24 @@ export default async function Home({
   const wideCategories = sortedCategories.filter(
     (c) => alwaysWide(c) || groupedMovies[c].length > NARROW_SECTION_MAX
   );
-  const narrowCategories = sortedCategories.filter(
-    (c) => !alwaysWide(c) && groupedMovies[c].length <= NARROW_SECTION_MAX
-  );
+  // Wąskie sekcje to karty o szerokości ~ liczbie filmów. Flexbox pakuje je zachłannie w kolejności
+  // DOM (next-fit) i NIE cofa się, więc samo sortowanie malejące zostawia luki obok dużych kart.
+  // Robimy więc First-Fit-Decreasing z backfillem: sekcje (malejąco) wkładziemy do pierwszego rzędu,
+  // w którym się mieszczą, a potem emitujemy je rzędami - flexbox odtworzy te ciaśniejsze rzędy,
+  // wciągając małe sekcje w luki obok dużych. Capacity ~ liczba plakatów w rzędzie na szerokim ekranie
+  // (węższe viewporty flexbox i tak zawinie po swojemu; przeplot małych/dużych i tak pomaga).
+  const NARROW_ROW_CAPACITY = 7;
+  const narrowBySize = sortedCategories
+    .filter((c) => !alwaysWide(c) && groupedMovies[c].length <= NARROW_SECTION_MAX)
+    .sort((a, b) => groupedMovies[b].length - groupedMovies[a].length || b.length - a.length);
+  const narrowRows: string[][] = [];
+  for (const c of narrowBySize) {
+    const size = groupedMovies[c].length;
+    const row = narrowRows.find((r) => r.reduce((s, x) => s + groupedMovies[x].length, 0) + size <= NARROW_ROW_CAPACITY);
+    if (row) row.push(c);
+    else narrowRows.push([c]);
+  }
+  const narrowCategories = narrowRows.flat();
 
   // Pierwsze plakaty w kolejności renderowania dostają priority (obraz LCP „nad zgięciem" - eager load).
   const renderOrder = [
