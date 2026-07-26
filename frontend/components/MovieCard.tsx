@@ -90,20 +90,22 @@ const toWarsawDay = (iso: string) => warsawDayFormatter.format(new Date(iso));
 function franchiseVisual(franchise: string) {
   const lower = franchise.toLowerCase();
   let bgColor = "bg-slate-700";
+  let textColor = "text-white";
   let initial = franchise.charAt(0).toUpperCase();
-  if (lower.includes("cinema") && lower.includes("city")) { bgColor = "bg-orange-500"; initial = "CC"; }
-  else if (lower.includes("multikino")) bgColor = "bg-red-600";
-  else if (lower.includes("helios")) bgColor = "bg-blue-600";
+  // Kolory z logotypów kin: tło = kolor podstawowy, font = kolor drugorzędny marki (gdy jest).
+  if (lower.includes("cinema") && lower.includes("city")) { bgColor = "bg-[#f5821f]"; initial = "CC"; }
+  else if (lower.includes("multikino")) { bgColor = "bg-[#eb008b]"; textColor = "text-[#fbe82c]"; }
+  else if (lower.includes("helios")) { bgColor = "bg-[#002b55]"; textColor = "text-white"; }
   else if (lower === "inne") { bgColor = "bg-teal-600"; initial = "IN"; }
-  return { bgColor, initial };
+  return { bgColor, textColor, initial };
 }
 
 function FranchiseBadge({ franchise, size = "md", className = "" }: { franchise: string; size?: "sm" | "md"; className?: string }) {
-  const { bgColor, initial } = franchiseVisual(franchise);
+  const { bgColor, textColor, initial } = franchiseVisual(franchise);
   const dim = size === "sm" ? "w-5 h-5 text-[9px]" : "w-7 h-7 text-[10px]";
   return (
     <div
-      className={`${dim} rounded-full flex items-center justify-center font-bold text-white shadow-md border border-slate-900/50 ${bgColor} ${className}`}
+      className={`${dim} rounded-full flex items-center justify-center font-bold ${textColor} shadow-md border border-slate-900/50 ${bgColor} ${className}`}
       title={franchise}
     >
       {initial}

@@ -130,6 +130,11 @@ def _is_truncated_desc(text: str) -> bool:
     """Opis to urwany teaser, jeśli kończy się wielokropkiem (Filmweb /preview tak zwraca zajawki)."""
     return text.rstrip().endswith(("...", "…", "[...]", "(...)"))
 
+def _is_multikino_placeholder(url) -> bool:
+    """Multikino czasem zwraca placeholder "wkrótce" zamiast plakatu (.../wkrotce_1_plakat.jpg).
+    ?rev=... to zmienny znacznik wersji zasobu, więc dopasowujemy po stałej części ścieżki."""
+    return bool(url) and "wkrotce_1_plakat" in url
+
 # Kanonizacja gatunków: różne źródła używają synonimów ("Animowany"/"Animacja",
 # "Science fiction"/"Sci-Fi", "Fantastyczny"/"Fantasy") oraz pod-gatunków ("Dramat obyczajowy").
 # Sprowadzamy do jednej, kontrolowanej formy; tokeny spoza mapy przechodzą bez zmian.
@@ -241,10 +246,15 @@ def consolidate_post_enrich(supabase):
         if length and length != movie.get("length"):
             update_data["length"] = length
 
-        # Plakat: preferujemy lokalne plakaty z kin, TMDB jako ostateczny fallback (dla filmów bez plakatu z kina)
-        if movie.get("poster") is None:
-            poster = next((movie.get(f"poster_{s}") for s in poster_sources if movie.get(f"poster_{s}")), None)
-            if poster:
+        # Plakat: preferujemy prawdziwy plakat wg priorytetu (lokalne z kin, TMDB jako fallback),
+        # pomijając placeholder "wkrótce" z Multikino. Dopiero gdy NIC innego nie ma, używamy go jako
+        # ostateczność (lepszy niż brak plakatu). Repick uruchamiamy też, gdy główny plakat to placeholder.
+        current_poster = movie.get("poster")
+        if current_poster is None or _is_multikino_placeholder(current_poster):
+            poster = next((p for s in poster_sources if (p := movie.get(f"poster_{s}")) and not _is_multikino_placeholder(p)), None)
+            if poster is None:
+                poster = movie.get("poster_multikino")  # ostateczność: placeholder "wkrótce"
+            if poster != current_poster:
                 update_data["poster"] = poster
 
         # Gatunek: unia znormalizowanych tokenów ze wszystkich źródeł (dedup, kolejność wg priorytetu
