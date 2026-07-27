@@ -314,6 +314,10 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         continue
 
                     start_time = parse_start_time(start_time_raw)
+                    # Realny koniec seansu (z reklamami) - Helios podaje go wprost (screeningTimeTo /
+                    # timeTo dla eventów), więc nie musimy go przewidywać.
+                    end_raw = session.get("screeningTimeTo") or session.get("timeTo")
+                    end_time = parse_start_time(end_raw) if end_raw else None
                     screen_id = session.get("screenId")
                     room_name = screens_mapping.get(screen_id, "") if screen_id else ""
 
@@ -338,6 +342,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         "movie_id": db_movie_id,
                         "cinema_id": db_cinema_id,
                         "start_time": start_time,
+                        "end_time": end_time,
                         "room_name": room_name,
                         "booking_link": f"https://bilety.helios.pl/screen/{scr_id}?cinemaId={cinema_uuid}",
                         "lang": lang,

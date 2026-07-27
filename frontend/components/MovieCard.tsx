@@ -175,13 +175,20 @@ function availabilityInfo(ratio: number | null): { label: string; color: string;
 }
 
 // Widok szczegółów pojedynczego seansu (trzeci poziom modalu): dane z bazy + przycisk zakupu.
-function ScreeningDetails({ screening, dateLabel, onBack }: { screening: Screening; dateLabel: string; onBack: () => void }) {
+function ScreeningDetails({ screening, dateLabel, filmLength, onBack }: { screening: Screening; dateLabel: string; filmLength: number | null; onBack: () => void }) {
   const c = screening.cinemas;
   const cinemaName = c?.franchise && c.name !== c.franchise ? `${c.franchise} ${c.name}` : (c?.name || "Nieznane kino");
   const group = cinemaGroup(c);
   const badge = group ? badgeKey(group) : null;
   const fmtT = (iso: string) => new Date(iso).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
   const end = screening.end_time ? fmtT(screening.end_time) : null;
+  // Blok reklam+zwiastunów = (koniec − start) − długość filmu (tylko gdy mamy realny koniec).
+  // Dzięki temu wiemy, że sam film startuje ~X min po godzinie z repertuaru.
+  const startMs = new Date(screening.start_time).getTime();
+  const slotMin = screening.end_time ? Math.round((new Date(screening.end_time).getTime() - startMs) / 60000) : null;
+  const adMin = slotMin != null && filmLength ? slotMin - filmLength : null;
+  const showAds = adMin != null && adMin >= 5 && adMin <= 60;
+  const filmStart = showAds ? fmtT(new Date(startMs + (adMin as number) * 60000).toISOString()) : null;
   const avail = availabilityInfo(screening.availability_ratio);
   const rows: [string, string | null][] = [
     ["Sala", screening.room_name],
@@ -203,6 +210,11 @@ function ScreeningDetails({ screening, dateLabel, onBack }: { screening: Screeni
           {end && <span className="text-xl font-normal text-slate-400"> – {end}</span>}
         </div>
         <div className="text-sm text-slate-400 capitalize mt-0.5">{dateLabel}</div>
+        {showAds && (
+          <div className="text-xs text-slate-500 mt-1.5">
+            Reklamy i zwiastuny: ok. {adMin} min · film ok. {filmStart}
+          </div>
+        )}
       </div>
       <dl className="flex flex-col gap-2 text-sm border-t border-slate-800 pt-3">
         {rows.filter(([, v]) => v).map(([label, value]) => (
@@ -562,6 +574,7 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
               <ScreeningDetails
                 screening={selectedScreening}
                 dateLabel={formatDateLabel(selectedDate)}
+                filmLength={movie.length}
                 onBack={() => setSelectedScreening(null)}
               />
             ) : (
