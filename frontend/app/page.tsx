@@ -6,6 +6,7 @@ import {
 import MovieCard from '@/components/MovieCard';
 import Carousel from '@/components/Carousel';
 import FilterBar from '@/components/FilterBar';
+import NarrowSections from '@/components/NarrowSections';
 import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
 
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
@@ -398,28 +399,14 @@ export default async function Home({
           );
         })}
 
-        {/* Krótkie sekcje jako kafelki o szerokości dopasowanej do liczby filmów (w-fit).
-            Dzięki temu kafelek nigdy nie ma pustego slotu, a kafelki (równej wysokości) płyną w rzędach. */}
+        {/* Krótkie sekcje (mało filmów) jako kafelki o szerokości dopasowanej do liczby filmów.
+            Pakowaniem w rzędy zajmuje się komponent kliencki - mierzy realną szerokość i liczy FFD
+            pod nią (poprawne na każdej rozdzielczości, nie na sztywno). */}
         {narrowCategories.length > 0 && (
-          <div className="flex flex-wrap gap-5 items-stretch">
-            {narrowCategories.map((category) => (
-              <section
-                key={category}
-                className="w-fit max-w-full border border-slate-800 bg-slate-900/40 rounded-xl p-4 flex flex-col"
-              >
-                <h2 className="text-lg font-bold mb-3 text-slate-200 pl-2 border-l-4 border-indigo-500 rounded-sm">
-                  {category}
-                </h2>
-                <div className="flex flex-wrap gap-4">
-                  {groupedMovies[category].map((movie) => (
-                    <div key={movie.id} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0">
-                      <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+          <NarrowSections
+            sections={narrowCategories.map((category) => ({ category, movies: groupedMovies[category] }))}
+            priorityIds={[...priorityIds]}
+          />
         )}
       </div>
     </main>
