@@ -31,11 +31,23 @@ def _muza_lang(item: dict):
 
 
 def _muza_movie_type(item: dict):
-    """Mapuje cykl/wydarzenie Muzy na movie_type. Na razie tylko 'Najlepsze z Najgorszych'."""
+    """Mapuje cykl/wydarzenie Muzy na movie_type."""
+    if (item.get("title") or "").strip().lower().startswith("panel dyskusyjny"):
+        return "PANEL"
     text = f"{item.get('cycle') or ''} {item.get('event') or ''}".lower()
     if "najlepsze z najgorszych" in text:
         return "NAJLEPSZE Z NAJGORSZYCH"
     return None
+
+# Sale plenerowe Muzy: surowa wartość 'hall' -> ładna nazwa + flaga „na świeżym powietrzu".
+_MUZA_ROOM_PRETTY = {"taras": "Taras", "poza_kinem": "Poza kinem"}
+_MUZA_OUTDOOR = {"taras", "poza_kinem"}
+
+def _muza_room(hall):
+    """Zwraca (ładna_nazwa_sali, czy_plenerowa) na podstawie surowego 'hall'."""
+    raw = (hall or "").strip()
+    key = raw.lower()
+    return _MUZA_ROOM_PRETTY.get(key, raw), key in _MUZA_OUTDOOR
 
 
 def _extract_poster(page_html: str):
@@ -216,7 +228,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     continue
 
                 start_time = parse_start_time(start_raw)
-                room_name = it.get("hall") or ""
+                room_name, is_outdoor = _muza_room(it.get("hall"))
 
                 screening_key = (movie_id, start_time, room_name)
                 new_screenings[screening_key] = {
@@ -224,6 +236,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     "cinema_id": db_cinema_id,
                     "start_time": start_time,
                     "room_name": room_name,
+                    "is_outdoor": is_outdoor,
                     "lang": normalize_lang(_muza_lang(it)),
                     "booking_link": it.get("ticketLink") or None,
                     # Muza (studyjne) - na razie traktujemy wszystko jako 2D

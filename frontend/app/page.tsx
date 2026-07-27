@@ -10,7 +10,7 @@ import NarrowSections from '@/components/NarrowSections';
 import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
 
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
-const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY', 'DLA DZIECI', 'SALON KULTURY', 'KONCERT', 'LADIES NIGHT/KNO', 'BALET', 'OPERA'];
+const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY', 'DLA DZIECI', 'SALON KULTURY', 'KONCERT', 'LADIES NIGHT/KNO', 'BALET', 'OPERA', 'PANEL'];
 
 // Maksymalna różnica (w latach) między rokiem produkcji a rokiem premiery kinowej.
 // Powyżej tej wartości traktujemy film jako wznowienie starego tytułu i pomijamy w karuzelach.

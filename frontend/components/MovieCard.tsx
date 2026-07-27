@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { ZoomIn, X } from "lucide-react";
+import { ZoomIn, X, Trees } from "lucide-react";
 import Image from "next/image";
 import { Database } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
@@ -24,6 +24,9 @@ type Movie = MovieListItem & {
 };
 type Screening = Database["public"]["Tables"]["screenings"]["Row"] & {
   cinemas: { name: string; city: string; franchise: string | null; category: string | null } | null;
+  // Kolumna dodana w bazie (Muza: taras/poza_kinem). Zadeklarowana też tutaj, by typy działały
+  // także zanim database.types.ts zostanie zregenerowany.
+  is_outdoor?: boolean | null;
 };
 
 // Grupa do badge'a: dla sieci realna marka, dla reszty kategoria (studyjne/niezależne) - spójnie z widokiem.
@@ -36,6 +39,9 @@ function cinemaGroup(cinema: { franchise: string | null; category: string | null
 function badgeKey(group: string): string {
   return group === "studyjne" || group === "niezależne" ? "Inne" : group;
 }
+
+// Seans plenerowy („na świeżym powietrzu") - flaga z bazy (ustawiana w scraperze Muzy dla tarasu/poza kinem).
+const isOutdoor = (s: Screening) => !!s.is_outdoor;
 
 // Grupowanie seansów wybranego dnia do widoku: kino -> wersja (format + język) -> godziny.
 // Każde kino osobno (skanowanie do swojego kina), a w jego obrębie podsekcje per format/wersja.
@@ -63,7 +69,9 @@ function buildCinemaGroups(screenings: Screening[]): CinemaGroup[] {
     const group = cinemaGroup(c);
     const byVersion = new Map<string, Screening[]>();
     for (const s of list) {
-      const vkey = [s.format, s.lang].filter(Boolean).join(" · ") || "—";
+      const vparts = [s.format, s.lang].filter(Boolean);
+      if (isOutdoor(s)) vparts.push("Na świeżym powietrzu");
+      const vkey = vparts.join(" · ") || "—";
       const arr = byVersion.get(vkey);
       if (arr) arr.push(s);
       else byVersion.set(vkey, [s]);
@@ -204,6 +212,11 @@ function ScreeningDetails({ screening, dateLabel, filmLength, onBack }: { screen
         {badge && <FranchiseBadge franchise={badge} size="sm" />}
         <span className="font-semibold text-slate-100">{cinemaName}</span>
       </div>
+      {isOutdoor(screening) && (
+        <span className="self-start inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-300">
+          <Trees className="h-3.5 w-3.5" /> Na świeżym powietrzu
+        </span>
+      )}
       <div>
         <div className="text-3xl font-bold text-slate-100">
           {fmtT(screening.start_time)}
@@ -212,7 +225,7 @@ function ScreeningDetails({ screening, dateLabel, filmLength, onBack }: { screen
         <div className="text-sm text-slate-400 capitalize mt-0.5">{dateLabel}</div>
         {showAds && (
           <div className="text-xs text-slate-500 mt-1.5">
-            Reklamy i zwiastuny: ok. {adMin} min · film ok. {filmStart}
+            Reklamy i zwiastuny: ok. {adMin} min · start filmu ok. {filmStart}
           </div>
         )}
       </div>
