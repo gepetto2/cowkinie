@@ -139,6 +139,7 @@ async def get_filmweb_movie_details(movie_id: int, session: aiohttp.ClientSessio
     rating_count = count if has_votes else None
 
     return {
+        "id": movie_id,
         "title": film_title,
         "year": data.get("year"),
         "duration": data.get("duration"),

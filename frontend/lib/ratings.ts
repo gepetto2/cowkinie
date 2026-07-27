@@ -66,8 +66,15 @@ export function bayesianScore(movie: Movie, means: RatingMeans): number | null {
 }
 
 // Oceny do wyświetlenia na karcie: tylko źródła oznaczone showOnCard i z dość głosami.
-export function movieRatings(movie: Movie): { label: string; value: number }[] {
+export function movieRatings(movie: Movie): { key: string; label: string; value: number }[] {
   return RATING_SOURCES
     .filter((src) => src.showOnCard && qualifies(movie, src))
-    .map((src) => ({ label: src.label, value: movie[src.rating] as number }));
+    .map((src) => ({ key: src.key, label: src.label, value: movie[src.rating] as number }));
+}
+
+// Wszystkie oceny 0-10 do modalu (Filmweb/IMDb/TMDB) - także te bez showOnCard (TMDB).
+export function movieRatingsFull(movie: Movie): { key: string; label: string; value: number }[] {
+  return RATING_SOURCES
+    .filter((src) => qualifies(movie, src))
+    .map((src) => ({ key: src.key, label: src.label, value: movie[src.rating] as number }));
 }

@@ -107,6 +107,7 @@ async def enrich_movies_data(supabase: Client):
 
             if filmweb_data:
                 update_data.update({
+                    "filmweb_id": filmweb_data.get("id"),
                     "title_filmweb": filmweb_data.get("title"),
                     "release_year_filmweb": filmweb_data.get("year"),
                     "release_date_filmweb": filmweb_data.get("release_date"),

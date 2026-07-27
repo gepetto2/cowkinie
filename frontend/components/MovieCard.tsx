@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { ZoomIn, X } from "lucide-react";
 import Image from "next/image";
 import { Database } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
-import { movieRatings } from "@/lib/ratings";
+import { movieRatings, movieRatingsFull } from "@/lib/ratings";
 import { MovieListItem } from "@/lib/supabase/queries";
 import {
   Dialog,
@@ -125,7 +126,7 @@ function formatRuntime(length: number | null): string | null {
 
 // Opis bierzemy ze skonsolidowanej kolumny `description` (potok wybiera najlepsze źródło,
 // degradując urwane teasery) - front nie musi już ściągać 8 kolumn per-źródło.
-type MovieDetails = { genre: string | null; synopsis: string | null; cast: string | null };
+type MovieDetails = { genre: string | null; synopsis: string | null; cast: string | null; ratingUrls: Record<string, string> };
 
 // Opis fabuły bywa długi (Filmweb/Helios do 1500-2000 znaków), a lewa kolumna jest wąska,
 // więc domyślnie przycinamy do kilku linii z możliwością rozwinięcia. Toggle pokazujemy tylko
@@ -231,6 +232,44 @@ function ScreeningDetails({ screening, dateLabel, onBack }: { screening: Screeni
   );
 }
 
+// Akcent koloru nazwy źródła oceny (barwy zbliżone do logotypów).
+const RATING_ACCENT: Record<string, string> = {
+  filmweb: "text-[#f2d31c]",
+  imdb: "text-[#f5c518]",
+  tmdb: "text-[#5dd6c0]",
+};
+
+// Wiersz „etykieta: wartość" (Reżyseria/Obsada) na pełną szerokość.
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2 text-sm">
+      <span className="text-slate-500 shrink-0 w-[68px]">{label}</span>
+      <span className="text-slate-200">{value}</span>
+    </div>
+  );
+}
+
+// Pigułka oceny; klikalna (link do strony źródła), gdy znamy URL - inaczej zwykły znacznik.
+function RatingPill({ pkey, label, value, url }: { pkey: string; label: string; value: number; url?: string }) {
+  const accent = RATING_ACCENT[pkey] || "text-slate-400";
+  const inner = (
+    <>
+      <span className="text-amber-400">★</span>
+      <span className="font-medium text-slate-100">{value.toFixed(1)}</span>
+      <span className={`text-[11px] font-medium ${accent}`}>{label}</span>
+      {url && <span className="text-[11px] text-slate-500" aria-hidden="true">↗</span>}
+    </>
+  );
+  const cls = "inline-flex items-center gap-1.5 rounded-full bg-slate-800 border border-slate-700 px-2.5 py-1 text-[13px] whitespace-nowrap";
+  return url ? (
+    <a href={url} target="_blank" rel="noopener noreferrer" className={`${cls} hover:bg-slate-700 hover:border-slate-600 transition-colors`} title={`${label} — otwórz stronę filmu`}>
+      {inner}
+    </a>
+  ) : (
+    <span className={cls}>{inner}</span>
+  );
+}
+
 export default function MovieCard({ movie, priority = false }: { movie: Movie; priority?: boolean }) {
   const searchParams = useSearchParams();
   const cityQuery = searchParams.get("city");
@@ -247,6 +286,7 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedScreening, setSelectedScreening] = useState<Screening | null>(null);
   const [details, setDetails] = useState<MovieDetails | null>(null);
+  const [zoom, setZoom] = useState(false); // powiększenie plakatu (lightbox)
 
   // Reset/inicjalizacja wybranej daty odbywa się w handlerze otwarcia, aby nie wołać
   // setState synchronicznie w efekcie (unika kaskadowych re-renderów).
@@ -255,6 +295,7 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
     // Jeśli użytkownik otworzył modal mając wybrany pojedynczy dzień na stronie głównej, użyj go
     setSelectedDate(open ? singleDay : null);
     setSelectedScreening(null);
+    setZoom(false);
   };
 
   useEffect(() => {
@@ -303,15 +344,21 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
     async function fetchDetails() {
       const { data } = await supabase
         .from("movies")
-        .select("genre, description, cast")
+        .select("genre, description, cast, imdb_id, tmdb_id, filmweb_id")
         .eq("id", movie.id)
         .single();
       if (cancelled || !data) return;
-      const d = data as unknown as Record<string, string | null>;
+      const d = data as unknown as Record<string, unknown>;
+      // Linki do stron źródeł (bezpośrednie po id; Filmweb przez redirect z samego id).
+      const ratingUrls: Record<string, string> = {};
+      if (d.filmweb_id) ratingUrls.filmweb = `https://www.filmweb.pl/film/x-0-${d.filmweb_id}`;
+      if (d.imdb_id) ratingUrls.imdb = `https://www.imdb.com/title/${d.imdb_id}/`;
+      if (d.tmdb_id) ratingUrls.tmdb = `https://www.themoviedb.org/movie/${d.tmdb_id}`;
       setDetails({
-        genre: d.genre,
-        synopsis: (d.description || "").trim() || null,
-        cast: (d.cast || "").trim() || null,
+        genre: (d.genre as string) ?? null,
+        synopsis: ((d.description as string) || "").trim() || null,
+        cast: ((d.cast as string) || "").trim() || null,
+        ratingUrls,
       });
     }
     fetchDetails();
@@ -341,6 +388,13 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
 
   // Dostępne oceny (Filmweb/IMDb/TMDB) do wyświetlenia pod tytułem
   const ratings = movieRatings(movie);
+  const allRatings = movieRatingsFull(movie); // pełny zestaw ocen do modalu (Filmweb/IMDb/TMDB/RT/Metacritic)
+  // Meta jako chipy: rok, długość, poszczególne gatunki.
+  const metaChips = [
+    movie.release_year ? String(movie.release_year) : null,
+    formatRuntime(movie.length),
+    ...(details?.genre ? details.genre.split(",").map((g) => g.trim()).filter(Boolean) : []),
+  ].filter(Boolean) as string[];
 
   // Badge'y na plakacie: sieci osobno, studyjne+niezależne złączone w "Inne" (bez duplikatów)
   const posterBadges = [...new Set((movie.available_franchises ?? []).map(badgeKey))];
@@ -356,6 +410,7 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       {/* DialogTrigger opakowuje plakat. Kliknięcie w niego otworzy modal */}
       <DialogTrigger asChild>
@@ -393,48 +448,50 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
       </DialogTrigger>
       
       {/* Zawartość okienka, które się pojawi */}
-      <DialogContent className="sm:max-w-[900px] bg-slate-950 border-slate-800 text-slate-50 p-0 flex flex-col sm:flex-row gap-0 overflow-hidden">
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} className="sm:max-w-[900px] bg-slate-950 border-slate-800 text-slate-50 p-0 flex flex-col sm:flex-row gap-0 overflow-hidden">
 
         {/* Lewa kolumna: mały plakat o stałej szerokości + dane obok niego, a opis na pełną
             szerokość poniżej. Plakat się nie rozciąga, więc zostaje miejsce na informacje i opis. */}
         <div className="hidden sm:flex sm:flex-col w-[400px] shrink-0 self-start max-h-[85vh] overflow-y-auto bg-slate-900 p-5 gap-4">
           <div className="flex gap-4">
-            <div className="relative w-[180px] shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-slate-800 shadow-md">
-              {movie.poster ? (
-                <Image src={movie.poster} alt={movie.title} fill sizes="180px" className="object-cover" />
-              ) : (
+            {movie.poster ? (
+              <button
+                type="button"
+                onClick={() => setZoom(true)}
+                onMouseDown={(e) => e.preventDefault()}
+                aria-label="Powiększ plakat"
+                className="group relative w-[170px] shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-slate-800 shadow-md cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+              >
+                <Image src={movie.poster} alt={movie.title} fill sizes="170px" className="object-cover" />
+                <span className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors" />
+                <span className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-slate-950/70 text-slate-100 opacity-80 group-hover:opacity-100 group-hover:bg-slate-950/90 transition">
+                  <ZoomIn className="h-3.5 w-3.5" />
+                </span>
+              </button>
+            ) : (
+              <div className="relative w-[170px] shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-slate-800 shadow-md">
                 <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs p-2 text-center">Brak plakatu</div>
-              )}
-            </div>
-            <div className="flex flex-col gap-2.5 text-sm min-w-0">
-              {ratings.length > 0 && (
-                <div className="flex flex-col gap-1">
-                  {ratings.map((r) => (
-                    <span key={r.label} className="whitespace-nowrap text-slate-200">
-                      <span className="text-amber-400">★</span> {r.value.toFixed(1)} <span className="text-slate-500 text-xs">{r.label}</span>
-                    </span>
+              </div>
+            )}
+            <div className="flex flex-col gap-3 min-w-0">
+              {allRatings.length > 0 && (
+                <div className="flex flex-col items-start gap-1.5">
+                  {allRatings.map((r) => (
+                    <RatingPill key={r.key} pkey={r.key} label={r.label} value={r.value} url={details?.ratingUrls[r.key]} />
                   ))}
                 </div>
               )}
-              <div className="flex flex-col gap-1.5">
-                {movie.release_year && (
-                  <div className="text-slate-300"><span className="text-slate-500">Rok:</span> {movie.release_year}</div>
-                )}
-                {formatRuntime(movie.length) && (
-                  <div className="text-slate-300"><span className="text-slate-500">Długość:</span> {formatRuntime(movie.length)}</div>
-                )}
-                {details?.genre && (
-                  <div className="text-slate-300"><span className="text-slate-500">Gatunek:</span> {details.genre}</div>
-                )}
-                {movie.director && (
-                  <div className="text-slate-300"><span className="text-slate-500">Reżyseria:</span> {movie.director}</div>
-                )}
-              </div>
+              {metaChips.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {metaChips.map((c, i) => (
+                    <span key={i} className="rounded-md bg-slate-800 border border-slate-700 px-2 py-0.5 text-xs text-slate-300">{c}</span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-          {details?.cast && (
-            <div className="text-sm text-slate-300"><span className="text-slate-500">Obsada:</span> {details.cast}</div>
-          )}
+          {movie.director && <InfoRow label="Reżyseria" value={movie.director} />}
+          {details?.cast && <InfoRow label="Obsada" value={details.cast} />}
           {details?.synopsis && <SynopsisBlock text={details.synopsis} />}
         </div>
 
@@ -448,31 +505,23 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
           </DialogHeader>
 
           {/* Meta na mobile (bez lewej kolumny) - żeby oceny i podstawowe dane były widoczne na telefonie */}
-          <div className="sm:hidden shrink-0 mb-4 flex flex-col gap-1.5 text-sm">
-            {ratings.length > 0 && (
-              <div className="flex flex-wrap gap-x-3 gap-y-1">
-                {ratings.map((r) => (
-                  <span key={r.label} className="whitespace-nowrap text-slate-200">
-                    <span className="text-amber-400">★</span> {r.value.toFixed(1)} <span className="text-slate-500 text-xs">{r.label}</span>
-                  </span>
+          <div className="sm:hidden shrink-0 mb-4 flex flex-col gap-2.5">
+            {allRatings.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {allRatings.map((r) => (
+                  <RatingPill key={r.key} pkey={r.key} label={r.label} value={r.value} url={details?.ratingUrls[r.key]} />
                 ))}
               </div>
             )}
-            {movie.release_year && (
-              <div className="text-slate-300"><span className="text-slate-500">Rok:</span> {movie.release_year}</div>
+            {metaChips.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {metaChips.map((c, i) => (
+                  <span key={i} className="rounded-md bg-slate-800 border border-slate-700 px-2 py-0.5 text-xs text-slate-300">{c}</span>
+                ))}
+              </div>
             )}
-            {formatRuntime(movie.length) && (
-              <div className="text-slate-300"><span className="text-slate-500">Długość:</span> {formatRuntime(movie.length)}</div>
-            )}
-            {details?.genre && (
-              <div className="text-slate-300"><span className="text-slate-500">Gatunek:</span> {details.genre}</div>
-            )}
-            {movie.director && (
-              <div className="text-slate-300"><span className="text-slate-500">Reżyseria:</span> {movie.director}</div>
-            )}
-            {details?.cast && (
-              <div className="text-slate-300"><span className="text-slate-500">Obsada:</span> {details.cast}</div>
-            )}
+            {movie.director && <InfoRow label="Reżyseria" value={movie.director} />}
+            {details?.cast && <InfoRow label="Obsada" value={details.cast} />}
             {details?.synopsis && <SynopsisBlock text={details.synopsis} />}
           </div>
 
@@ -578,5 +627,37 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Lightbox plakatu jako osobny Dialog Radix - poprawne warstwowanie i zamykanie tylko jego
+        (klik w tło / ✕ / Esc zamyka powiększenie, modal filmu zostaje otwarty). */}
+    <Dialog open={zoom} onOpenChange={setZoom}>
+      <DialogContent
+        aria-describedby={undefined}
+        showCloseButton={false}
+        onClick={() => setZoom(false)}
+        className="inset-0 top-0 left-0 h-full w-full max-w-none sm:max-w-none translate-x-0 translate-y-0 flex items-center justify-center rounded-none bg-black/90 p-6 ring-0 sm:p-10 cursor-zoom-out"
+      >
+        <DialogTitle className="sr-only">Plakat: {movie.title}</DialogTitle>
+        <button
+          type="button"
+          aria-label="Zamknij"
+          onClick={() => setZoom(false)}
+          className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/90 hover:bg-white/20 hover:text-white transition cursor-pointer"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        {movie.poster && (
+          <Image
+            src={movie.poster}
+            alt={movie.title}
+            width={800}
+            height={1200}
+            sizes="90vw"
+            className="h-auto max-h-full w-auto max-w-full rounded-xl object-contain shadow-2xl"
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
