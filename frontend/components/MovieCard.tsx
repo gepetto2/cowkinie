@@ -94,7 +94,7 @@ function franchiseVisual(franchise: string) {
   let initial = franchise.charAt(0).toUpperCase();
   // Kolory z logotypów kin: tło = kolor podstawowy, font = kolor drugorzędny marki (gdy jest).
   if (lower.includes("cinema") && lower.includes("city")) { bgColor = "bg-[#f5821f]"; initial = "CC"; }
-  else if (lower.includes("multikino")) { bgColor = "bg-[#eb008b]"; textColor = "text-[#fbe82c]"; }
+  else if (lower.includes("multikino")) { bgColor = "bg-[#eb008b]"; textColor = "text-white"; }
   else if (lower.includes("helios")) { bgColor = "bg-[#002b55]"; textColor = "text-white"; }
   else if (lower === "inne") { bgColor = "bg-teal-600"; initial = "IN"; }
   return { bgColor, textColor, initial };
@@ -159,6 +159,78 @@ const formatScreeningsCount = (count: number) => {
   return `${count} seansów`;
 };
 
+// Opis dostępności miejsc z availability_ratio (frakcja WOLNYCH miejsc; null = kino nie podaje danych).
+// `dot` = kolor CSS kropki na chipie godziny. Kropkę pokazujemy TYLKO gdy miejsc zaczyna brakować
+// (<60% wolnych) - przy dużej dostępności bez kropki. Kolor to gradient bursztyn->czerwień w miarę
+// zapełniania (60% wolnych -> bursztyn, 0% -> czerwień). null = brak kropki (dużo miejsc lub brak danych).
+function availabilityInfo(ratio: number | null): { label: string; color: string; pct: number | null; dot: string | null } {
+  if (ratio === null || ratio === undefined) return { label: "Brak danych o dostępności miejsc", color: "text-slate-400", pct: null, dot: null };
+  const pct = Math.round(ratio * 100);
+  const dot = ratio < 0.60 ? `hsl(${Math.max(0, Math.min(42, (42 * ratio) / 0.60))} 90% 55%)` : null;
+  if (ratio <= 0) return { label: "Wyprzedane", color: "text-rose-400", pct: 0, dot };
+  if (ratio <= 0.30) return { label: `Ostatnie miejsca · ${pct}% wolnych`, color: "text-rose-400", pct, dot };
+  if (ratio < 0.60) return { label: `Mało miejsc · ${pct}% wolnych`, color: "text-amber-400", pct, dot };
+  return { label: `${pct}% miejsc wolnych`, color: "text-emerald-400", pct, dot };
+}
+
+// Widok szczegółów pojedynczego seansu (trzeci poziom modalu): dane z bazy + przycisk zakupu.
+function ScreeningDetails({ screening, dateLabel, onBack }: { screening: Screening; dateLabel: string; onBack: () => void }) {
+  const c = screening.cinemas;
+  const cinemaName = c?.franchise && c.name !== c.franchise ? `${c.franchise} ${c.name}` : (c?.name || "Nieznane kino");
+  const group = cinemaGroup(c);
+  const badge = group ? badgeKey(group) : null;
+  const fmtT = (iso: string) => new Date(iso).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
+  const end = screening.end_time ? fmtT(screening.end_time) : null;
+  const avail = availabilityInfo(screening.availability_ratio);
+  const rows: [string, string | null][] = [
+    ["Sala", screening.room_name],
+    ["Format", screening.format],
+    ["Wersja", screening.lang],
+  ];
+  return (
+    <div className="flex flex-col gap-4">
+      <button onClick={onBack} className="self-start text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+        &larr; Wróć do godzin
+      </button>
+      <div className="flex items-center gap-2">
+        {badge && <FranchiseBadge franchise={badge} size="sm" />}
+        <span className="font-semibold text-slate-100">{cinemaName}</span>
+      </div>
+      <div>
+        <div className="text-3xl font-bold text-slate-100">
+          {fmtT(screening.start_time)}
+          {end && <span className="text-xl font-normal text-slate-400"> – {end}</span>}
+        </div>
+        <div className="text-sm text-slate-400 capitalize mt-0.5">{dateLabel}</div>
+      </div>
+      <dl className="flex flex-col gap-2 text-sm border-t border-slate-800 pt-3">
+        {rows.filter(([, v]) => v).map(([label, value]) => (
+          <div key={label} className="flex justify-between gap-4">
+            <dt className="text-slate-500">{label}</dt>
+            <dd className="text-slate-200 text-right">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="border-t border-slate-800 pt-3">
+        <div className={`text-sm font-medium ${avail.color}`}>{avail.label}</div>
+        {avail.pct !== null && (
+          <div className="mt-2 h-2 rounded-full bg-slate-800 overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${avail.pct}%` }} />
+          </div>
+        )}
+      </div>
+      <a
+        href={screening.booking_link || "#"}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-1 inline-flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors"
+      >
+        Kup bilet →
+      </a>
+    </div>
+  );
+}
+
 export default function MovieCard({ movie, priority = false }: { movie: Movie; priority?: boolean }) {
   const searchParams = useSearchParams();
   const cityQuery = searchParams.get("city");
@@ -173,6 +245,7 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
   const [screenings, setScreenings] = useState<Screening[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedScreening, setSelectedScreening] = useState<Screening | null>(null);
   const [details, setDetails] = useState<MovieDetails | null>(null);
 
   // Reset/inicjalizacja wybranej daty odbywa się w handlerze otwarcia, aby nie wołać
@@ -181,6 +254,7 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
     setIsOpen(open);
     // Jeśli użytkownik otworzył modal mając wybrany pojedynczy dzień na stronie głównej, użyj go
     setSelectedDate(open ? singleDay : null);
+    setSelectedScreening(null);
   };
 
   useEffect(() => {
@@ -435,10 +509,16 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
                   );
                 })}
               </div>
+            ) : selectedScreening ? (
+              <ScreeningDetails
+                screening={selectedScreening}
+                dateLabel={formatDateLabel(selectedDate)}
+                onBack={() => setSelectedScreening(null)}
+              />
             ) : (
               <div className="flex flex-col gap-4">
                 <button
-                  onClick={() => setSelectedDate(null)}
+                  onClick={() => { setSelectedDate(null); setSelectedScreening(null); }}
                   className="self-start text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mb-2"
                 >
                   &larr; Wróć do wyboru daty
@@ -448,6 +528,9 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
                 </h3>
                 {cinemaGroups.length > 0 ? (
                   <div className="flex flex-col gap-3">
+                    <p className="text-xs text-indigo-300/80 flex items-center gap-1">
+                      <span aria-hidden="true">›</span> Kliknij godzinę, aby zobaczyć szczegóły i dostępność miejsc
+                    </p>
                     {cinemaGroups.map((cg) => (
                       <div key={cg.key} className="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
                         <div className="flex items-center gap-2 mb-2.5">
@@ -463,16 +546,20 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
                               <div className="flex flex-wrap gap-2">
                                 {v.screenings.map((s) => {
                                   const time = new Date(s.start_time).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
+                                  const dot = availabilityInfo(s.availability_ratio).dot;
                                   return (
-                                    <a
+                                    <button
                                       key={s.id}
-                                      href={s.booking_link || "#"}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-colors rounded-md px-3 py-1.5 text-sm font-semibold text-slate-200"
+                                      type="button"
+                                      onClick={() => setSelectedScreening(s)}
+                                      className="relative bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-all rounded-md px-3 py-1.5 text-sm font-semibold text-slate-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg"
                                     >
                                       {time}
-                                    </a>
+                                      <span className="ml-1 font-normal text-slate-500" aria-hidden="true">›</span>
+                                      {dot && (
+                                        <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-[1.5px] border-slate-900" style={{ backgroundColor: dot }} />
+                                      )}
+                                    </button>
                                   );
                                 })}
                               </div>
