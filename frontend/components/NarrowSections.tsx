@@ -19,6 +19,15 @@ export default function NarrowSections({ sections, priorityIds }: { sections: Se
   // Sygnatura zawartości - zmiana (np. po filtrowaniu) wymusza ponowny pomiar i przeliczenie.
   const sig = sections.map((s) => `${s.category}:${s.movies.length}`).join("|");
 
+  // Gdy zawartość się zmieni (filtrowanie), stare `rows` mają indeksy dla poprzedniej listy sekcji
+  // (mogą być poza zakresem nowej). Resetujemy do null JESZCZE w renderze, żeby nie renderować
+  // nieistniejących sekcji - efekt zaraz przeliczy pakowanie dla nowej zawartości.
+  const prevSig = useRef(sig);
+  if (prevSig.current !== sig) {
+    prevSig.current = sig;
+    if (rows !== null) setRows(null);
+  }
+
   const repack = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -102,7 +111,7 @@ export default function NarrowSections({ sections, priorityIds }: { sections: Se
     <div ref={containerRef} className="flex flex-col gap-5">
       {rows.map((row, ri) => (
         <div key={ri} className="flex flex-wrap gap-5 items-stretch">
-          {row.map((i) => renderSection(sections[i]))}
+          {row.map((i) => sections[i]).filter((s): s is Section => !!s).map(renderSection)}
         </div>
       ))}
     </div>
