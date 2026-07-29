@@ -63,6 +63,9 @@ def clean_title(title: str) -> str:
     # Usuwa typowy dopisek CC (rok generalizowany, np. 2026, 2027...)
     title = re.sub(r"\s*-\s*National Theatre Live \d{4}", "", title)
     title = title.removesuffix(" - wersja oryginalna")
+    # Dopisek "LEKTOR" (CC dodaje go do tytułu zamiast do atrybutu wersji) - zdejmujemy, by wersja
+    # lektorska scaliła się z filmem bazowym; sam lektor trafia do `lang` seansu (patrz cinema_city.py).
+    title = re.sub(r"\s*-?\s*LEKTOR\s*$", "", title, flags=re.IGNORECASE)
     title = title.removesuffix(". Wersja zremasterowana")
     title = title.removesuffix("- powrót do kin")
     title = title.removesuffix(" | NAJLEPSZE Z NAJGORSZYCH")

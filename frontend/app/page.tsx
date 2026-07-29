@@ -144,7 +144,9 @@ export default async function Home({
   // Filtr miasta/daty jest już zakodowany w matchesFilters (jeden spójny zbiór dla listy i badge'ów).
   let topMovies = (topScreenings || [])
     .map((ts) => (ts.movie_id ? moviesMap.get(ts.movie_id) : undefined))
-    .filter((m): m is typeof enhancedMovies[number] => m !== undefined && m.matchesFilters);
+    .filter((m): m is typeof enhancedMovies[number] =>
+      m !== undefined && m.matchesFilters && !CAROUSEL_EXCLUDED_TYPES.includes(m.movie_type ?? ''))
+    .slice(0, 10);
 
   let filteredMovies = enhancedMovies.filter((m) => m.matchesFilters);
 

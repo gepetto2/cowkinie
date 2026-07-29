@@ -76,11 +76,13 @@ export const getCinemaAvailabilities = unstable_cache(
 
 export const getTopScreenings = unstable_cache(
   async () => {
+    // Pobieramy z zapasem (nie 10) - część kandydatów odpada potem po filtrach miasta/daty/typu,
+    // a karuzela "Najpopularniejsze" i tak przycina do 10.
     const { data, error } = await supabase
       .from('movie_screening_counts')
       .select('*')
       .order('screening_count', { ascending: false })
-      .limit(10);
+      .limit(40);
     if (error) {
       console.error('Błąd podczas pobierania rankingu seansów:', error);
       return [];

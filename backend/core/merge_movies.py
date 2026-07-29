@@ -10,6 +10,15 @@ def get_similarity(a: str, b: str) -> float:
         return 0.0
     return difflib.SequenceMatcher(None, str(a).lower(), str(b).lower()).ratio()
 
+# Markery WERSJI filmu (inny montaż, nie inne wydanie tego samego). Wersja rozszerzona/reżyserska ma
+# to samo tmdb_id co podstawowa, ale to OSOBNY film - nie wolno ich scalać po tmdb_id.
+_VERSION_MARKERS = ("rozszerzon", "reżysersk", "rezysersk", "zremasterowan", "extended", "director", "niemy")
+
+def version_key(title: str) -> frozenset:
+    """Zbiór markerów wersji obecnych w tytule. Różne zbiory = różne wersje = nie scalamy."""
+    t = (title or "").lower()
+    return frozenset(m for m in _VERSION_MARKERS if m in t)
+
 def check_and_merge_movie(supabase: Client, current_movie: dict, tmdb_id: int, seen_tmdb_ids: dict, tmdb_title: str) -> bool:
     """
     Sprawdza czy film o danym tmdb_id już istnieje (w seen_tmdb_ids).
@@ -17,11 +26,17 @@ def check_and_merge_movie(supabase: Client, current_movie: dict, tmdb_id: int, s
     Przepina seanse na wybrany film główny i usuwa ten gorszy.
     Zwraca True jeśli film był duplikatem (i został usunięty), w przeciwnym razie False.
     """
-    if current_movie.get("movie_type") in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING", "UNLIMITED SHOW"):
+    # DLA DZIECI: prawdziwe filmy dziecięce mają ten sam tmdb_id co event Heliosa (np. karaoke/poranki),
+    # ale to osobne pokazy - nie scalamy po tmdb_id (scalanie po tytule i tak działa dla zwykłych filmów).
+    if current_movie.get("movie_type") in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING", "UNLIMITED SHOW", "DLA DZIECI"):
         return False
-        
-    if tmdb_id in seen_tmdb_ids:
-        seen_movie = seen_tmdb_ids[tmdb_id]
+
+    # Klucz uwzględnia wersję: wersja rozszerzona/reżyserska tego samego filmu (to samo tmdb_id)
+    # dostaje inny klucz niż podstawowa, więc NIE zostanie z nią scalona (to osobny film).
+    key = (tmdb_id, version_key(current_movie.get("title")))
+
+    if key in seen_tmdb_ids:
+        seen_movie = seen_tmdb_ids[key]
         seen_movie_id = seen_movie["id"]
         seen_movie_title = seen_movie.get("title", "Nieznany tytuł")
         
@@ -72,7 +87,7 @@ def check_and_merge_movie(supabase: Client, current_movie: dict, tmdb_id: int, s
             
             # Aktualizacja pamięci, jeśli nowym głównym filmem został ten obecnie przetwarzany
             if not current_is_duplicate:
-                seen_tmdb_ids[tmdb_id] = {"id": target_id, "title": target_title}
+                seen_tmdb_ids[key] = {"id": target_id, "title": target_title}
                 
         except Exception as e:
             logger.error(f"-> [Merge] Błąd podczas łączenia duplikatów: {e}")
@@ -80,5 +95,5 @@ def check_and_merge_movie(supabase: Client, current_movie: dict, tmdb_id: int, s
         return current_is_duplicate
     else:
         # Zapisujemy w pamięci, aby kolejne duplikaty w tej samej pętli mogły zostać połączone
-        seen_tmdb_ids[tmdb_id] = {"id": current_movie.get("id"), "title": current_movie.get("title")}
+        seen_tmdb_ids[key] = {"id": current_movie.get("id"), "title": current_movie.get("title")}
         return False

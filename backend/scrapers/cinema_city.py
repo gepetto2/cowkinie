@@ -251,11 +251,14 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
 
                 # Utworzenie mapy z API ID do BAZA ID
                 film_id_map = {}
+                lektor_film_ids = set()  # filmy z "LEKTOR" w tytule - ich seanse dostaną lang=LEKTOR
                 for film in unique_films:
                     api_film_id = film.get("id")
-                    title = (film.get("name") or "").strip()
+                    raw_name = film.get("name") or ""
+                    if api_film_id and re.search(r"\bLEKTOR\b", raw_name, re.IGNORECASE):
+                        lektor_film_ids.add(api_film_id)
 
-                    title = clean_title(title)
+                    title = clean_title(raw_name.strip())
 
                     if api_film_id and title in movies_cache:
                         film_id_map[api_film_id] = movies_cache[title]
@@ -277,7 +280,10 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
 
                     attribute_ids = event.get("attributeIds", [])
                     lang = None
-                    if "subbed" in attribute_ids:
+                    # "LEKTOR" jest w tytule filmu, nie w atrybutach (CC oznacza go jako 'dubbed') - nadpisujemy.
+                    if api_film_id in lektor_film_ids:
+                        lang = "LEKTOR"
+                    elif "subbed" in attribute_ids:
                         lang = "NAPISY"
                     elif "dubbed" in attribute_ids:
                         lang = "DUBBING"

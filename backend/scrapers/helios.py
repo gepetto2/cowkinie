@@ -231,7 +231,10 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         title = ev.get("name")
                     else:
                         title = movie_info.get("title") or (items[0].get("movieName") if items else None) or ev.get("name")
-                        
+
+                    # "HDD" (Helios Dla Dzieci) to artefakt w nazwie eventu - zdejmujemy, by wersje
+                    # (np. "Vaiana: wersja karaoke - HDD") scalały się z tymi samymi z innych kin.
+                    title = re.sub(r"\s*-?\s*HDD\s*$", "", title or "", flags=re.IGNORECASE)
                     title = clean_title(title)
 
                     if not title:

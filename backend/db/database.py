@@ -63,14 +63,16 @@ def consolidate_movie_data(supabase):
     logger.info("Konsolidacja danych do wyszukiwania (release_year, movie_type, director, original_title)...")
 
     # Źródła per pole (kolejność = priorytet tam, gdzie bierzemy pierwszą niepustą wartość).
+    # Rok i movie_type mają osobne listy, bo Bułgarska dostarcza tylko movie_type (Kino Dzieci -> DLA DZIECI).
     cinemas = ("multikino", "cc", "helios", "muza")
-    yt_sources = cinemas + ("apollo",)  # rok produkcji i movie_type: kina + Apollo (rok z nawiasu, NzN=NAJLEPSZE Z NAJGORSZYCH)
+    year_sources = cinemas + ("apollo",)              # rok produkcji: kina + Apollo (rok z nawiasu)
+    type_sources = cinemas + ("apollo", "bulgarska")  # movie_type: + Apollo (NzN) i Bułgarska (Kino Dzieci)
     ot_sources = ("helios", "muza")  # original_title: tylko Helios i Muza (CC/Multikino nie dostarczają), priorytet Helios -> Muza
 
     # Pobieramy filmy, które nie mają jeszcze głównego release_year, movie_type, director lub original_title
     select_cols = ["id", "title", "release_year", "movie_type", "director", "original_title"]
-    select_cols += [f"release_year_{s}" for s in yt_sources]
-    select_cols += [f"movie_type_{s}" for s in yt_sources]
+    select_cols += [f"release_year_{s}" for s in year_sources]
+    select_cols += [f"movie_type_{s}" for s in type_sources]
     select_cols += [f"director_{s}" for s in cinemas]
     select_cols += [f"original_title_{s}" for s in ot_sources]
     response = supabase.table("movies").select(", ".join(select_cols)).or_(
@@ -87,13 +89,13 @@ def consolidate_movie_data(supabase):
         update_data = {}
 
         if movie.get("release_year") is None:
-            valid_years = [y for y in (movie.get(f"release_year_{s}") for s in yt_sources) if y is not None]
+            valid_years = [y for y in (movie.get(f"release_year_{s}") for s in year_sources) if y is not None]
             if valid_years:
                 # Wybieramy najstarszy zeskrapowany rok
                 update_data["release_year"] = min(valid_years)
 
         if movie.get("movie_type") is None:
-            valid_types = [t for t in (movie.get(f"movie_type_{s}") for s in yt_sources) if t]
+            valid_types = [t for t in (movie.get(f"movie_type_{s}") for s in type_sources) if t]
             if valid_types:
                 unique_types = list(set(valid_types))
                 if len(unique_types) > 1:
@@ -325,6 +327,9 @@ def _normalize_title_key(title: str) -> str:
     s = unicodedata.normalize("NFKD", title)
     s = "".join(c for c in s if not unicodedata.combining(c))
     s = s.replace("ł", "l").replace("Ł", "L")
+    # Ignorujemy interpunkcję - 'Spider-Man. Całkiem...' (Helios) i 'Spider-Man: Całkiem...' (CC)
+    # to ten sam film, różny tylko kropką/dwukropkiem.
+    s = re.sub(r"[^\w\s]", " ", s)
     return re.sub(r"\s+", " ", s).strip().lower()
 
 def _accent_score(title: str) -> int:

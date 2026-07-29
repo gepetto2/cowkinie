@@ -7,7 +7,7 @@ from supabase import Client
 from api.tmdb import get_tmdb_movie_details
 from api.filmweb import search_movie_details
 from api.omdb import get_omdb_ratings
-from core.merge_movies import check_and_merge_movie
+from core.merge_movies import check_and_merge_movie, version_key
 from utils import search_title
 
 
@@ -20,7 +20,9 @@ async def enrich_movies_data(supabase: Client):
     movies = response.data
 
     # Pomijamy typy wydarzeniowe, które nie są filmami (nie mają sensownego odpowiednika w TMDB/Filmweb)
-    SKIP_ENRICH_TYPES = ("SPORT", "MARATON", "TEATR", "CYRK", "OPERA", "BALET", "WYSTAWY", "DLA DZIECI", "SALON KULTURY")
+    # DLA DZIECI to zwykle prawdziwe filmy dziecięce (są w TMDB) - wzbogacamy je. Eventy Heliosa
+    # oznaczone DLA DZIECI są chronione przed scaleniem z bazowym filmem w check_and_merge_movie.
+    SKIP_ENRICH_TYPES = ("SPORT", "MARATON", "TEATR", "CYRK", "OPERA", "BALET", "WYSTAWY", "SALON KULTURY")
     movies = [m for m in movies if m.get("movie_type") not in SKIP_ENRICH_TYPES]
 
     if not movies:
@@ -32,7 +34,9 @@ async def enrich_movies_data(supabase: Client):
     # --- NOWE: Pobieramy już wzbogacone filmy z bazy, aby wiedzieć jakie tmdb_id już posiadamy ---
     try:
         enriched_response = supabase.table("movies").select("id, tmdb_id, title, movie_type").not_.is_("tmdb_id", "null").execute()
-        seen_tmdb_ids = {m["tmdb_id"]: {"id": m["id"], "title": m["title"]} for m in enriched_response.data if m.get("tmdb_id") and m.get("movie_type") not in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING", "UNLIMITED SHOW")}
+        # Klucz (tmdb_id, wersja) - spójnie z check_and_merge_movie, by wersje rozszerzone/reżyserskie
+        # tego samego filmu NIE były scalane z podstawową (mają to samo tmdb_id, ale to osobny film).
+        seen_tmdb_ids = {(m["tmdb_id"], version_key(m["title"])): {"id": m["id"], "title": m["title"]} for m in enriched_response.data if m.get("tmdb_id") and m.get("movie_type") not in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING", "UNLIMITED SHOW", "DLA DZIECI")}
     except Exception as e:
         logger.warning(f"Nie udało się pobrać istniejących tmdb_id (upewnij się, że kolumna 'tmdb_id' istnieje w tabeli 'movies'): {e}")
         seen_tmdb_ids = {}
