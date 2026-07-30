@@ -24,7 +24,7 @@ from core.enrich_movies import enrich_movies_data
 
 
 logger = logging.getLogger(__name__)
-TARGET_CITIES = ["Poznań", "Bydgoszcz", "Suwałki"]
+TARGET_CITIES = ["Poznań", "Bydgoszcz", "Suwałki", "Gdańsk", "Gdynia", "Sopot"]
 
 async def run_all() -> bool:
     """Zwraca True, jeśli wszystkie źródła zeskrapowały się bez błędu."""

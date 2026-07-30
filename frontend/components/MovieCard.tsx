@@ -225,7 +225,7 @@ function ScreeningDetails({ screening, dateLabel, filmLength, onBack }: { screen
         <div className="text-sm text-slate-400 capitalize mt-0.5">{dateLabel}</div>
         {showAds && (
           <div className="text-xs text-slate-500 mt-1.5">
-            Reklamy i zwiastuny: ok. {adMin} min · start filmu ok. {filmStart}
+            Szacowana długość reklam: ok. {adMin} min · start filmu ok. {filmStart}
           </div>
         )}
       </div>
