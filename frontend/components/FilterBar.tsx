@@ -1,11 +1,14 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Calendar as CalendarIcon, MapPin, X, ChevronDown, Film, Check, Languages, SlidersHorizontal, Tag } from "lucide-react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import Link from "next/link";
+import { Search, Calendar as CalendarIcon, MapPin, X, ChevronDown, Film, Check, Languages, SlidersHorizontal, Tag, Globe2 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { useCityScope } from "@/components/CityScope";
+import { CITY_COOKIE, cityScopeHref, scopeToCookie } from "@/lib/cities";
 
 // --- Helpery dat w strefie Europe/Warsaw (spójnie z resztą aplikacji) ---
 const warsawFmt = new Intl.DateTimeFormat("en-CA", {
@@ -23,10 +26,6 @@ const triggerCls = (active: boolean) =>
   `inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium border transition-colors shrink-0 ${
     active ? "bg-indigo-600 border-indigo-500 text-white" : "bg-slate-900 border-slate-800 text-slate-200 hover:bg-slate-800"
   }`;
-const itemCls = (active: boolean) =>
-  `w-full text-left text-sm px-3 py-1.5 rounded-md transition-colors ${
-    active ? "bg-indigo-600 text-white" : "text-slate-200 hover:bg-slate-800"
-  }`;
 
 function formatCount(n: number) {
   const d = n % 10;
@@ -39,9 +38,12 @@ function formatCount(n: number) {
 export default function FilterBar({ cities, formats, langs, genres, resultCount }: { cities: string[]; formats: string[]; langs: string[]; genres: { name: string; count: number }[]; resultCount: number }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
   const q = searchParams.get("q") || "";
-  const city = searchParams.get("city") || "";
+  // Miasto nie jest już parametrem query - niesie je ścieżka (/poznan, "/" dla całej Polski),
+  // a serwer podaje rozwiązaną listę przez kontekst.
+  const { selected: selectedCities } = useCityScope();
   const from = searchParams.get("from") || "";
   const to = searchParams.get("to") || "";
   const selectedFormats = (searchParams.get("format") || "").split(",").filter(Boolean);
@@ -53,8 +55,24 @@ export default function FilterBar({ cities, formats, langs, genres, resultCount 
     for (const [k, v] of Object.entries(updates)) {
       if (v) params.set(k, v); else params.delete(k);
     }
-    router.push(`/?${params.toString()}`, { scroll: false });
+    // Zmiany filtrów zostają W OBRĘBIE bieżącej ścieżki. Wcześniej było tu zaszyte `/?...`, co po
+    // przejściu miasta do segmentu wyrzucałoby użytkownika z /poznan na ekran wyboru miasta przy
+    // każdej zmianie daty czy formatu.
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
+
+  // Zmiana zestawu miast zmienia ŚCIEŻKĘ (kanonicznie: 1 miasto -> /poznan, 0 -> "/", 2+ -> /?miasta=),
+  // więc idzie osobną drogą niż pozostałe filtry. Przy okazji zapamiętujemy wybór w ciasteczku,
+  // żeby kolejne wejście na "/" trafiło od razu tam, gdzie użytkownik skończył.
+  const setCities = (next: string[]) => {
+    const params = new URLSearchParams(searchParams.toString());
+    document.cookie = `${CITY_COOKIE}=${encodeURIComponent(scopeToCookie(next))}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+    router.push(cityScopeHref(next, params), { scroll: false });
+  };
+
+  const toggleCity = (c: string) =>
+    setCities(selectedCities.includes(c) ? selectedCities.filter((x) => x !== c) : [...selectedCities, c]);
 
   // --- Wyszukiwarka (debounce 300ms) ---
   const [query, setQuery] = useState(q);
@@ -105,7 +123,10 @@ export default function FilterBar({ cities, formats, langs, genres, resultCount 
   const [langOpen, setLangOpen] = useState(false);
   const [genreOpen, setGenreOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false); // zwijanie filtrów na telefonie
-  const activeFilterCount = (from || to ? 1 : 0) + (city ? 1 : 0) + selectedFormats.length + selectedLangs.length + selectedGenres.length;
+  const activeFilterCount = (from || to ? 1 : 0) + selectedCities.length + selectedFormats.length + selectedLangs.length + selectedGenres.length;
+
+  const cityLabel = selectedCities.length === 0 ? "Wszystkie miasta"
+    : selectedCities.length === 1 ? selectedCities[0] : `Miasta (${selectedCities.length})`;
 
   // Przełączenie w multi-select (dropdown zostaje otwarty)
   const toggleFormat = (f: string) => {
@@ -131,7 +152,10 @@ export default function FilterBar({ cities, formats, langs, genres, resultCount 
   const pills: { label: string; clear: () => void }[] = [];
   if (q) pills.push({ label: `„${q}”`, clear: () => { setQuery(""); setParams({ q: "" }); } });
   if (from || to) pills.push({ label: dateLabel, clear: () => setParams({ from: "", to: "" }) });
-  if (city) pills.push({ label: city, clear: () => setParams({ city: "" }) });
+  // Każde miasto osobną pigułką - przy kilku wybranych da się odjąć jedno bez czyszczenia reszty.
+  for (const c of selectedCities) {
+    pills.push({ label: c, clear: () => setCities(selectedCities.filter((x) => x !== c)) });
+  }
   for (const f of selectedFormats) {
     pills.push({ label: f, clear: () => setParams({ format: selectedFormats.filter((x) => x !== f).join(",") }) });
   }
@@ -212,24 +236,53 @@ export default function FilterBar({ cities, formats, langs, genres, resultCount 
           </PopoverContent>
         </Popover>
 
-        {/* Miasto */}
+        {/* Miasto - wybór wielokrotny. Popover zostaje otwarty przy zaznaczaniu, żeby dało się
+            zebrać kilka miast (np. Trójmiasto) bez otwierania listy za każdym razem. */}
         <Popover open={cityOpen} onOpenChange={setCityOpen}>
           <PopoverTrigger asChild>
-            <button className={triggerCls(Boolean(city))}>
+            <button className={triggerCls(selectedCities.length > 0)}>
               <MapPin className="h-4 w-4" />
-              <span className="max-w-[140px] truncate">{city || "Wszystkie miasta"}</span>
+              <span className="max-w-[160px] truncate">{cityLabel}</span>
               <ChevronDown className="h-3.5 w-3.5 opacity-60" />
             </button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-52 p-2">
-            <button onClick={() => { setParams({ city: "" }); setCityOpen(false); }} className={itemCls(!city)}>
-              Wszystkie miasta
-            </button>
-            {cities.map((c) => (
-              <button key={c} onClick={() => { setParams({ city: c }); setCityOpen(false); }} className={itemCls(c === city)}>
-                {c}
+            {/* Ten sam wzorzec co przy formacie/wersji/gatunku - kwadracik z ptaszkiem od razu
+                pokazuje, że wyborów może być kilka. */}
+            {cities.map((c) => {
+              const on = selectedCities.includes(c);
+              return (
+                <button
+                  key={c}
+                  onClick={() => toggleCity(c)}
+                  className="w-full flex items-center gap-2.5 text-left text-sm px-2.5 py-1.5 rounded-md text-slate-200 hover:bg-slate-800 transition-colors"
+                >
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                    on ? "bg-indigo-600 border-indigo-500" : "border-slate-600"
+                  }`}>
+                    {on && <Check className="h-3 w-3 text-white" />}
+                  </span>
+                  {c}
+                </button>
+              );
+            })}
+            {selectedCities.length > 0 && (
+              <button
+                onClick={() => { setCities([]); setCityOpen(false); }}
+                className="mt-1 w-full text-left text-sm px-2.5 py-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors border-t border-slate-800"
+              >
+                Wszystkie miasta
               </button>
-            ))}
+            )}
+            {/* Powrót na ekran wyboru. Prowadzi do /wybierz-miasto, a nie do "/", bo "/" ma
+                ciasteczko i od razu odesłałoby z powrotem tutaj. */}
+            <Link
+              href="/wybierz-miasto"
+              className="mt-1 w-full flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors border-t border-slate-800"
+            >
+              <Globe2 className="h-3.5 w-3.5" />
+              Zmień miasto
+            </Link>
           </PopoverContent>
         </Popover>
 

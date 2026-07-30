@@ -41,6 +41,22 @@ export const getCities = unstable_cache(
   { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
 );
 
+// Liczba kin w każdym mieście - podpis na kafelkach ekranu wyboru miasta ("Poznań · 7 kin").
+export const getCinemaCountsByCity = unstable_cache(
+  async (): Promise<Record<string, number>> => {
+    const { data, error } = await supabase.from('cinemas').select('city');
+    if (error) {
+      console.error('Błąd podczas pobierania liczby kin:', error);
+      return {};
+    }
+    const counts: Record<string, number> = {};
+    for (const row of data ?? []) counts[row.city] = (counts[row.city] ?? 0) + 1;
+    return counts;
+  },
+  ['cinema-counts'],
+  { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
+);
+
 export const getMovies = unstable_cache(
   async (): Promise<MovieListItem[]> => {
     const { data, error } = await supabase.from('movies').select(MOVIE_CARD_COLUMNS);

@@ -1,4 +1,7 @@
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import { notFound, redirect } from 'next/navigation';
 import {
   getCities, getMovies, getAvailableDates, getFilteredAvailability, getDateDaysAgo,
   getCinemaAvailabilities, getTopScreenings, getAvailableFormats, getAvailableLangs,
@@ -7,6 +10,8 @@ import MovieCard from '@/components/MovieCard';
 import Carousel from '@/components/Carousel';
 import FilterBar from '@/components/FilterBar';
 import NarrowSections from '@/components/NarrowSections';
+import { CityScopeProvider } from '@/components/CityScope';
+import { parseCityScope, scopeFromCookie, cityScopeHref, CITY_COOKIE } from '@/lib/cities';
 import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
 
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
@@ -21,15 +26,45 @@ const CAROUSEL_MAX_YEAR_GAP = 1;
 const normalizeSearch = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l');
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams?: { [key: string]: string | string[] | undefined };
-}) {
-  // Używamy Promise.resolve dla bezpiecznej kompatybilności wstecz i wprzód (Next.js 15 wymaga Promise)
-  const params = await Promise.resolve(searchParams);
+// Segment opcjonalny ([[...miasto]]) łapie zarówno "/" (miasto === undefined, czyli cała Polska),
+// jak i "/poznan". Dzięki temu adres domyślny nie wymaga sztucznego segmentu w stylu /wszystkie.
+type PageProps = {
+  params: Promise<{ miasto?: string[] }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+/** Segment miasta ze ścieżki: '' dla "/", 'poznan' dla "/poznan", null dla ścieżek głębszych (404). */
+function citySegment(miasto?: string[]): string | null {
+  if (!miasto || miasto.length === 0) return '';
+  return miasto.length === 1 ? miasto[0] : null; // /poznan/cokolwiek nie jest poprawnym adresem
+}
+
+// Osobny tytuł per miasto - "Repertuar kin w Poznaniu" to realne zapytanie w wyszukiwarce,
+// a segment ścieżki daje mu własny, indeksowalny adres.
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+  const { miasto } = await params;
+  const sp = await searchParams;
+  const cities = await getCities();
+  const slug = citySegment(miasto);
+  if (slug === null) return { title: 'Nie znaleziono strony' };
+  // ?miasta= trzeba uwzględnić, inaczej przy wybranym podzbiorze tytuł kłamałby "w całej Polsce".
+  const miastaParam = typeof sp?.miasta === 'string' ? sp.miasta : '';
+  const { selected, valid } = parseCityScope(slug, miastaParam, cities);
+  if (!valid) return { title: 'Nie znaleziono miasta' };
+  const where = selected.length === 1 ? `w mieście ${selected[0]}`
+    : selected.length > 1 ? `w miastach: ${selected.join(', ')}`
+    : 'w całej Polsce';
+  return {
+    title: `Repertuar kin ${where}`,
+    description: `Seanse i godziny w kinach ${where} - Multikino, Cinema City, Helios i kina studyjne w jednym miejscu.`,
+  };
+}
+
+export default async function Home({ params: routeParams, searchParams }: PageProps) {
+  const params = await searchParams;
+  const { miasto } = await routeParams;
   const query = typeof params?.q === 'string' ? params.q.toLowerCase() : '';
-  const cityQuery = typeof params?.city === 'string' ? params.city : '';
+  const miastaParam = typeof params?.miasta === 'string' ? params.miasta : '';
   // Zakres dat: from/to (włącznie). Jedna granica = pojedynczy dzień.
   const fromQuery = typeof params?.from === 'string' ? params.from : '';
   const toQuery = typeof params?.to === 'string' ? params.to : '';
@@ -50,18 +85,37 @@ export default async function Home({
   // Filtr daty/formatu/języka wymaga danych na poziomie seansu -> liczymy je po stronie serwera (RPC).
   const serverFilterActive = rangeActive || selectedFormats.length > 0 || selectedLangs.length > 0;
 
+  // Lista miast musi być ZNANA PRZED resztą zapytań: rozstrzyga, czy slug w adresie jest poprawny,
+  // a od wybranych miast zależy zapytanie o dostępność. getCities() jest cache'owane, więc to tanie.
+  const cities = await getCities();
+  const slug = citySegment(miasto);
+  if (slug === null) notFound();
+
+  // Wejście na goły adres główny: jeśli użytkownik już kiedyś wybierał miasto, odsyłamy go tam,
+  // a jeśli nie - na ekran wyboru. Warunek "brak jakichkolwiek parametrów" jest istotny: link
+  // z filtrami (np. /?q=spider albo /?miasta=gdansk,gdynia) ma zadziałać dokładnie tak, jak go
+  // udostępniono, zamiast przerzucać odbiorcę do jego własnego miasta.
+  if (slug === '' && Object.keys(params).length === 0) {
+    const remembered = scopeFromCookie((await cookies()).get(CITY_COOKIE)?.value ?? '', cities);
+    if (remembered === null) redirect('/wybierz-miasto');
+    // Pusta lista = "cała Polska", czyli dokładnie ten adres - przekierowanie byłoby pętlą.
+    if (remembered.length > 0) redirect(cityScopeHref(remembered));
+  }
+
+  const scope = parseCityScope(slug, miastaParam, cities);
+  if (!scope.valid) notFound();
+  const selectedCities = scope.selected; // pusta lista = cała Polska
+
   // Zrównoleglenie pobierania wszystkich danych (odczyty z bazy są cache'owane w queries.ts)
   const [
-    cities,
     movies,
     cinemaAvailabilities,
     topScreenings,
     availableDates,
     formats,
     langs,
-    serverAvail
+    serverAvailByCity
   ] = await Promise.all([
-    getCities(),
     getMovies(),
     getCinemaAvailabilities(),
     getTopScreenings(),
@@ -69,8 +123,35 @@ export default async function Home({
     getAvailableFormats(),
     getAvailableLangs(),
     // Gdy aktywny filtr daty/formatu/języka: dostępność (film -> franczyzy) z pasujących seansów, po stronie serwera.
-    serverFilterActive ? getFilteredAvailability(rangeFrom, rangeTo, cityQuery, selectedFormats, selectedLangs) : Promise.resolve(null)
+    // RPC przyjmuje JEDNO miasto, więc przy wyborze kilku odpytujemy je równolegle i sumujemy wyniki
+    // (film pasuje, jeśli gra w KTÓRYMKOLWIEK z wybranych miast). W typowym przypadku - jedno miasto
+    // albo cała Polska - to dokładnie jedno zapytanie, czyli tyle samo co dotąd.
+    serverFilterActive
+      ? Promise.all(
+          (selectedCities.length ? selectedCities : ['']).map((c) =>
+            getFilteredAvailability(rangeFrom, rangeTo, c, selectedFormats, selectedLangs).then(
+              (m) => [c, m] as const,
+            ),
+          ),
+        )
+      : Promise.resolve(null),
   ]);
+
+  // Scalenie wyników RPC z poszczególnych miast w jedną strukturę: film -> miasta + franczyzy.
+  const serverAvail = serverAvailByCity
+    ? (() => {
+        const merged = new Map<string, { cities: Set<string>; franchises: Set<string> }>();
+        for (const [city, byMovie] of serverAvailByCity) {
+          for (const [movieId, franchises] of byMovie) {
+            let e = merged.get(movieId);
+            if (!e) { e = { cities: new Set(), franchises: new Set() }; merged.set(movieId, e); }
+            if (city) e.cities.add(city);
+            for (const f of franchises) e.franchises.add(f);
+          }
+        }
+        return merged;
+      })()
+    : null;
 
   // Dostępność per film: miasta oraz franczyzy w rozbiciu na miasto. Dzięki temu badge'y kin
   // można zawęzić do wybranego miasta (bez filtra pokazujemy wszystkie franczyzy filmu).
@@ -106,12 +187,15 @@ export default async function Home({
     let matchesFilters: boolean;
 
     if (serverAvail) {
-      const fr = serverAvail.get(movie.id);
-      matchesFilters = fr !== undefined;
-      franchises = fr ? [...fr].sort() : [];
-    } else if (cityQuery) {
-      matchesFilters = entry?.cities.has(cityQuery) ?? false;
-      franchises = [...(entry?.franchisesByCity.get(cityQuery) ?? [])].sort();
+      const e = serverAvail.get(movie.id);
+      matchesFilters = e !== undefined;
+      franchises = e ? [...e.franchises].sort() : [];
+    } else if (selectedCities.length) {
+      // Film pasuje, jeśli gra w KTÓRYMKOLWIEK z wybranych miast; badge'y to suma franczyz z tych miast.
+      matchesFilters = selectedCities.some((c) => entry?.cities.has(c));
+      franchises = [
+        ...new Set(selectedCities.flatMap((c) => [...(entry?.franchisesByCity.get(c) ?? [])])),
+      ].sort();
     } else {
       matchesFilters = true;
       franchises = entry ? [...new Set([...entry.franchisesByCity.values()].flatMap(s => [...s]))].sort() : [];
@@ -287,9 +371,17 @@ export default async function Home({
   ];
   const priorityIds = new Set(renderOrder.slice(0, 6).map((m) => m.id));
 
+  // Nagłówek mówi wprost, jaki zakres oglądasz - miasto jest filtrem głównym, więc nie powinno
+  // być widoczne wyłącznie jako pigułka gdzieś w filtrach.
+  const heading =
+    selectedCities.length === 1 ? `Repertuar kin - ${selectedCities[0]}`
+    : selectedCities.length > 1 ? `Repertuar kin - ${selectedCities.join(', ')}`
+    : 'Repertuar kin — cała Polska';
+
   return (
+    <CityScopeProvider selected={selectedCities} all={cities}>
     <main className="container mx-auto p-4 pt-8 pb-16 overflow-x-clip">
-      <h1 className="text-4xl font-extrabold mb-8 text-slate-100 tracking-tight">Repertuar Kin</h1>
+      <h1 className="text-4xl font-extrabold mb-8 text-slate-100 tracking-tight">{heading}</h1>
 
       <Suspense fallback={<div className="h-14 mb-6" />}>
         <FilterBar cities={cities} formats={formats} langs={langs} genres={availableGenres} resultCount={filteredMovies.length} />
@@ -324,7 +416,7 @@ export default async function Home({
         {topRated.length > NARROW_SECTION_MAX && (
           <section className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-yellow-500 rounded-sm">
-              Najlepiej oceniane
+              Wysoko oceniane
             </h2>
             <Carousel>
               {topRated.map((movie) => (
@@ -412,5 +504,6 @@ export default async function Home({
         )}
       </div>
     </main>
+    </CityScopeProvider>
   );
 }

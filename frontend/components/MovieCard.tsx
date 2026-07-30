@@ -8,6 +8,7 @@ import { Database } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
 import { movieRatings, movieRatingsFull } from "@/lib/ratings";
 import { MovieListItem } from "@/lib/supabase/queries";
+import { useCityScope } from "@/components/CityScope";
 import {
   Dialog,
   DialogContent,
@@ -139,12 +140,17 @@ type MovieDetails = { genre: string | null; synopsis: string | null; cast: strin
 // Opis fabuły bywa długi (Filmweb/Helios do 1500-2000 znaków), a lewa kolumna jest wąska,
 // więc domyślnie przycinamy do kilku linii z możliwością rozwinięcia. Toggle pokazujemy tylko
 // gdy tekst realnie się nie mieści (~heurystyka po długości, bez mierzenia DOM).
-function SynopsisBlock({ text }: { text: string }) {
+// `lines` ustawiamy osobno dla mobile (3) i desktopu (5) - na wąskim ekranie 5 linii opisu spychało
+// listę seansów poza widok. Próg "czy w ogóle skracać" musi iść ZA liczbą linii: przy sztywnym progu
+// krótszy clamp ucinałby tekst bez pokazania przycisku rozwijania. 44 znaki/linię to przybliżenie,
+// a 5 * 44 = 220 zachowuje dotychczasowe zachowanie na desktopie.
+function SynopsisBlock({ text, lines = 5 }: { text: string; lines?: 3 | 5 }) {
   const [expanded, setExpanded] = useState(false);
-  const clampable = text.length > 220;
+  const clampable = text.length > lines * 44;
   return (
     <div className="text-sm text-slate-300 leading-relaxed">
-      <p className={!expanded && clampable ? "line-clamp-5" : ""}>{text}</p>
+      {/* Klasy line-clamp muszą być pełnymi literałami - Tailwind nie widzi nazw sklejanych w locie. */}
+      <p className={!expanded && clampable ? (lines === 3 ? "line-clamp-3" : "line-clamp-5") : ""}>{text}</p>
       {clampable && (
         <button
           type="button"
@@ -297,7 +303,11 @@ function RatingPill({ pkey, label, value, url }: { pkey: string; label: string; 
 
 export default function MovieCard({ movie, priority = false }: { movie: Movie; priority?: boolean }) {
   const searchParams = useSearchParams();
-  const cityQuery = searchParams.get("city");
+  // Miasta pochodzą ze ścieżki (/poznan, "/" dla całej Polski), więc bierzemy je z kontekstu,
+  // gdzie serwer zostawił już rozwiązane nazwy. Klucz do useEffect musi być stabilnym stringiem,
+  // bo tablica z kontekstu jest przy każdym renderze nową referencją.
+  const { selected: selectedCities } = useCityScope();
+  const cityKey = selectedCities.join(",");
   const formatQuery = searchParams.get("format");
   const langQuery = searchParams.get("lang");
   const fromQuery = searchParams.get("from");
@@ -337,8 +347,9 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
         .eq("movie_id", movie.id)
         .order("start_time", { ascending: true });
 
-      if (cityQuery) {
-        queryBuilder = queryBuilder.eq("cinemas.city", cityQuery);
+      // Jedno miasto albo kilka (np. Trójmiasto) - `in` obsługuje oba przypadki.
+      if (selectedCities.length) {
+        queryBuilder = queryBuilder.in("cinemas.city", selectedCities);
       }
       // Filtr formatu / wersji językowej: listy dokładnych wartości (multi-select), spójnie z listą filmów.
       const formats = (formatQuery || "").split(",").filter(Boolean);
@@ -359,7 +370,10 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
     }
 
     fetchScreenings();
-  }, [isOpen, movie.id, cityQuery, formatQuery, langQuery]);
+    // selectedCities to przy każdym renderze nowa referencja; zależnością jest jej stabilna
+    // reprezentacja tekstowa (cityKey).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, movie.id, cityKey, formatQuery, langQuery]);
 
   // Szczegóły filmu (gatunek, opis) dociągamy leniwie przy otwarciu - nie ma ich w odchudzonym
   // MovieListItem. Opis to skonsolidowana kolumna `description` (wybór źródła robi potok).
@@ -473,11 +487,16 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
       </DialogTrigger>
       
       {/* Zawartość okienka, które się pojawi */}
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} className="sm:max-w-[900px] bg-slate-950 border-slate-800 text-slate-50 p-0 flex flex-col sm:flex-row gap-0 overflow-hidden">
+      {/* Na desktopie modal ma STAŁĄ wysokość. Bez tego rósł i kurczył się razem z treścią (rozwinięcie
+          opisu, wybór daty z inną liczbą seansów), a że jest wyśrodkowany przez -translate-y-1/2,
+          rozjeżdżał się w obie strony naraz. Przy stałej wysokości te zmiany przewijają się wewnątrz
+          kolumn zamiast ruszać ramą. min(85vh,720px) - na dużych ekranach nie robi się przesadnie wysoki.
+          Mobile bez zmian: tam wysokość wynika z treści, a przewija się cała kolumna. */}
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} className="sm:max-w-[900px] sm:h-[min(85vh,720px)] bg-slate-950 border-slate-800 text-slate-50 p-0 flex flex-col sm:flex-row gap-0 overflow-hidden">
 
         {/* Lewa kolumna: mały plakat o stałej szerokości + dane obok niego, a opis na pełną
             szerokość poniżej. Plakat się nie rozciąga, więc zostaje miejsce na informacje i opis. */}
-        <div className="hidden sm:flex sm:flex-col w-[400px] shrink-0 self-start max-h-[85vh] overflow-y-auto bg-slate-900 p-5 gap-4">
+        <div className="hidden sm:flex sm:flex-col w-[400px] shrink-0 min-h-0 overflow-y-auto bg-slate-900 p-5 gap-4">
           <div className="flex gap-4">
             {movie.poster ? (
               <button
@@ -520,8 +539,11 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
           {details?.synopsis && <SynopsisBlock text={details.synopsis} />}
         </div>
 
-        {/* Prawa kolumna z treścią */}
-        <div className="flex-1 p-6 flex flex-col min-h-[450px] max-h-[85vh] overflow-hidden">
+        {/* Prawa kolumna z treścią.
+            Mobile: przewija się CAŁA kolumna (opis/oceny nie odbierają miejsca liście seansów - wcześniej
+            meta było shrink-0, a seanse dostawały tylko resztę wysokości i skrolowały się w skrawku).
+            Desktop (sm+): kolumna wypełnia stałą wysokość ramy, a wewnątrz przewija się lista seansów. */}
+        <div className="flex-1 p-4 sm:p-6 flex flex-col min-h-[450px] sm:min-h-0 max-h-[85vh] overflow-y-auto sm:overflow-hidden">
           <DialogHeader className="mb-4 shrink-0">
             <DialogTitle className="text-2xl">{movie.title}</DialogTitle>
             <DialogDescription className="text-slate-400">
@@ -547,10 +569,14 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
             )}
             {movie.director && <InfoRow label="Reżyseria" value={movie.director} />}
             {details?.cast && <InfoRow label="Obsada" value={details.cast} />}
-            {details?.synopsis && <SynopsisBlock text={details.synopsis} />}
+            {details?.synopsis && <SynopsisBlock text={details.synopsis} lines={3} />}
           </div>
 
-          <div className="flex flex-col gap-4 overflow-y-auto pr-2 flex-1 min-h-0">
+          {/* Własny scroll TYLKO od sm - na mobile przewijaniem zajmuje się kolumna wyżej.
+              Dwa zagnieżdżone obszary przewijania na telefonie dawałyby maleńkie okienko na seanse.
+              scrollbar-gutter:stable rezerwuje miejsce na pasek, żeby przełączanie dat (raz lista
+              dłuższa, raz krótsza) nie przesuwało treści w poziomie. */}
+          <div className="flex flex-col gap-4 pr-2 sm:overflow-y-auto sm:flex-1 sm:min-h-0 sm:[scrollbar-gutter:stable]">
             {isLoading ? (
               <div className="text-sm text-slate-400 text-center py-8 animate-pulse">Szukam seansów...</div>
             ) : screenings.length === 0 ? (
