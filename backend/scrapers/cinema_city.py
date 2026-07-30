@@ -1,11 +1,13 @@
 import logging
 import asyncio
+import io
 import json
 import re
 from html import unescape
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+from PIL import Image
 from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked, load_existing_movies
 
@@ -17,6 +19,40 @@ def _strip_html(text: str):
     if not text:
         return None
     return unescape(re.sub(r"<[^>]+>", "", text)).replace("\xa0", " ").strip() or None
+
+
+def _border_orange_frac(img_bytes: bytes) -> float:
+    """Udział pikseli brzegu obrazu w kolorze brandowej ramki CC (~#f5821f). ~1.0 = plakat w ramce,
+    ~0.0 = czysty. URL nie odróżnia tych plakatów, więc sprawdzamy sam obraz."""
+    try:
+        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    except Exception:
+        return 0.0
+    w, h = img.size
+    if w < 10 or h < 10:
+        return 0.0
+    px = img.load()
+    def is_orange(p):
+        r, g, b = p
+        return abs(r - 245) < 45 and abs(g - 130) < 50 and abs(b - 31) < 55
+    pts = []
+    for x in range(0, w, max(1, w // 60)):
+        pts += [px[x, 0], px[x, 1], px[x, h - 2], px[x, h - 1]]
+    for y in range(0, h, max(1, h // 60)):
+        pts += [px[0, y], px[1, y], px[w - 2, y], px[w - 1, y]]
+    return sum(1 for p in pts if is_orange(p)) / len(pts) if pts else 0.0
+
+
+async def _classify_poster(client, url, sem):
+    """Zwraca (url, czy_plakat_ma_brandową_ramkę_CC). Pobiera obraz i mierzy pomarańcz na brzegu."""
+    async with sem:
+        try:
+            resp = await client.get(url, timeout=20.0)
+            if resp.status_code == 200:
+                return url, _border_orange_frac(resp.content) > 0.5
+        except Exception as e:
+            logger.debug(f"[CC] Nie sklasyfikowano plakatu {url}: {e}")
+        return url, False
 
 # Mapowanie tokenów formatu/technologii z attributeIds na czytelną formę (spójną z Multikinem).
 # Pozostałe attributeIds to gatunki, kategorie wiekowe, języki, typ foteli itp. - nie są formatem.
@@ -111,7 +147,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             global_film_details_cache = {}  # Pamięć dla szczegółów z API (reżyser, obsada, opis)
             # Filmy już w bazie - pozwala pominąć pobieranie szczegółów przy scrapie bez czyszczenia.
             # Bierzemy pola ze szczegółów; brak description_cc = szczegóły jeszcze niepobrane (dociągniemy).
-            existing_cc = load_existing_movies(supabase, ["director_cc", "cast_cc", "description_cc"])
+            existing_cc = load_existing_movies(supabase, ["director_cc", "cast_cc", "description_cc", "poster_cc", "poster_cc_framed"])
 
             sem = asyncio.Semaphore(10)  # Ograniczenie do max. 10 jednoczesnych połączeń
 
@@ -185,6 +221,30 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         if details is not None:
                             global_film_details_cache[film_id] = details
 
+                # Klasyfikacja plakatów: część plakatów CC ma brandową pomarańczową ramkę. Traktujemy je
+                # jako OSTATECZNOŚĆ (poster_cc_framed) - w konsolidacji przegrywają z czystszymi źródłami.
+                # Ramki nie da się poznać po URL, więc pobieramy obraz i mierzymy pomarańcz na brzegu.
+                # Filmy z już zaklasyfikowanym w bazie tym samym URL-em pomijamy (bez ponownego pobrania).
+                poster_by_film = {}   # api_film_id -> url
+                framed_by_url = {}    # url -> bool
+                to_classify = set()
+                for f in unique_films:
+                    url = get_valid_poster(f.get("posterLink"))
+                    if not url:
+                        continue
+                    poster_by_film[f["id"]] = url
+                    cached = existing_cc.get(clean_title((f.get("name") or "").strip()), {})
+                    if cached.get("poster_cc") == url:
+                        framed_by_url[url] = False
+                    elif cached.get("poster_cc_framed") == url:
+                        framed_by_url[url] = True
+                    else:
+                        to_classify.add(url)
+                if to_classify:
+                    logger.info(f"Klasyfikacja {len(to_classify)} plakatów CC (wykrywanie brandowej ramki)...")
+                    for url, framed in await asyncio.gather(*[_classify_poster(client, u, sem) for u in to_classify]):
+                        framed_by_url[url] = framed
+
                 for film in unique_films:
                     # Zabezpieczenie w przypadku braku 'name' w filmie
                     title = (film.get("name") or "").strip()
@@ -231,11 +291,16 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                         genres = [CC_GENRE_MAP[a] for a in attribute_ids if a in CC_GENRE_MAP]
                         genre_cc = ", ".join(dict.fromkeys(genres)) or None
 
+                        # Plakat: z ramką -> poster_cc_framed (ostateczność), czysty -> poster_cc.
+                        poster_url = poster_by_film.get(api_film_id)
+                        poster_framed = bool(poster_url) and framed_by_url.get(poster_url, False)
+
                         all_movies_to_upsert[title] = {
                             "title": title,
                             "movie_type_cc": movie_type,
                             "length_cc": film.get("length"),
-                            "poster_cc": get_valid_poster(film.get("posterLink")),
+                            "poster_cc": None if poster_framed else poster_url,
+                            "poster_cc_framed": poster_url if poster_framed else None,
                             "release_year_cc": release_year,
                             "release_date_cc": parse_release_date(film.get("releaseDate")),
                             "director_cc": director_cc,

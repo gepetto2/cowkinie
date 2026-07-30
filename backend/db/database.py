@@ -187,7 +187,9 @@ def consolidate_post_enrich(supabase):
     date_sources = ("multikino", "cc", "helios", "tmdb", "filmweb", "muza")
     year_sources = date_sources + ("apollo",)  # rok produkcji też z Apollo (Apollo nie podaje daty premiery)
     length_sources = ("tmdb", "filmweb", "helios", "cc", "multikino", "muza", "lumiere")
-    poster_sources = ("cc", "helios", "multikino", "muza", "apollo", "tmdb", "filmweb")  # lokalne (PL) plakaty z kin, TMDB/Filmweb jako fallback
+    # Lokalne (PL) plakaty z kin, TMDB/Filmweb jako fallback. "cc_framed" (plakaty CC z brandową
+    # pomarańczową ramką) na samym końcu - bierzemy je dopiero w ostateczności, gdy nie ma nic czystszego.
+    poster_sources = ("cc", "helios", "multikino", "muza", "apollo", "tmdb", "filmweb", "cc_framed")
     # Gatunek konsolidujemy jako UNIĘ znormalizowanych tokenów ze wszystkich źródeł. Kolejność źródeł
     # steruje kolejnością wyświetlania (pierwszy gatunek = główny) - Filmweb najpierw (najbogatszy, 75% pokrycia).
     genre_sources = ("filmweb", "cc", "helios", "lumiere")
