@@ -129,6 +129,40 @@
   }
 }
 
+/* Paski przewijania – smukłe, w palecie slate, zamiast domyślnych systemowych.
+   `scrollbar-width` i `scrollbar-color` są DZIEDZICZONE, więc ustawienie ich na :root wystarczy,
+   żeby objąć stronę, modal i listy rozwijane – bez dopisywania klas w komponentach.
+   Karuzele ukrywają swój pasek własnym `scrollbar-width: none` na elemencie, co wygrywa
+   z dziedziczeniem, więc pozostają nietknięte. */
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent; /* slate-700 na przezroczystym torze */
+}
+
+/* Starsze WebKit-y (głównie Safari) nie znają standardowych właściwości wyżej. Reguły poniżej są
+   celowo w @supports: gdyby leciały bezwarunkowo, Chromium i tak by je zignorował (obecność
+   `scrollbar-color` wyłącza tam stylowanie przez ::-webkit-scrollbar), a tak trafiają wyłącznie
+   tam, gdzie są faktycznie potrzebne. Sztuczka z przezroczystą ramką i `background-clip` daje
+   odstęp wokół uchwytu, przez co pasek wygląda smuklej niż jego rzeczywista szerokość. */
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: #334155;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #475569; /* slate-600 */
+  }
+}
+
 /* react-day-picker – motyw ciemny (slate/indygo), spójny z resztą UI.
    Selektor .rdp-root.rdp-dark ma wyższą specyficzność niż bazowe .rdp-root,
    więc nasze zmienne zawsze wygrywają (niezależnie od kolejności importu CSS). */
