@@ -91,10 +91,12 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
   const slug = citySegment(miasto);
   if (slug === null) notFound();
 
-  // Wejście na goły adres główny: jeśli użytkownik już kiedyś wybierał miasto, odsyłamy go tam,
-  // a jeśli nie - na ekran wyboru. Warunek "brak jakichkolwiek parametrów" jest istotny: link
-  // z filtrami (np. /?q=spider albo /?miasta=gdansk,gdynia) ma zadziałać dokładnie tak, jak go
-  // udostępniono, zamiast przerzucać odbiorcę do jego własnego miasta.
+  // Wejście na GOŁY adres główny: jeśli użytkownik już kiedyś wybierał miasto, odsyłamy go tam,
+  // a jeśli nie - na ekran wyboru.
+  // Warunek "brak jakichkolwiek parametrów" jest istotny z dwóch powodów. Po pierwsze link
+  // z filtrami (np. /?q=spider) ma zadziałać tak, jak go udostępniono, zamiast przerzucać odbiorcę
+  // do jego własnego miasta. Po drugie "wszystkie miasta" w filtrach prowadzi na /?miasta=wszystkie,
+  // a nie na goły "/" - właśnie po to, żeby nie wpaść tutaj i nie zostać odesłanym z powrotem.
   if (slug === '' && Object.keys(params).length === 0) {
     const remembered = scopeFromCookie((await cookies()).get(CITY_COOKIE)?.value ?? '', cities);
     if (remembered === null) redirect('/wybierz-miasto');

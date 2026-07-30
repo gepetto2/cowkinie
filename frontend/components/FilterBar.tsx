@@ -8,7 +8,7 @@ import type { DateRange } from "react-day-picker";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useCityScope } from "@/components/CityScope";
-import { CITY_COOKIE, cityScopeHref, scopeToCookie } from "@/lib/cities";
+import { cityScopeHref } from "@/lib/cities";
 
 // --- Helpery dat w strefie Europe/Warsaw (spójnie z resztą aplikacji) ---
 const warsawFmt = new Intl.DateTimeFormat("en-CA", {
@@ -63,11 +63,12 @@ export default function FilterBar({ cities, formats, langs, genres, resultCount 
   };
 
   // Zmiana zestawu miast zmienia ŚCIEŻKĘ (kanonicznie: 1 miasto -> /poznan, 0 -> "/", 2+ -> /?miasta=),
-  // więc idzie osobną drogą niż pozostałe filtry. Przy okazji zapamiętujemy wybór w ciasteczku,
-  // żeby kolejne wejście na "/" trafiło od razu tam, gdzie użytkownik skończył.
+  // więc idzie osobną drogą niż pozostałe filtry.
+  // ŚWIADOMIE nie dotykamy tu ciasteczka: to zawężenie bieżącego widoku, a nie zmiana ustawienia.
+  // Domyślne miasto ustawia się wyłącznie na ekranie wyboru (/wybierz-miasto) - dzięki temu
+  // "pooglądam, co grają w Gdańsku" nie przestawia na stałe tego, co widzisz po wejściu na stronę.
   const setCities = (next: string[]) => {
     const params = new URLSearchParams(searchParams.toString());
-    document.cookie = `${CITY_COOKIE}=${encodeURIComponent(scopeToCookie(next))}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
     router.push(cityScopeHref(next, params), { scroll: false });
   };
 
@@ -274,14 +275,14 @@ export default function FilterBar({ cities, formats, langs, genres, resultCount 
                 Wszystkie miasta
               </button>
             )}
-            {/* Powrót na ekran wyboru. Prowadzi do /wybierz-miasto, a nie do "/", bo "/" ma
-                ciasteczko i od razu odesłałoby z powrotem tutaj. */}
+            {/* Jedyne miejsce, w którym zmienia się ustawienie na stałe. Prowadzi do
+                /wybierz-miasto, a nie do "/", bo "/" ma ciasteczko i odesłałoby z powrotem tutaj. */}
             <Link
               href="/wybierz-miasto"
               className="mt-1 w-full flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors border-t border-slate-800"
             >
               <Globe2 className="h-3.5 w-3.5" />
-              Zmień miasto
+              Zmień domyślne miasto
             </Link>
           </PopoverContent>
         </Popover>

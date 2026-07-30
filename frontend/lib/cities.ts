@@ -6,8 +6,8 @@
 // format/lang/genre, więc konwencja adresów pozostaje jednolita.
 // Ekran wyboru miasta ma własny adres /wybierz-miasto (segment statyczny wygrywa z catch-allem).
 
-/** Wartość ciasteczka oznaczająca "cała Polska". To sentinel ciasteczka, NIE segment adresu. */
-export const ALL_COOKIE_VALUE = "wszystkie";
+/** Wartość oznaczająca "cała Polska" - używana i w ciasteczku, i jako jawny znacznik w ?miasta=. */
+export const ALL_VALUE = "wszystkie";
 export const CITY_COOKIE = "miasto";
 
 /** "Poznań" -> "poznan". 'ł' obsługujemy osobno, bo NFD go NIE rozkłada (jak w normalizeSearch). */
@@ -37,11 +37,15 @@ export type CityScope = {
 /**
  * Wylicza zakres miast ze ścieżki i parametru `miasta`.
  * `slug` pusty = adres główny "/" = cała Polska; wtedy zawężenie może przyjść z `miasta`.
+ * `?miasta=wszystkie` to JAWNE "cała Polska" - wynik jest ten sam co bez parametru, ale sama
+ * obecność parametru mówi stronie, że użytkownik trafił tu świadomie (patrz komentarz przy
+ * przekierowaniu w page.tsx), więc nie wolno go odesłać do domyślnego miasta.
  * Nieznane slugi w `miasta` są po cichu pomijane - literówka w udostępnionym linku ma zawęzić
  * wynik do tego, co dało się rozpoznać, a nie wysypać całą stronę.
  */
 export function parseCityScope(slug: string, miastaParam: string, allCities: string[]): CityScope {
   if (!slug) {
+    if (miastaParam.trim() === ALL_VALUE) return { selected: [], valid: true };
     const subset = miastaParam
       .split(",")
       .map((s) => cityFromSlug(s.trim(), allCities))
@@ -53,8 +57,14 @@ export function parseCityScope(slug: string, miastaParam: string, allCities: str
 }
 
 /**
- * Adres docelowy dla danego zestawu miast - kanonicznie, żeby ta sama treść nie miała dwóch URL-i:
- * 0 miast -> /, 1 -> /<miasto>, 2+ -> /?miasta=...
+ * Adres docelowy dla danego zestawu miast:
+ * 1 miasto -> /<miasto>, 2+ -> /?miasta=a,b, 0 -> /?miasta=wszystkie.
+ *
+ * Uwaga na ostatni przypadek: goły "/" jest zarezerwowany dla WEJŚCIA na stronę, które przekierowuje
+ * do domyślnego miasta. Gdyby "wszystkie miasta" w filtrach prowadziło na goły "/", użytkownik
+ * zostałby natychmiast odesłany z powrotem do swojego miasta. Jawny znacznik odróżnia "wszedłem na
+ * stronę" od "świadomie chcę zobaczyć całą Polskę".
+ *
  * `extraQuery` to pozostałe filtry (data/format/język/gatunek/szukajka), które trzeba zachować.
  */
 export function cityScopeHref(selected: string[], extraQuery?: URLSearchParams): string {
@@ -66,7 +76,7 @@ export function cityScopeHref(selected: string[], extraQuery?: URLSearchParams):
     path = `/${citySlug(selected[0])}`;
   } else {
     path = "/";
-    if (selected.length > 1) params.set("miasta", selected.map(citySlug).join(","));
+    params.set("miasta", selected.length > 1 ? selected.map(citySlug).join(",") : ALL_VALUE);
   }
   const qs = params.toString();
   return qs ? `${path}?${qs}` : path;
@@ -77,7 +87,7 @@ export function cityScopeHref(selected: string[], extraQuery?: URLSearchParams):
  *  null = brak zapamiętanego wyboru (użytkownik jeszcze nie wybierał). */
 export function scopeFromCookie(value: string, allCities: string[]): string[] | null {
   if (!value) return null;
-  if (value === ALL_COOKIE_VALUE) return [];
+  if (value === ALL_VALUE) return [];
   const cities = value
     .split(",")
     .map((s) => cityFromSlug(s.trim(), allCities))
@@ -87,5 +97,5 @@ export function scopeFromCookie(value: string, allCities: string[]): string[] | 
 
 /** Zakres -> wartość ciasteczka. */
 export function scopeToCookie(selected: string[]): string {
-  return selected.length ? selected.map(citySlug).join(",") : ALL_COOKIE_VALUE;
+  return selected.length ? selected.map(citySlug).join(",") : ALL_VALUE;
 }

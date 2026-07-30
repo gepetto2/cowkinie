@@ -44,10 +44,12 @@ export default function CityPicker({
     <main className="min-h-dvh flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-2xl">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-100 tracking-tight text-center">
-          Gdzie szukasz seansów?
+          Wybierz domyślne miasto
         </h1>
+        {/* Wprost mówimy, że to ustawienie TRWAŁE, a nie jednorazowy filtr - inaczej wybór na
+            pełnym ekranie wygląda jak zwykłe pytanie „co dziś oglądasz". */}
         <p className="mt-3 text-center text-slate-400 text-sm">
-          Wybór zapamiętamy — zmienisz go w każdej chwili w filtrach.
+          Zapamiętamy je i pokażemy przy kolejnych wizytach. Zmienisz je w każdej chwili w filtrach.
         </p>
 
         <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-3">
