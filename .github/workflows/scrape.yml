@@ -1,0 +1,56 @@
+name: Scrapowanie repertuaru
+
+# Docelowo: codzienny przebieg z chmury. Na razie TYLKO ręcznie (workflow_dispatch) - najpierw trzeba
+# sprawdzić, czy kina nie blokują adresów IP GitHub Actions (Azure). Harmonogram niżej jest zakomentowany;
+# odkomentuj go dopiero, gdy ręczny przebieg przejdzie czysto.
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "0 2 * * *"   # 02:00 UTC = 03:00/04:00 czasu polskiego
+
+concurrency:
+  group: scrape          # dwa równoległe przebiegi kasowałyby sobie nawzajem seanse
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: backend   # run_scrapers.py importuje `config`/`scrapers` jako moduły top-level
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+      PYTHONIOENCODING: utf-8       # logi mają polskie znaki; runner bywa domyślnie ASCII-owy
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Instalacja zależności
+        run: pip install -r requirements.txt
+
+      # Kontekst do diagnozy blokad: z jakiego IP/ASN faktycznie wychodzą żądania.
+      - name: Adres IP runnera
+        run: curl -s https://ipinfo.io/json || true
+
+      - name: Scrapowanie (pełny potok)
+        run: python run_scrapers.py
+
+      # Log DEBUG jest właściwym wynikiem pomiaru - widać w nim, które źródła oddały dane,
+      # a które dostały 403/429 albo pustą odpowiedź. Zbieramy go RÓWNIEŻ gdy przebieg padnie.
+      - name: Wyślij logi
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logi-${{ github.run_id }}
+          path: backend/logs/
+          retention-days: 14
