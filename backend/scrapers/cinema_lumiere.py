@@ -2,7 +2,7 @@ import logging
 import re
 from html import unescape
 from curl_cffi import requests
-from utils import parse_start_time, clean_title, normalize_lang
+from utils import parse_start_time, clean_title, normalize_lang, ScraperError
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 logger = logging.getLogger(__name__)
@@ -39,13 +39,11 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
 
             resp = await client.get(API_URL, timeout=30.0, headers={"X-Requested-With": "XMLHttpRequest"})
             if resp.status_code != 200:
-                logger.error(f"Błąd pobierania repertuaru Cinema Lumiere: {resp.status_code}")
-                return
+                raise ScraperError(f"Cinema Lumiere: repertuar zwrócił HTTP {resp.status_code}.")
             events = resp.json().get("repertoireEvents", []) or []
             logger.info(f"Pobrano {len(events)} seansów z Cinema Lumiere.")
             if not events:
-                logger.warning("Brak seansów w repertuarze Cinema Lumiere.")
-                return
+                raise ScraperError("Cinema Lumiere: repertuar pusty - prawdopodobnie zmiana API lub blokada.")
 
             # KROK 1: filmy (dane filmu są w zagnieżdżonym 'details' każdego eventu)
             movies_to_upsert = {}

@@ -5,7 +5,7 @@ from html import unescape
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from curl_cffi import requests
-from utils import clean_title
+from utils import clean_title, ScraperError
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 logger = logging.getLogger(__name__)
@@ -143,8 +143,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             )
             logger.info(f"Kino Apollo: {len(film_ids)} filmowych seansów (whitelist), {len(rep_posts)} postów repertuaru, {len(kino_posts)} filmów.")
             if not film_ids:
-                logger.warning("Brak filmowych seansów Kina Apollo (whitelist pusta).")
-                return
+                raise ScraperError("Kino Apollo: whitelist filmowych seansów pusta - lista JSF niedostępna lub zmieniona.")
 
             # Mapa dopasowania: klucz tytułu -> plakat/opis z CPT 'kino'
             kino_by_key = {}
@@ -177,8 +176,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     }
 
             if not parsed:
-                logger.warning("Kino Apollo: brak seansów po dopasowaniu do whitelisty.")
-                return
+                raise ScraperError("Kino Apollo: brak seansów po dopasowaniu do whitelisty - zmiana struktury repertuaru?")
 
             movies_cache = upsert_movies_batch(supabase, movies_to_upsert)
             logger.info(f"Zapisano {len(movies_cache)} filmów Kina Apollo.")

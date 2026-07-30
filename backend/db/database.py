@@ -481,8 +481,12 @@ def delete_orphan_movies(supabase):
     logger.info(f"Usunięto {len(orphans)} osieroconych filmów (bez seansów).")
     return len(orphans)
 
-def log_run_summary(supabase, enriched_count=0, past_deleted=0, orphans_deleted=0):
-    """Wypisuje na końcu logu zwięzłe podsumowanie przebiegu (stan bazy + statystyki sprzątania)."""
+def log_run_summary(supabase, enriched_count=0, past_deleted=0, orphans_deleted=0, failed_sources=None):
+    """Wypisuje na końcu logu zwięzłe podsumowanie przebiegu (stan bazy + statystyki sprzątania).
+
+    UWAGA przy czytaniu: liczby to STAN BAZY, nie dorobek tego przebiegu. Jeśli źródło zawiodło,
+    jego seanse zostają z poprzedniego przebiegu (upsert_screenings_chunked nie rusza bazy przy pustym
+    zestawie) - dlatego nieudane źródła wypisujemy osobno, żeby nie brać starych danych za świeże."""
     total_movies = supabase.table("movies").select("id", count="exact").limit(1).execute().count
     total_scr = supabase.table("screenings").select("id", count="exact").limit(1).execute().count
 
@@ -491,12 +495,20 @@ def log_run_summary(supabase, enriched_count=0, past_deleted=0, orphans_deleted=
     by_franchise = {}
     for c in cinemas:
         by_franchise.setdefault(c.get("franchise") or "?", []).append(c["id"])
-    parts = []
+    parts, empty = [], []
     for fr, ids in sorted(by_franchise.items()):
         cnt = supabase.table("screenings").select("id", count="exact").in_("cinema_id", ids).limit(1).execute().count
         parts.append(f"{fr}: {cnt}")
+        if not cnt:
+            empty.append(fr)
 
     logger.info("=== PODSUMOWANIE ===")
     logger.info("Filmy w bazie: %s (nowo wzbogaconych w tym przebiegu: %s)", total_movies, enriched_count)
     logger.info("Seanse w bazie: %s  [%s]", total_scr, ", ".join(parts))
+    if empty:
+        logger.warning("Sieci BEZ ani jednego seansu: %s - sprawdź, czy źródło nie jest zablokowane.", ", ".join(empty))
+    if failed_sources:
+        logger.error("ŹRÓDŁA NIEUDANE w tym przebiegu: %s. Ich seanse powyżej pochodzą z POPRZEDNIEGO "
+                     "przebiegu (albo nie ma ich wcale) - nie traktuj tych liczb jako świeżych.",
+                     ", ".join(failed_sources))
     logger.info("Sprzątanie: przeszłych seansów usunięto %s, osieroconych filmów %s", past_deleted, orphans_deleted)

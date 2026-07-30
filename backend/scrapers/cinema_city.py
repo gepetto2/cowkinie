@@ -8,7 +8,7 @@ from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from PIL import Image
-from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date
+from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date, ScraperError
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked, load_existing_movies
 
 logger = logging.getLogger(__name__)
@@ -140,8 +140,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             # KROK 2: Pobranie kin
             target_cinemas = await get_target_cinemas(client, cities)
             if not target_cinemas:
-                logger.info("Nie znaleziono kin lub wystąpił błąd. Zakończono.")
-                return
+                raise ScraperError("Cinema City nie zwróciło żadnych kin - API niedostępne lub zablokowane.")
 
             movies_cache = {}  # Pamięć podręczna dla pobranych/dodanych filmów z bazy
             global_film_details_cache = {}  # Pamięć dla szczegółów z API (reżyser, obsada, opis)

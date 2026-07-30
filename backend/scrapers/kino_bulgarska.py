@@ -4,7 +4,7 @@ from datetime import datetime
 from html import unescape
 from zoneinfo import ZoneInfo
 from curl_cffi import requests
-from utils import parse_start_time, clean_title
+from utils import parse_start_time, clean_title, ScraperError
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 logger = logging.getLogger(__name__)
@@ -103,12 +103,10 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
 
             resp = await client.get(REPERTOIRE_URL, timeout=30.0)
             if resp.status_code != 200:
-                logger.warning(f"[Bułgarska] repertuar HTTP {resp.status_code}")
-                return
+                raise ScraperError(f"Kino Bułgarska 19: repertuar zwrócił HTTP {resp.status_code}.")
             shows = parse_repertoire(resp.text, datetime.now(ZoneInfo("Europe/Warsaw")))
             if not shows:
-                logger.warning("[Bułgarska] nie znaleziono seansów w repertuarze.")
-                return
+                raise ScraperError("Kino Bułgarska 19: nie sparsowano żadnego seansu - zmiana struktury strony?")
 
             # KROK 1: filmy - tytuł + movie_type (Kino Dzieci -> DLA DZIECI). Pozostałe metadane (plakat,
             # długość, reżyser, gatunek, opis) bierze enrichment (TMDB/Filmweb), by nie mnożyć kolumn

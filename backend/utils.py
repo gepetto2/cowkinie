@@ -6,6 +6,17 @@ from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
+
+class ScraperError(Exception):
+    """Źródło nie oddało danych (blokada, padnięte API, zmiana struktury strony).
+
+    Scrapery MUSZĄ to rzucić zamiast cicho kończyć, gdy nie da się pobrać repertuaru. `run_all` łapie
+    wyjątki przez `asyncio.gather(return_exceptions=True)` i dopiero wtedy: oznacza źródło jako nieudane,
+    POMIJA kasowanie osieroconych filmów i zwraca niezerowy kod wyjścia. Bez tego zablokowane źródło
+    kończyło się „sukcesem", a podsumowanie pokazywało nieodświeżone seanse z poprzedniego przebiegu
+    tak, jakby pochodziły z bieżącego."""
+
+
 def parse_start_time(start_time_raw: str) -> str:
     """Parsuje ciąg daty i w razie braku strefy czasowej dodaje Europe/Warsaw."""
     if not start_time_raw:

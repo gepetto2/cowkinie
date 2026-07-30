@@ -5,7 +5,7 @@ from html import unescape
 from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date
+from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date, ScraperError
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 
@@ -78,8 +78,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             target_cinemas = await get_target_cinemas(client, cities)
             
             if not target_cinemas:
-                logger.info("Nie znaleziono kin Heliosa lub wystąpił błąd. Zakończono.")
-                return
+                raise ScraperError("Helios nie zwrócił żadnych kin - API niedostępne lub zablokowane.")
                 
             db_movies_cache = {}
             global_movie_details_cache = {}

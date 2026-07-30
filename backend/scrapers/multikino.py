@@ -1,7 +1,7 @@
 import logging
 import re
 from curl_cffi import requests
-from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date
+from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date, ScraperError
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 logger = logging.getLogger(__name__)
@@ -62,8 +62,9 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             # KROK 2: Pobranie kin w wybranych miastach
             target_cinemas = await get_target_cinemas(client, cities)
             if not target_cinemas:
-                logger.info("Nie znaleziono kin lub wystąpił błąd. Zakończono.")
-                return
+                # Pusta lista kin = API nie odpowiedziało (typowo 403 od Cloudflare przy IP datacenter).
+                # Rzucamy, żeby przebieg NIE zaraportował sukcesu ze starymi seansami w bazie.
+                raise ScraperError("Multikino nie zwróciło żadnych kin - API niedostępne lub zablokowane.")
                 
             movies_cache = {}
 

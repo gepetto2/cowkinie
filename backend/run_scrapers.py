@@ -45,6 +45,10 @@ async def run_all() -> bool:
 
     failed = [name for name, res in zip(sources, results) if isinstance(res, Exception)]
     if failed:
+        # Powód per źródło - przy blokadzie (ScraperError) widać ją od razu, bez grzebania w logu wyżej.
+        for name, res in zip(sources, results):
+            if isinstance(res, Exception):
+                logger.warning("Źródło nieudane - %s: %s: %s", name, type(res).__name__, res)
         logger.warning("Nieudane źródła: %s. Kontynuuję konsolidację na danych częściowych.", ", ".join(failed))
     else:
         logger.info("Wszystkie źródła (%s) pobrane i zapisane.", ", ".join(sources))
@@ -76,7 +80,7 @@ async def run_all() -> bool:
     else:
         logger.warning("Pomijam kasowanie osieroconych filmów - było nieudane źródło.")
 
-    log_run_summary(supabase, enriched_count or 0, past_deleted, orphans_deleted)
+    log_run_summary(supabase, enriched_count or 0, past_deleted, orphans_deleted, failed_sources=failed)
 
     logger.info("=== KONIEC: proces zakończony (bez błędów źródeł: %s) ===", not failed)
     return not failed

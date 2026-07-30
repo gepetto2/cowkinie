@@ -3,7 +3,7 @@ import asyncio
 import re
 from html import unescape
 from curl_cffi import requests
-from utils import parse_start_time, clean_title, normalize_lang, parse_release_date
+from utils import parse_start_time, clean_title, normalize_lang, parse_release_date, ScraperError
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked, load_existing_movies
 
 logger = logging.getLogger(__name__)
@@ -160,8 +160,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             logger.info(f"Pobrano {len(items)} seansów z {days_with_rep} dni.")
 
             if not items:
-                logger.warning("Brak seansów w repertuarze Kina Muza.")
-                return
+                raise ScraperError("Kino Muza: repertuar pusty ze wszystkich dni - API niedostępne lub zmienione.")
 
             # KROK 1: filmy (jeden wpis na tytuł; dane filmu są w każdym seansie)
             movies_to_upsert = {}
