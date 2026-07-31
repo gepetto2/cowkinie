@@ -20,7 +20,7 @@ from db.database import (
     consolidate_movie_data, consolidate_post_enrich, dedupe_by_normalized_title,
     dedupe_ukrainian_by_tmdb, delete_past_screenings, delete_orphan_movies, log_run_summary,
 )
-from core.enrich_movies import enrich_movies_data
+from core.enrich_movies import enrich_movies_data, refresh_movie_ratings
 
 
 logger = logging.getLogger(__name__)
@@ -62,6 +62,11 @@ async def run_all() -> bool:
 
     # Po zakończeniu scrapowania kin uzupełniamy brakujące dane z TMDB i Filmwebu
     enriched_count = await enrich_movies_data(supabase)
+
+    # Odświeżenie ocen filmów JUŻ dopasowanych - enrich bierze wyłącznie nowe (bez title_tmdb),
+    # więc bez tego kroku oceny zostawałyby zamrożone w dniu pierwszego dopasowania, czyli wtedy,
+    # gdy film ma najmniej głosów i najbardziej chwiejną średnią.
+    await refresh_movie_ratings(supabase)
 
     # Scalenie rekordów ukraińskiego dubbingu tego samego filmu z różnych sieci (po tmdb_id nadanym w enrich).
     dedupe_ukrainian_by_tmdb(supabase)

@@ -103,6 +103,28 @@ async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp
     logger.debug(f"Znaleziono film: '{first_film_title}' z ID: {first_film_id}")
     return first_film_id
 
+async def get_filmweb_rating_by_id(movie_id: int, session: aiohttp.ClientSession):
+    """Sama ocena z Filmwebu dla ZNANEGO id - jedno zapytanie zamiast pięciu.
+
+    Do odświeżania ocen nie potrzebujemy opisu, obsady, plakatu ani dat, które pobiera
+    `get_filmweb_movie_details`. Przy kilkuset filmach na przebieg ta różnica to realne odciążenie
+    nieoficjalnego API.
+
+    Zwraca {"rating_filmweb": float|None, "rating_count_filmweb": int|None} albo None przy błędzie.
+    """
+    rating_json = await _fetch_json(session, f"https://www.filmweb.pl/api/v1/film/{movie_id}/rating")
+    if rating_json is None:
+        return None
+    rate = rating_json.get("rate")
+    count = rating_json.get("count")
+    # Bez głosów Filmweb zwraca rate=0 - traktujemy jako brak oceny (spójnie z get_filmweb_movie_details).
+    has_votes = isinstance(rate, (int, float)) and rate and count
+    return {
+        "rating_filmweb": round(rate, 1) if has_votes else None,
+        "rating_count_filmweb": count if has_votes else None,
+    }
+
+
 async def get_filmweb_movie_details(movie_id: int, session: aiohttp.ClientSession):
     """Pobiera szczegółowe informacje o filmie na podstawie jego ID."""
     base = f"https://www.filmweb.pl/api/v1/film/{movie_id}"

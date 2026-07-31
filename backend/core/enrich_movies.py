@@ -4,14 +4,22 @@ import aiohttp
 from datetime import datetime
 from supabase import Client
 
-from api.tmdb import get_tmdb_movie_details
-from api.filmweb import search_movie_details
+from api.tmdb import get_tmdb_movie_details, get_tmdb_ratings_by_id
+from api.filmweb import search_movie_details, get_filmweb_rating_by_id
 from api.omdb import get_omdb_ratings
 from core.merge_movies import check_and_merge_movie, version_key
 from utils import search_title
 
 
 logger = logging.getLogger(__name__)
+
+# Po ilu dniach od premiery uznajemy ocenę za ustabilizowaną. Świeży film zbiera głosy lawinowo
+# i jego średnia potrafi się zmienić o kilka dziesiątych w ciągu tygodnia; klasyk sprzed lat
+# praktycznie nie drgnie, więc odpytywanie go co dobę to czysty narzut.
+RATING_FRESH_DAYS = 180
+
+# Ile filmów odświeżamy jednocześnie. Filmweb to nieoficjalne API - nie chcemy go zalewać.
+RATING_CONCURRENCY = 5
 async def enrich_movies_data(supabase: Client):
     logger.info("Rozpoczynamy wzbogacanie danych o filmach z TMDB i Filmweb...")
     
@@ -133,3 +141,97 @@ async def enrich_movies_data(supabase: Client):
                     
     logger.info("Zakończono wzbogacanie danych o filmach!")
     return len(movies)
+
+
+def _needs_rating_refresh(movie: dict, today) -> bool:
+    """Czy warto odpytać API o oceny tego filmu.
+
+    Dwa powody: film jest ŚWIEŻY (oceny wciąż się ruszają) albo ma DZIURY w ocenach (poprzednia próba
+    się nie powiodła - np. OMDb nie odpowiedziało - i bez ponowienia zostałaby pusta na zawsze).
+    Klasyk z kompletem ocen pomijamy: jego średnia się nie zmienia, a zapytanie i tak kosztuje.
+    """
+    if not all(movie.get(k) is not None for k in ("rating_tmdb", "rating_imdb", "rating_filmweb")):
+        return True
+    raw_date = movie.get("release_date")
+    if not raw_date:
+        return True  # bez daty nie wiemy, czy film jest świeży - bezpieczniej odświeżyć
+    try:
+        return (today - datetime.fromisoformat(raw_date).date()).days <= RATING_FRESH_DAYS
+    except ValueError:
+        return True
+
+
+async def refresh_movie_ratings(supabase: Client):
+    """Odświeża oceny (TMDB / IMDb / Filmweb) filmów JUŻ dopasowanych do zewnętrznych baz.
+
+    Po co: `enrich_movies_data` bierze wyłącznie filmy bez `title_tmdb`, więc raz dopasowany film
+    nigdy nie dostawał aktualizacji - jego oceny zostawały zamrożone w dniu premiery, czyli w momencie
+    najmniej wiarygodnym (kilkaset głosów, chwiejna średnia). Ranking "Wysoko oceniane" opierał się
+    właśnie na tych danych.
+
+    Odpytujemy PO ZAPISANYCH ID, nigdy przez wyszukiwanie po tytule - powtórne wyszukiwanie mogłoby
+    dopasować rekord do innego filmu i po cichu podmienić poprawne dane.
+
+    Aktualizujemy TYLKO oceny. Tytuły, plakaty i opisy zostawiamy nietknięte: przeszły już przez
+    konsolidację i nadpisywanie ich przy każdym przebiegu tylko groziłoby regresją.
+    """
+    cols = "id, title, release_date, tmdb_id, imdb_id, filmweb_id, rating_tmdb, rating_imdb, rating_filmweb"
+    try:
+        rows = supabase.table("movies").select(cols).execute().data or []
+    except Exception as e:
+        logger.error(f"Nie udało się pobrać filmów do odświeżenia ocen: {e}")
+        return 0
+
+    today = datetime.now().date()
+    targets = [
+        m for m in rows
+        if (m.get("tmdb_id") or m.get("imdb_id") or m.get("filmweb_id")) and _needs_rating_refresh(m, today)
+    ]
+    if not targets:
+        logger.info("Odświeżanie ocen: brak filmów wymagających aktualizacji.")
+        return 0
+
+    logger.info(f"Odświeżanie ocen dla {len(targets)} z {len(rows)} filmów...")
+    sem = asyncio.Semaphore(RATING_CONCURRENCY)
+    updated = 0
+
+    async def refresh_one(session, movie):
+        nonlocal updated
+        async with sem:
+            # Każde źródło osobno - brak jednego nie może zablokować pozostałych.
+            tmdb_task = get_tmdb_ratings_by_id(movie["tmdb_id"], session) if movie.get("tmdb_id") else _none()
+            omdb_task = get_omdb_ratings(movie["imdb_id"], session) if movie.get("imdb_id") else _none()
+            fw_task = get_filmweb_rating_by_id(movie["filmweb_id"], session) if movie.get("filmweb_id") else _none()
+            tmdb_r, omdb_r, fw_r = await asyncio.gather(tmdb_task, omdb_task, fw_task, return_exceptions=True)
+
+        update = {}
+        if isinstance(tmdb_r, dict):
+            update.update(tmdb_r)
+        if isinstance(omdb_r, dict):
+            # Z OMDb bierzemy WYŁĄCZNIE oceny - reszta pól (tytuł, rok, długość) służy diagnostyce
+            # przy pierwszym dopasowaniu i nie ma powodu jej nadpisywać.
+            update.update({k: omdb_r[k] for k in ("rating_imdb", "rating_count_imdb", "rating_rt", "rating_metacritic") if k in omdb_r})
+        if isinstance(fw_r, dict):
+            update.update(fw_r)
+
+        # Nie zapisujemy nulli: gdy API chwilowo nie oddało oceny, lepiej zostawić poprzednią wartość
+        # niż wyczyścić działającą ocenę z powodu jednej nieudanej odpowiedzi.
+        update = {k: v for k, v in update.items() if v is not None}
+        if not update:
+            return
+        try:
+            supabase.table("movies").update(update).eq("id", movie["id"]).execute()
+            updated += 1
+        except Exception as e:
+            logger.error(f"Błąd aktualizacji ocen dla '{movie.get('title')}': {e}")
+
+    async with aiohttp.ClientSession() as session:
+        await asyncio.gather(*[refresh_one(session, m) for m in targets])
+
+    logger.info(f"Odświeżono oceny w {updated} filmach.")
+    return updated
+
+
+async def _none():
+    """Placeholder dla źródła, którego id nie znamy - upraszcza gather bez rozgałęziania."""
+    return None

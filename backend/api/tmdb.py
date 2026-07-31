@@ -198,6 +198,26 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
     dirs = extract_directors(tmdb_movie)
     return _format_tmdb_response(tmdb_movie, dirs)
 
+async def get_tmdb_ratings_by_id(tmdb_id: int, session: aiohttp.ClientSession):
+    """Same oceny z TMDB dla ZNANEGO id - bez wyszukiwania po tytule.
+
+    Odświeżanie musi iść po id, a nie przez `get_tmdb_movie_details`: powtórne wyszukiwanie po tytule
+    mogłoby dopasować film do INNEJ pozycji (np. remake'u albo tytułu-bliźniaka) i po cichu podmienić
+    dane już poprawnie dopasowanego rekordu. Przy okazji to jedno zapytanie zamiast dwóch.
+
+    Zwraca {"rating_tmdb": float|None, "rating_count_tmdb": int|None} albo None, gdy nie udało się pobrać.
+    """
+    data = await _fetch_json(session, f"https://api.themoviedb.org/3/movie/{tmdb_id}",
+                             {"api_key": TMDB_API_KEY, "language": "pl-PL"})
+    if not data:
+        return None
+    vote_avg = data.get("vote_average")
+    vote_count = data.get("vote_count") or 0
+    # Bez głosów TMDB zwraca 0 - traktujemy jako brak oceny (spójnie z _format_tmdb_response).
+    rating = round(vote_avg, 1) if isinstance(vote_avg, (int, float)) and vote_avg and vote_count > 0 else None
+    return {"rating_tmdb": rating, "rating_count_tmdb": vote_count if rating is not None else None}
+
+
 def _extract_cast(tmdb_movie, limit=8):
     """Główna obsada z TMDB credits, uporządkowana wg 'order' (billing), złączona przecinkiem.
     Nazwiska aktorów są niezależne od języka (credits pobieramy w en-US)."""
