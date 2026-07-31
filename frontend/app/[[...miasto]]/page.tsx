@@ -9,10 +9,17 @@ import {
 import MovieCard from '@/components/MovieCard';
 import Carousel from '@/components/Carousel';
 import FilterBar from '@/components/FilterBar';
-import NarrowSections from '@/components/NarrowSections';
 import { CityScopeProvider } from '@/components/CityScope';
 import { parseCityScope, scopeFromCookie, cityScopeHref, CITY_COOKIE } from '@/lib/cities';
 import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
+
+// Szerokość kafelka w karuzelach. Na mobile PŁYNNA i odtwarzająca matematykę siatki `grid-cols-3`
+// niżej, żeby karuzele i rozwinięte sekcje miały identyczny rozmiar - wcześniej siatka dawała ~106 px,
+// a karuzele sztywne 140 px, więc ta sama sekcja kurczyła się przy rozwijaniu.
+// 2.5rem = 40 px = padding kontenera (px-3, czyli 2×12) + odstępy siatki (gap-2, czyli 2×8);
+// zmiana któregokolwiek z nich wymaga poprawki tutaj. Od `sm` w górę siatka ma 4+ kolumn,
+// więc wracamy do sztywnych rozmiarów.
+const CARD_WIDTH = 'w-[calc((100vw-2.5rem)/3)] sm:w-[160px] lg:w-[180px]';
 
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
 const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY', 'DLA DZIECI', 'SALON KULTURY', 'KONCERT', 'LADIES NIGHT/KNO', 'BALET', 'OPERA', 'PANEL'];
@@ -334,38 +341,36 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
     return diff !== 0 ? diff : a.localeCompare(b);
   });
 
-  // Próg karuzeli: sekcje z tą liczbą filmów lub mniejszą nie renderują się jako karuzela.
-  // Kategorie idą wtedy w statyczne kafelki, a górne karuzele (poniżej) w ogóle się nie pokazują.
-  const NARROW_SECTION_MAX = 5;
+  // Kategorie z tą liczbą filmów lub mniejszą nie dostają własnej sekcji - trafiają do scalonej
+  // sekcji wydarzeń. Ten sam próg decyduje, czy górne karuzele w ogóle warto pokazywać.
+  const SMALL_CATEGORY_MAX = 5;
   // Główna kategoria, KULTOWE i "Kino Studyjne" zawsze pełną szerokością (rozwinięta siatka).
   const alwaysWide = (c: string) => c === mainCategory || c === 'KULTOWE' || c === 'Kina Studyjne';
   const wideCategories = sortedCategories.filter(
-    (c) => alwaysWide(c) || groupedMovies[c].length > NARROW_SECTION_MAX
+    (c) => alwaysWide(c) || groupedMovies[c].length > SMALL_CATEGORY_MAX
   );
-  // Wąskie sekcje to karty o szerokości ~ liczbie filmów. Flexbox pakuje je zachłannie w kolejności
-  // DOM (next-fit) i NIE cofa się, więc samo sortowanie malejące zostawia luki obok dużych kart.
-  // Robimy więc First-Fit-Decreasing z backfillem: sekcje (malejąco) wkładziemy do pierwszego rzędu,
-  // w którym się mieszczą, a potem emitujemy je rzędami - flexbox odtworzy te ciaśniejsze rzędy,
-  // wciągając małe sekcje w luki obok dużych. Capacity ~ liczba plakatów w rzędzie na szerokim ekranie
-  // (węższe viewporty flexbox i tak zawinie po swojemu; przeplot małych/dużych i tak pomaga).
-  const NARROW_ROW_CAPACITY = 7;
-  const narrowBySize = sortedCategories
-    .filter((c) => !alwaysWide(c) && groupedMovies[c].length <= NARROW_SECTION_MAX)
-    .sort((a, b) => groupedMovies[b].length - groupedMovies[a].length || b.length - a.length);
-  const narrowRows: string[][] = [];
-  for (const c of narrowBySize) {
-    const size = groupedMovies[c].length;
-    const row = narrowRows.find((r) => r.reduce((s, x) => s + groupedMovies[x].length, 0) + size <= NARROW_ROW_CAPACITY);
-    if (row) row.push(c);
-    else narrowRows.push([c]);
-  }
-  const narrowCategories = narrowRows.flat();
+
+  // Długi ogon drobnych kategorii (sport, teatr, opera, balet, cyrk, maratony, Ladies Night...) scalamy
+  // w JEDNĄ sekcję, a typ pokazujemy jako etykietę na karcie. Wcześniej każda z nich dostawała własne
+  // pudełko z nagłówkiem, pakowane w rzędy algorytmem bin-packing - kilkanaście ramek i ~130 linii
+  // logiki na ~30 filmów, z czego kilka kategorii miało po JEDNYM filmie. Nagłówek "Opera" nad jedną
+  // kartą nie niósł więcej niż etykieta na tej karcie, a cała maszyneria była źródłem błędów układu
+  // (rozjazd rozmiarów kafelków, samotne pudełka na telefonie).
+  const SPECIAL_SECTION = 'Wydarzenia i pokazy specjalne';
+  const specialCategories = sortedCategories.filter(
+    (c) => !alwaysWide(c) && groupedMovies[c].length <= SMALL_CATEGORY_MAX
+  );
+  // Sortujemy po nazwie typu, żeby karty tego samego rodzaju trzymały się razem, a w obrębie typu
+  // alfabetycznie po tytule (kolejność z sortowania wyżej).
+  const specialMovies = specialCategories
+    .flatMap((c) => groupedMovies[c].map((m) => ({ ...m, sectionType: c })))
+    .sort((a, b) => a.sectionType.localeCompare(b.sectionType, 'pl') || a.title.localeCompare(b.title, 'pl'));
 
   // Pierwsze plakaty w kolejności renderowania dostają priority (obraz LCP „nad zgięciem" - eager load).
   const renderOrder = [
     ...topMovies, ...topRated, ...newReleases, ...upcoming,
     ...wideCategories.flatMap((c) => groupedMovies[c]),
-    ...narrowCategories.flatMap((c) => groupedMovies[c]),
+    ...specialMovies,
   ];
   const priorityIds = new Set(renderOrder.slice(0, 6).map((m) => m.id));
 
@@ -378,7 +383,7 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
 
   return (
     <CityScopeProvider selected={selectedCities} all={cities}>
-    <main className="container mx-auto p-4 pt-8 pb-16 overflow-x-clip">
+    <main className="container mx-auto px-3 sm:px-4 pt-8 pb-16 overflow-x-clip">
       <h1 className="text-4xl font-extrabold mb-8 text-slate-100 tracking-tight">{heading}</h1>
 
       <Suspense fallback={<div className="h-14 mb-6" />}>
@@ -394,7 +399,7 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
         )}
 
         {/* Karuzela "Najwięcej seansów" */}
-        {topMovies.length > NARROW_SECTION_MAX && (
+        {topMovies.length > SMALL_CATEGORY_MAX && (
           <section className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-amber-500 rounded-sm">
               Najpopularniejsze
@@ -402,7 +407,7 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
             
             <Carousel>
               {topMovies.map((movie) => (
-                <div key={`top-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
+                <div key={`top-${movie.id}`} className={`${CARD_WIDTH} shrink-0 snap-start`}>
                   <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                 </div>
               ))}
@@ -411,14 +416,14 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
         )}
 
         {/* Karuzela "Najlepiej oceniane" - wynik bayesowski (Filmweb+IMDb+TMDB) ważony liczbą głosów */}
-        {topRated.length > NARROW_SECTION_MAX && (
+        {topRated.length > SMALL_CATEGORY_MAX && (
           <section className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-yellow-500 rounded-sm">
               Wysoko oceniane
             </h2>
             <Carousel>
               {topRated.map((movie) => (
-                <div key={`rated-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
+                <div key={`rated-${movie.id}`} className={`${CARD_WIDTH} shrink-0 snap-start`}>
                   <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                 </div>
               ))}
@@ -427,14 +432,14 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
         )}
 
         {/* Karuzela "Nowości" - premiery z ostatniego miesiąca */}
-        {newReleases.length > NARROW_SECTION_MAX && (
+        {newReleases.length > SMALL_CATEGORY_MAX && (
           <section className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-emerald-500 rounded-sm">
               Nowe premiery
             </h2>
             <Carousel>
               {newReleases.map((movie) => (
-                <div key={`new-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
+                <div key={`new-${movie.id}`} className={`${CARD_WIDTH} shrink-0 snap-start`}>
                   <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                 </div>
               ))}
@@ -443,14 +448,14 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
         )}
 
         {/* Karuzela "Wkrótce" - przyszłe premiery */}
-        {upcoming.length > NARROW_SECTION_MAX && (
+        {upcoming.length > SMALL_CATEGORY_MAX && (
           <section className="flex flex-col">
             <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-sky-500 rounded-sm">
               Wkrótce premiera
             </h2>
             <Carousel>
               {upcoming.map((movie) => (
-                <div key={`soon-${movie.id}`} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
+                <div key={`soon-${movie.id}`} className={`${CARD_WIDTH} shrink-0 snap-start`}>
                   <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                 </div>
               ))}
@@ -473,7 +478,7 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
 
             {/* Rozwinięta: responsywna siatka wypełniająca szerokość. Karuzela: poziomy scroll. */}
             {expanded ? (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4 pb-6">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-4 pb-6">
                 {groupedMovies[category].map((movie) => (
                   <MovieCard key={movie.id} movie={movie} priority={priorityIds.has(movie.id)} />
                 ))}
@@ -481,7 +486,7 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
             ) : (
               <Carousel>
               {groupedMovies[category].map((movie) => (
-                  <div key={movie.id} className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start">
+                  <div key={movie.id} className={`${CARD_WIDTH} shrink-0 snap-start`}>
                     <MovieCard movie={movie} priority={priorityIds.has(movie.id)} />
                   </div>
                 ))}
@@ -491,14 +496,24 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
           );
         })}
 
-        {/* Krótkie sekcje (mało filmów) jako kafelki o szerokości dopasowanej do liczby filmów.
-            Pakowaniem w rzędy zajmuje się komponent kliencki - mierzy realną szerokość i liczy FFD
-            pod nią (poprawne na każdej rozdzielczości, nie na sztywno). */}
-        {narrowCategories.length > 0 && (
-          <NarrowSections
-            sections={narrowCategories.map((category) => ({ category, movies: groupedMovies[category] }))}
-            priorityIds={[...priorityIds]}
-          />
+        {/* Drobne kategorie scalone w jedną sekcję - typ każdego filmu widać na jego karcie.
+            Renderuje się jak każda inna sekcja, więc układ jest jednorodny na wszystkich ekranach. */}
+        {specialMovies.length > 0 && (
+          <section className="flex flex-col">
+            <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-indigo-500 rounded-sm">
+              {SPECIAL_SECTION}
+            </h2>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-4 pb-6">
+              {specialMovies.map((movie) => (
+                <MovieCard
+                  key={movie.id}
+                  movie={movie}
+                  priority={priorityIds.has(movie.id)}
+                  typeLabel={movie.sectionType}
+                />
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </main>

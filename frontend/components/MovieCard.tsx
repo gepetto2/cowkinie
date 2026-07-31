@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { ZoomIn, X, Trees } from "lucide-react";
+import { ZoomIn, X, Trees, Ellipsis } from "lucide-react";
 import Image from "next/image";
 import { Database } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
@@ -106,19 +106,30 @@ function franchiseVisual(franchise: string) {
   if (lower.includes("cinema") && lower.includes("city")) { bgColor = "bg-[#f5821f]"; initial = "CC"; }
   else if (lower.includes("multikino")) { bgColor = "bg-[#eb008b]"; textColor = "text-white"; }
   else if (lower.includes("helios")) { bgColor = "bg-[#002b55]"; textColor = "text-white"; }
-  else if (lower === "inne") { bgColor = "bg-teal-600"; initial = "IN"; }
+  // "Inne" renderuje się ikoną (patrz FranchiseBadge), więc `initial` tu nie jest używany.
+  else if (lower === "inne") { bgColor = "bg-teal-600"; }
   return { bgColor, textColor, initial };
 }
 
 function FranchiseBadge({ franchise, size = "md", className = "" }: { franchise: string; size?: "sm" | "md"; className?: string }) {
   const { bgColor, textColor, initial } = franchiseVisual(franchise);
-  const dim = size === "sm" ? "w-5 h-5 text-[9px]" : "w-7 h-7 text-[10px]";
+  // Na mobile badge jest mniejszy także w wariancie "md". Kafelek ma tam ~112 px, a cztery badge'y
+  // po 28 px z odstępami potrzebowałyby ~138 px - wylewały się poza plakat. Przy 20 px mieszczą się
+  // cztery z zapasem. Od `sm` w górę kafelek ma 160+ px, więc wracamy do czytelniejszego rozmiaru.
+  const dim = size === "sm" ? "w-5 h-5 text-[9px]" : "w-5 h-5 text-[9px] sm:w-7 sm:h-7 sm:text-[10px]";
+  const iconDim = size === "sm" ? "h-3 w-3" : "h-3 w-3 sm:h-4 sm:w-4";
+  // "Inne" (kina studyjne i niezależne) to NAJCZĘSTSZY badge w siatce, a jednocześnie jedyny, którego
+  // nie da się rozszyfrować ze skrótu - "IN" nic nie znaczy, podczas gdy "CC" czy "H" odsyłają do marki.
+  // Wielokropek czyta się jako "pozostałe": nie udaje czwartej marki i pozostaje czytelny nawet
+  // w 20 pikselach, gdzie bardziej szczegółowa ikona zlewa się w plamę. Tooltip mówi wprost,
+  // o jakie kina chodzi.
+  const isOther = franchise === "Inne";
   return (
     <div
       className={`${dim} rounded-full flex items-center justify-center font-bold ${textColor} shadow-md border border-slate-900/50 ${bgColor} ${className}`}
-      title={franchise}
+      title={isOther ? "Kina studyjne i niezależne" : franchise}
     >
-      {initial}
+      {isOther ? <Ellipsis className={iconDim} strokeWidth={2} aria-hidden="true" /> : initial}
     </div>
   );
 }
@@ -342,7 +353,10 @@ function RatingPill({ pkey, label, value, url }: { pkey: string; label: string; 
   );
 }
 
-export default function MovieCard({ movie, priority = false }: { movie: Movie; priority?: boolean }) {
+// `typeLabel` podajemy tylko w scalonej sekcji wydarzeń specjalnych - tam karty różnych typów leżą
+// obok siebie, więc bez etykiety nie wiadomo, czy to opera, maraton czy mecz. W pozostałych sekcjach
+// typ wynika z nagłówka i powtarzanie go na każdej karcie byłoby szumem.
+export default function MovieCard({ movie, priority = false, typeLabel }: { movie: Movie; priority?: boolean; typeLabel?: string }) {
   const searchParams = useSearchParams();
   // Miasta pochodzą ze ścieżki (/poznan, "/" dla całej Polski), więc bierzemy je z kontekstu,
   // gdzie serwer zostawił już rozwiązane nazwy. Klucz do useEffect musi być stabilnym stringiem,
@@ -535,9 +549,17 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
               <div className="flex items-center justify-center w-full h-full text-slate-500 text-xs text-center p-2">Brak plakatu</div>
             )}
             
+            {/* Typ wydarzenia w lewym górnym rogu - nie zabiera wysokości karty (badge'y kin siedzą
+                w prawym dolnym, więc się nie zderzają). */}
+            {typeLabel && (
+              <span className="absolute top-1.5 left-1.5 z-10 max-w-[calc(100%-0.75rem)] truncate rounded-md bg-slate-950/85 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-200 shadow-md">
+                {typeLabel}
+              </span>
+            )}
+
             {/* Ikony kin (studyjne + niezależne złączone w jedno "Inne", z deduplikacją) */}
             {posterBadges.length > 0 && (
-              <div className="absolute bottom-2 right-2 flex flex-row gap-1.5 z-10">
+              <div className="absolute bottom-1.5 right-1.5 sm:bottom-2 sm:right-2 flex flex-row gap-1 sm:gap-1.5 z-10">
                 {posterBadges.map(franchise => (
                   <FranchiseBadge key={franchise} franchise={franchise} className="hover:scale-110 transition-transform" />
                 ))}
