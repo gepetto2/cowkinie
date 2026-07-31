@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import NextTopLoader from 'nextjs-toploader';
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,6 +32,11 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-slate-950 text-slate-50">
         <NextTopLoader color="#4f46e5" showSpinner={false} shadow="0 0 10px #4f46e5,0 0 5px #4f46e5" />
         {children}
+        {/* Statystyki odwiedzin. W layoucie głównym, żeby liczyć każdą podstronę (miasta, ekran
+            wyboru), i na końcu <body>, żeby skrypt nie konkurował o pasmo z treścią.
+            Zbiera dane bez ciasteczek, więc nie wymaga banera zgód. Na localhost nic nie wysyła -
+            dane pojawią się dopiero po wdrożeniu i włączeniu zakładki Analytics w panelu Vercela. */}
+        <Analytics />
       </body>
     </html>
   );

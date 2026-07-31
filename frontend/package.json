@@ -10,10 +10,11 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.3",
+    "@vercel/analytics": "^2.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.16.0",
-    "next": "16.2.3",
+    "next": "^16.2.12",
     "nextjs-toploader": "^3.9.17",
     "radix-ui": "^1.4.3",
     "react": "19.2.4",
@@ -29,8 +30,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.3",
+    "eslint": "^10.8.0",
+    "eslint-config-next": "^16.2.12",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
