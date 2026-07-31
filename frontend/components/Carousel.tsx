@@ -72,7 +72,12 @@ export default function Carousel({ children }: { children: React.ReactNode }) {
       <div className="group relative">
         <div
           ref={ref}
-          className="flex gap-5 overflow-x-auto pb-3 snap-x scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          // Ujemny margines + padding pozwalają kartom przewijać się do samej krawędzi ekranu, zamiast
+          // zatrzymywać się na wcięciu kontenera. Wartość MUSI odpowiadać paddingowi `main` (px-3),
+          // inaczej karuzela wystaje poza ekran i `overflow-x-clip` ucina jej brzeg.
+          // scroll-pl-3 jest konieczne: bez niego snap wyrównuje kartę do krawędzi obszaru przewijania,
+          // ignorując padding - pierwsza karta „odskakiwała" pod przyciętą krawędź po puszczeniu palca.
+          className="flex gap-5 overflow-x-auto pb-3 snap-x scroll-smooth -mx-3 px-3 scroll-pl-3 sm:mx-0 sm:px-0 sm:scroll-pl-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           {children}
         </div>
