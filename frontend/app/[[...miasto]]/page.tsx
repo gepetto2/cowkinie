@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import {
   getCities, getMovies, getAvailableDates, getFilteredAvailability, getDateDaysAgo,
-  getCinemaAvailabilities, getTopScreenings, getAvailableFormats, getAvailableLangs,
+  getCinemaAvailabilities, getTopScreenings, getAvailableFormats,
 } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
 import Carousel from '@/components/Carousel';
@@ -71,19 +71,17 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
   const rangeFrom = fromQuery || toQuery;
   const rangeTo = toQuery || fromQuery;
   const rangeActive = Boolean(rangeFrom);
-  // Format i wersja językowa to listy (multi-select), w URL rozdzielone przecinkami.
+  // Format to lista (multi-select), w URL rozdzielona przecinkami. Wersja językowa NIE jest już
+  // filtrem globalnym - przeniesiona do modalu, bo to wybór dotyczący konkretnego filmu.
   const selectedFormats = typeof params?.format === 'string' && params.format
     ? params.format.split(',').filter(Boolean)
-    : [];
-  const selectedLangs = typeof params?.lang === 'string' && params.lang
-    ? params.lang.split(',').filter(Boolean)
     : [];
   // Gatunek to atrybut filmu (kolumna genre), więc filtrujemy po stronie klienta (bez RPC).
   const selectedGenres = typeof params?.genre === 'string' && params.genre
     ? params.genre.split(',').filter(Boolean)
     : [];
-  // Filtr daty/formatu/języka wymaga danych na poziomie seansu -> liczymy je po stronie serwera (RPC).
-  const serverFilterActive = rangeActive || selectedFormats.length > 0 || selectedLangs.length > 0;
+  // Filtr daty/formatu wymaga danych na poziomie seansu -> liczymy je po stronie serwera (RPC).
+  const serverFilterActive = rangeActive || selectedFormats.length > 0;
 
   // Lista miast musi być ZNANA PRZED resztą zapytań: rozstrzyga, czy slug w adresie jest poprawny,
   // a od wybranych miast zależy zapytanie o dostępność. getCities() jest cache'owane, więc to tanie.
@@ -115,7 +113,6 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
     topScreenings,
     availableDates,
     formats,
-    langs,
     serverAvailByCity
   ] = await Promise.all([
     getMovies(),
@@ -123,15 +120,14 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
     getTopScreenings(),
     Promise.resolve(getAvailableDates(1)), // dzisiejsza data dla karuzel
     getAvailableFormats(),
-    getAvailableLangs(),
-    // Gdy aktywny filtr daty/formatu/języka: dostępność (film -> franczyzy) z pasujących seansów, po stronie serwera.
+    // Gdy aktywny filtr daty/formatu: dostępność (film -> franczyzy) z pasujących seansów, po stronie serwera.
     // RPC przyjmuje JEDNO miasto, więc przy wyborze kilku odpytujemy je równolegle i sumujemy wyniki
     // (film pasuje, jeśli gra w KTÓRYMKOLWIEK z wybranych miast). W typowym przypadku - jedno miasto
     // albo cała Polska - to dokładnie jedno zapytanie, czyli tyle samo co dotąd.
     serverFilterActive
       ? Promise.all(
           (selectedCities.length ? selectedCities : ['']).map((c) =>
-            getFilteredAvailability(rangeFrom, rangeTo, c, selectedFormats, selectedLangs).then(
+            getFilteredAvailability(rangeFrom, rangeTo, c, selectedFormats).then(
               (m) => [c, m] as const,
             ),
           ),
@@ -386,7 +382,7 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
       <h1 className="text-4xl font-extrabold mb-8 text-slate-100 tracking-tight">{heading}</h1>
 
       <Suspense fallback={<div className="h-14 mb-6" />}>
-        <FilterBar cities={cities} formats={formats} langs={langs} genres={availableGenres} resultCount={filteredMovies.length} />
+        <FilterBar cities={cities} formats={formats} genres={availableGenres} resultCount={filteredMovies.length} />
       </Suspense>
 
       <div className="space-y-10">

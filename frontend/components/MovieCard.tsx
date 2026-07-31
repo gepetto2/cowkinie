@@ -271,6 +271,47 @@ const RATING_ACCENT: Record<string, string> = {
 };
 
 // Wiersz „etykieta: wartość" (Reżyseria/Obsada) na pełną szerokość.
+// Rząd przełączników zawężających seanse w modalu (format, wersja językowa).
+// Renderujemy go TYLKO gdy jest z czego wybierać - przy jednej dostępnej wartości filtr niczego
+// nie zmienia, a zabiera miejsce nad listą dni (na telefonie szczególnie kosztowne).
+function OptionChips({
+  label,
+  options,
+  selected,
+  onToggle,
+}: {
+  label: string;
+  options: string[];
+  selected: string[];
+  onToggle: (value: string) => void;
+}) {
+  if (options.length < 2) return null;
+  return (
+    /* Etykieta w rozmiarze DialogDescription ("Repertuar i godziny seansów"), same chipy odrobinę
+       mniejsze - text-[13px] i wyściółka jak w RatingPill wyżej, żeby modal był spójny wewnętrznie. */
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-sm text-slate-500 shrink-0">{label}:</span>
+      {options.map((o) => {
+        const on = selected.includes(o);
+        return (
+          <button
+            key={o}
+            type="button"
+            onClick={() => onToggle(o)}
+            className={`rounded-full border px-2.5 py-1 text-[13px] transition-colors ${
+              on
+                ? "bg-indigo-600 border-indigo-500 text-white"
+                : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+            }`}
+          >
+            {o}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-2 text-sm">
@@ -308,8 +349,10 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
   // bo tablica z kontekstu jest przy każdym renderze nową referencją.
   const { selected: selectedCities } = useCityScope();
   const cityKey = selectedCities.join(",");
-  const formatQuery = searchParams.get("format");
-  const langQuery = searchParams.get("lang");
+  // Format z paska filtrów służy tylko do WSTĘPNEGO ustawienia kontrolki w modalu - dalej modal
+  // rządzi się sam. Wersji językowej nie ma już w filtrach globalnych: to wybór dotyczący
+  // konkretnego filmu ("napisy czy dubbing"), a nie sposób przeglądania repertuaru.
+  const urlFormats = (searchParams.get("format") || "").split(",").filter(Boolean);
   const fromQuery = searchParams.get("from");
   const toQuery = searchParams.get("to");
   // Preselekcja dnia w modalu ma sens tylko dla pojedynczego dnia (from === to), nie dla zakresu
@@ -322,6 +365,10 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
   const [selectedScreening, setSelectedScreening] = useState<Screening | null>(null);
   const [details, setDetails] = useState<MovieDetails | null>(null);
   const [zoom, setZoom] = useState(false); // powiększenie plakatu (lightbox)
+  // Filtry seansów działają lokalnie (bez URL-a): modal nie ma własnego adresu, więc nie ma czego
+  // współdzielić, a filtrowanie na pobranym zbiorze nie wymaga ponownego zapytania przy każdym kliknięciu.
+  const [pickedFormats, setPickedFormats] = useState<string[]>([]);
+  const [pickedLangs, setPickedLangs] = useState<string[]>([]);
 
   // Reset/inicjalizacja wybranej daty odbywa się w handlerze otwarcia, aby nie wołać
   // setState synchronicznie w efekcie (unika kaskadowych re-renderów).
@@ -331,6 +378,10 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
     setSelectedDate(open ? singleDay : null);
     setSelectedScreening(null);
     setZoom(false);
+    // Format przejmujemy z paska filtrów, żeby po wejściu w film widzieć to, czego się szukało.
+    // Wersja językowa startuje pusta - nie ma jej wśród filtrów globalnych.
+    setPickedFormats(open ? urlFormats : []);
+    setPickedLangs([]);
   };
 
   useEffect(() => {
@@ -338,42 +389,50 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
       return;
     }
 
+    let cancelled = false;
+
     async function fetchScreenings() {
       setIsLoading(true);
-      // Filtr po mieście robimy po stronie zapytania (join !inner), by nie ściągać seansów z innych miast
-      let queryBuilder = supabase
-        .from("screenings")
-        .select("*, cinemas!inner(name, city, franchise, category)")
-        .eq("movie_id", movie.id)
-        .order("start_time", { ascending: true });
+      // Pobieramy STRONICUJĄC. Supabase zwraca maksymalnie 1000 wierszy na zapytanie, a najpopularniejszy
+      // film potrafi mieć ich ponad 1200 w skali kraju - bez tego ostatnie dni repertuaru znikały po cichu,
+      // wyglądając jak koniec repertuaru. Kompletny zbiór jest też potrzebny, żeby poprawnie wyliczyć
+      // listę dostępnych formatów i wersji językowych dla filtrów niżej.
+      const PAGE = 1000;
+      const all: Screening[] = [];
+      for (let from = 0; ; from += PAGE) {
+        // Builder tworzymy w każdej iteracji - `range` modyfikuje zapytanie, więc nie da się go reużyć.
+        // Filtr miasta zostaje po stronie bazy (join !inner): realnie zmniejsza liczbę wierszy.
+        let queryBuilder = supabase
+          .from("screenings")
+          .select("*, cinemas!inner(name, city, franchise, category)")
+          .eq("movie_id", movie.id)
+          .order("start_time", { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (selectedCities.length) {
+          queryBuilder = queryBuilder.in("cinemas.city", selectedCities);
+        }
 
-      // Jedno miasto albo kilka (np. Trójmiasto) - `in` obsługuje oba przypadki.
-      if (selectedCities.length) {
-        queryBuilder = queryBuilder.in("cinemas.city", selectedCities);
-      }
-      // Filtr formatu / wersji językowej: listy dokładnych wartości (multi-select), spójnie z listą filmów.
-      const formats = (formatQuery || "").split(",").filter(Boolean);
-      if (formats.length) {
-        queryBuilder = queryBuilder.in("format", formats);
-      }
-      const langs = (langQuery || "").split(",").filter(Boolean);
-      if (langs.length) {
-        queryBuilder = queryBuilder.in("lang", langs);
+        const { data, error } = await queryBuilder;
+        if (error || !data) break;
+        all.push(...(data as unknown as Screening[]));
+        if (data.length < PAGE) break;
       }
 
-      const { data, error } = await queryBuilder;
-
-      if (!error && data) {
-        setScreenings(data as unknown as Screening[]);
+      if (!cancelled) {
+        setScreenings(all);
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
 
     fetchScreenings();
+    return () => {
+      cancelled = true;
+    };
     // selectedCities to przy każdym renderze nowa referencja; zależnością jest jej stabilna
-    // reprezentacja tekstowa (cityKey).
+    // reprezentacja tekstowa (cityKey). Format/wersja NIE są tu zależnościami - filtrujemy je
+    // po stronie klienta na już pobranym zbiorze, więc przełączanie nie wymaga nowego zapytania.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, movie.id, cityKey, formatQuery, langQuery]);
+  }, [isOpen, movie.id, cityKey]);
 
   // Szczegóły filmu (gatunek, opis) dociągamy leniwie przy otwarciu - nie ma ich w odchudzonym
   // MovieListItem. Opis to skonsolidowana kolumna `description` (wybór źródła robi potok).
@@ -406,15 +465,30 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
     };
   }, [isOpen, movie.id]);
 
+  // Opcje filtrów bierzemy z SEANSÓW TEGO FILMU, a nie z globalnej listy wartości w bazie - dzięki
+  // temu przy filmie granym wyłącznie z dubbingiem nie pokaże się martwa opcja "napisy".
+  const availableFormats = [...new Set(screenings.map((s) => s.format).filter(Boolean))].sort() as string[];
+  const availableLangs = [...new Set(screenings.map((s) => s.lang).filter(Boolean))].sort() as string[];
+
+  // Pusty wybór = bez zawężenia (jak w pozostałych multi-selectach w aplikacji).
+  const visibleScreenings = screenings.filter(
+    (s) =>
+      (pickedFormats.length === 0 || (s.format !== null && pickedFormats.includes(s.format))) &&
+      (pickedLangs.length === 0 || (s.lang !== null && pickedLangs.includes(s.lang))),
+  );
+
+  const toggleIn = (list: string[], value: string) =>
+    list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
+
   // Wyodrębnienie unikalnych dat seansów i zliczenie ich ilości (dzień w strefie kina - Europe/Warsaw)
-  const screeningsPerDay = screenings.reduce((acc, s) => {
+  const screeningsPerDay = visibleScreenings.reduce((acc, s) => {
     const dateStr = toWarsawDay(s.start_time);
     acc[dateStr] = (acc[dateStr] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
   // Zbiór sieci kin grających film danego dnia (do ikon po prawej stronie wiersza)
-  const franchisesPerDay = screenings.reduce((acc, s) => {
+  const franchisesPerDay = visibleScreenings.reduce((acc, s) => {
     const dateStr = toWarsawDay(s.start_time);
     const group = cinemaGroup(s.cinemas);
     if (group) {
@@ -439,7 +513,7 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
   const posterBadges = [...new Set((movie.available_franchises ?? []).map(badgeKey))];
 
   // Filtrowanie po wybranej dacie (również w strefie kina)
-  const filteredScreenings = screenings.filter(s => toWarsawDay(s.start_time) === selectedDate);
+  const filteredScreenings = visibleScreenings.filter(s => toWarsawDay(s.start_time) === selectedDate);
   const cinemaGroups = selectedDate ? buildCinemaGroups(filteredScreenings) : [];
 
   const formatDateLabel = (dateString: string) => {
@@ -576,12 +650,44 @@ export default function MovieCard({ movie, priority = false }: { movie: Movie; p
               Dwa zagnieżdżone obszary przewijania na telefonie dawałyby maleńkie okienko na seanse.
               scrollbar-gutter:stable rezerwuje miejsce na pasek, żeby przełączanie dat (raz lista
               dłuższa, raz krótsza) nie przesuwało treści w poziomie. */}
+          {/* Filtry seansów NAD obszarem przewijania (shrink-0), żeby nie uciekały przy scrollowaniu
+              listy dni. Znikają, gdy film ma tylko jedną wersję i jeden format. */}
+          {!isLoading && screenings.length > 0 && (availableFormats.length > 1 || availableLangs.length > 1) && (
+            <div className="shrink-0 mb-3 flex flex-col gap-2">
+              <OptionChips
+                label="Format"
+                options={availableFormats}
+                selected={pickedFormats}
+                onToggle={(v) => setPickedFormats((prev) => toggleIn(prev, v))}
+              />
+              <OptionChips
+                label="Wersja"
+                options={availableLangs}
+                selected={pickedLangs}
+                onToggle={(v) => setPickedLangs((prev) => toggleIn(prev, v))}
+              />
+            </div>
+          )}
+
           <div className="flex flex-col gap-4 pr-2 sm:overflow-y-auto sm:flex-1 sm:min-h-0 sm:[scrollbar-gutter:stable]">
             {isLoading ? (
               <div className="text-sm text-slate-400 text-center py-8 animate-pulse">Szukam seansów...</div>
             ) : screenings.length === 0 ? (
               <div className="text-sm text-slate-400 text-center py-8">
                 Brak zaplanowanych seansów dla tego filmu w naszej bazie.
+              </div>
+            ) : visibleScreenings.length === 0 ? (
+              /* Odróżniamy "film nie ma seansów" od "filtry nic nie przepuściły" - w drugim przypadku
+                 użytkownik musi wiedzieć, że wystarczy poluzować własny wybór. */
+              <div className="text-sm text-slate-400 text-center py-8">
+                Żaden seans nie pasuje do wybranego formatu i wersji.
+                <button
+                  type="button"
+                  onClick={() => { setPickedFormats([]); setPickedLangs([]); }}
+                  className="mt-2 block mx-auto text-indigo-400 hover:text-indigo-300"
+                >
+                  Wyczyść filtry seansów
+                </button>
               </div>
             ) : !selectedDate ? (
               <div className="flex flex-col gap-2 pb-4">

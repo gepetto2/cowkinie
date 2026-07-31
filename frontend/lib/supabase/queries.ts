@@ -127,23 +127,6 @@ export const getAvailableFormats = unstable_cache(
   { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
 );
 
-// Dostępne wersje językowe do filtra - dokładne wartości z bazy (widok screening_lang_options).
-export const getAvailableLangs = unstable_cache(
-  async (): Promise<string[]> => {
-    const { data, error } = await supabase.from('screening_lang_options').select('lang');
-    if (error || !data) {
-      console.error('Błąd podczas pobierania wersji językowych:', error);
-      return [];
-    }
-    const langs = (data as { lang: string | null }[])
-      .map((r) => r.lang)
-      .filter((l): l is string => Boolean(l));
-    return [...new Set(langs)].sort((a, b) => a.localeCompare(b));
-  },
-  ['lang-options'],
-  { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
-);
-
 export function getAvailableDates(days = 14) {
   const dates = [];
   const now = new Date();

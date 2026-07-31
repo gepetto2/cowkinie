@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Search, Calendar as CalendarIcon, MapPin, X, ChevronDown, Film, Check, Languages, SlidersHorizontal, Tag, Globe2 } from "lucide-react";
+import { Search, Calendar as CalendarIcon, MapPin, X, ChevronDown, Film, Check, SlidersHorizontal, Tag, Globe2 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -35,7 +35,7 @@ function formatCount(n: number) {
   return `${n} filmów`;
 }
 
-export default function FilterBar({ cities, formats, langs, genres, resultCount }: { cities: string[]; formats: string[]; langs: string[]; genres: { name: string; count: number }[]; resultCount: number }) {
+export default function FilterBar({ cities, formats, genres, resultCount }: { cities: string[]; formats: string[]; genres: { name: string; count: number }[]; resultCount: number }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -47,7 +47,6 @@ export default function FilterBar({ cities, formats, langs, genres, resultCount 
   const from = searchParams.get("from") || "";
   const to = searchParams.get("to") || "";
   const selectedFormats = (searchParams.get("format") || "").split(",").filter(Boolean);
-  const selectedLangs = (searchParams.get("lang") || "").split(",").filter(Boolean);
   const selectedGenres = (searchParams.get("genre") || "").split(",").filter(Boolean);
 
   const setParams = (updates: Record<string, string>) => {
@@ -121,10 +120,9 @@ export default function FilterBar({ cities, formats, langs, genres, resultCount 
 
   const [cityOpen, setCityOpen] = useState(false);
   const [formatOpen, setFormatOpen] = useState(false);
-  const [langOpen, setLangOpen] = useState(false);
   const [genreOpen, setGenreOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false); // zwijanie filtrów na telefonie
-  const activeFilterCount = (from || to ? 1 : 0) + selectedCities.length + selectedFormats.length + selectedLangs.length + selectedGenres.length;
+  const activeFilterCount = (from || to ? 1 : 0) + selectedCities.length + selectedFormats.length + selectedGenres.length;
 
   const cityLabel = selectedCities.length === 0 ? "Wszystkie miasta"
     : selectedCities.length === 1 ? selectedCities[0] : `Miasta (${selectedCities.length})`;
@@ -136,12 +134,6 @@ export default function FilterBar({ cities, formats, langs, genres, resultCount 
   };
   const formatLabel = selectedFormats.length === 0 ? "Każdy format"
     : selectedFormats.length === 1 ? selectedFormats[0] : `Formaty (${selectedFormats.length})`;
-  const toggleLang = (l: string) => {
-    const next = selectedLangs.includes(l) ? selectedLangs.filter((x) => x !== l) : [...selectedLangs, l];
-    setParams({ lang: next.join(",") });
-  };
-  const langLabel = selectedLangs.length === 0 ? "Wersja językowa"
-    : selectedLangs.length === 1 ? selectedLangs[0] : `Wersje (${selectedLangs.length})`;
   const toggleGenre = (g: string) => {
     const next = selectedGenres.includes(g) ? selectedGenres.filter((x) => x !== g) : [...selectedGenres, g];
     setParams({ genre: next.join(",") });
@@ -159,9 +151,6 @@ export default function FilterBar({ cities, formats, langs, genres, resultCount 
   }
   for (const f of selectedFormats) {
     pills.push({ label: f, clear: () => setParams({ format: selectedFormats.filter((x) => x !== f).join(",") }) });
-  }
-  for (const l of selectedLangs) {
-    pills.push({ label: l, clear: () => setParams({ lang: selectedLangs.filter((x) => x !== l).join(",") }) });
   }
   for (const g of selectedGenres) {
     pills.push({ label: g, clear: () => setParams({ genre: selectedGenres.filter((x) => x !== g).join(",") }) });
@@ -318,46 +307,6 @@ export default function FilterBar({ cities, formats, langs, genres, resultCount 
             {selectedFormats.length > 0 && (
               <button
                 onClick={() => { setParams({ format: "" }); setFormatOpen(false); }}
-                className="mt-1 w-full text-left text-sm px-2.5 py-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors border-t border-slate-800"
-              >
-                Wyczyść
-              </button>
-            )}
-          </PopoverContent>
-        </Popover>
-        )}
-
-        {/* Wersja językowa (multi-select) */}
-        {langs.length > 0 && (
-        <Popover open={langOpen} onOpenChange={setLangOpen}>
-          <PopoverTrigger asChild>
-            <button className={triggerCls(selectedLangs.length > 0)}>
-              <Languages className="h-4 w-4" />
-              <span className="max-w-[130px] truncate">{langLabel}</span>
-              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-48 p-2">
-            {langs.map((l) => {
-              const on = selectedLangs.includes(l);
-              return (
-                <button
-                  key={l}
-                  onClick={() => toggleLang(l)}
-                  className="w-full flex items-center gap-2.5 text-left text-sm px-2.5 py-1.5 rounded-md text-slate-200 hover:bg-slate-800 transition-colors"
-                >
-                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                    on ? "bg-indigo-600 border-indigo-500" : "border-slate-600"
-                  }`}>
-                    {on && <Check className="h-3 w-3 text-white" />}
-                  </span>
-                  {l}
-                </button>
-              );
-            })}
-            {selectedLangs.length > 0 && (
-              <button
-                onClick={() => { setParams({ lang: "" }); setLangOpen(false); }}
                 className="mt-1 w-full text-left text-sm px-2.5 py-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors border-t border-slate-800"
               >
                 Wyczyść
