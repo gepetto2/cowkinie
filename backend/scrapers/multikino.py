@@ -67,6 +67,9 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 raise ScraperError("Multikino nie zwróciło żadnych kin - API niedostępne lub zablokowane.")
                 
             movies_cache = {}
+            # Ile kin realnie oddało repertuar. Sama niepusta lista kin nie wystarczy: gdyby padło
+            # API repertuaru, każde kino trafiłoby na `continue` i przebieg zaraportowałby sukces z zerem seansów.
+            cinemas_with_shows = 0
 
             # KROK 3: Iteracja po znalezionych kinach
             for cinema in target_cinemas:
@@ -95,6 +98,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     continue
 
                 films_list = data.get("result", []) if isinstance(data, dict) else []
+                if films_list:
+                    cinemas_with_shows += 1
                 logger.info(f"Pobrano {len(films_list)} filmów dla {cinema_name}. Zapisywanie do bazy...")
 
                 # KROK 4: Zbieranie filmów do operacji Upsert
@@ -220,6 +225,11 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                                 
                 if new_screenings:
                     upsert_screenings_chunked(supabase, new_screenings, cinema_name)
+
+            if not cinemas_with_shows:
+                raise ScraperError(
+                    f"Multikino: żadne z {len(target_cinemas)} kin nie zwróciło repertuaru - awaria lub blokada API."
+                )
 
             logger.info("Zakończono zapisywanie danych z Multikina!")
 

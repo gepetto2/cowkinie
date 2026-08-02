@@ -5,6 +5,7 @@ from html import unescape
 from zoneinfo import ZoneInfo
 from curl_cffi import requests
 from utils import parse_start_time, clean_title, ScraperError
+from core.small_sources import parse_credits, html_to_text
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,8 @@ def parse_repertoire(html: str, now: datetime):
             if not title:
                 continue
             m_hall = re.search(r'show-type-badge[^>]*>\s*<a[^>]*>([^<]+)</a>', sec)
+            # Linia 'reż. …' jest na stronie repertuaru, którą i tak pobieramy - zero dodatkowych żądań.
+            director, year, length = parse_credits(html_to_text(sec))
             out.append({
                 "date": date,
                 "time": re.sub(r"\s+", "", m_time.group(1)),  # '13 : 10' -> '13:10'
@@ -86,6 +89,9 @@ def parse_repertoire(html: str, now: datetime):
                 "title": title,
                 "movie_type": _movie_type(raw_title),  # np. 'Kino Dzieci' -> DLA DZIECI (przed ucięciem dopisku)
                 "hall": _strip_html(m_hall.group(1)) if m_hall else None,
+                "director": director,
+                "release_year": year,
+                "length": length,
             })
     return out
 
@@ -142,6 +148,16 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 upsert_screenings_chunked(supabase, new_screenings, "Kino Bułgarska 19")
 
             logger.info("Zakończono zapisywanie danych z Kina Bułgarska 19!")
+
+            # Reżyser, rok i długość idą do wspólnych kolumn małych kin - scalaniem po priorytecie
+            # zajmuje się core/small_sources.py po zakończeniu wszystkich scraperów.
+            meta = {}
+            for s in shows:
+                entry = meta.setdefault(s["title"], {})
+                for field in ("director", "release_year", "length"):
+                    if entry.get(field) is None and s.get(field) is not None:
+                        entry[field] = s[field]
+            return meta
 
         except Exception:
             logger.exception("[Bułgarska] Błąd w trakcie scrapowania")

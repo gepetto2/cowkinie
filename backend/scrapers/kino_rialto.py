@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 from curl_cffi import requests
 
 from utils import parse_start_time, clean_title, normalize_lang, ScraperError
+from core.small_sources import fetch_details
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 logger = logging.getLogger(__name__)
@@ -101,11 +102,26 @@ def parse_event_dates(html: str) -> list:
     return [d for d in dates if isinstance(d, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", d)]
 
 
-def parse_day(html: str, date: str) -> list:
-    """Parsuje stronę jednego dnia -> lista seansów (dict): time, title, format, lang, screening_id.
+def _genre_and_length(info: str):
+    """'Dramat | 114 min' -> ('Dramat', 114). Pole bywa niepełne ('Przygodowy' bez czasu)."""
+    raw = _strip_html(info)
+    if not raw:
+        return None, None
+    parts = [p.strip() for p in raw.split("|")]
+    genre = parts[0] or None
+    length = None
+    for p in parts[1:]:
+        m = re.search(r"(\d{2,3})\s*min", p)
+        if m:
+            length = int(m.group(1))
+            break
+    return genre, length
 
-    Metadanych filmu (gatunek, długość) NIE zbieramy, choć są na stronie - zgodnie z modelem małych
-    kin bierze je enrichment, żeby nie mnożyć kolumn per-źródło. Czysta funkcja (testowalna offline).
+
+def parse_day(html: str, date: str) -> list:
+    """Parsuje stronę jednego dnia -> lista seansów (dict): time, title, format, lang, screening_id,
+    a także gatunek i długość filmu (trafiają do wspólnych kolumn *_small małych kin).
+    Czysta funkcja (testowalna offline).
     """
     out, seen = [], set()
     for part in (chunk[:4000] for chunk in html.split(_ITEM_SPLIT)[1:]):
@@ -131,6 +147,10 @@ def parse_day(html: str, date: str) -> list:
 
         m_fmt = re.search(r'b24-button__format format">([^<]*)<', part)
         fmt, lang = _format_and_lang(m_fmt.group(1) if m_fmt else "")
+        m_info = re.search(r'<div class="info">([^<]*)</div>', part)
+        genre, length = _genre_and_length(m_info.group(1) if m_info else "")
+        m_movie = re.search(r'/wydarzenie/\?id=(\d+)', part)
+        movie_id = m_movie.group(1) if m_movie else None
 
         out.append({
             "date": date,
@@ -139,6 +159,9 @@ def parse_day(html: str, date: str) -> list:
             "format": fmt,
             "lang": lang,
             "screening_id": screening_id,
+            "genre": genre,
+            "length": length,
+            "movie_id": movie_id,
         })
     return out
 
@@ -228,6 +251,27 @@ async def scrape_and_save(supabase, cities=["Poznań"], base_url: str = BASE_URL
                 upsert_screenings_chunked(supabase, new_screenings, cinema_name)
 
             logger.info(f"Zakończono zapisywanie danych z {cinema_name}!")
+
+            # Metadanych NIE zapisujemy tutaj - zwracamy je, a scalaniem po priorytecie zajmuje się
+            # core/small_sources.py po zakończeniu wszystkich scraperów (patrz komentarz tamże).
+            # Reżyser i rok są tylko na stronie wydarzenia - pobieramy raz na FILM, nie na seans.
+            pages = {s["movie_id"]: f"{base_url}/wydarzenie/?id={s['movie_id']}"
+                     for s in shows if s.get("movie_id")}
+            details = await fetch_details(client, pages)
+            found = sum(1 for v in details.values() if v[0])
+            logger.info(f"{cinema_name}: pobrano szczegóły {len(pages)} filmów (reżyser w {found}).")
+
+            meta = {}
+            for s in shows:
+                entry = meta.setdefault(s["title"], {})
+                for field in ("genre", "length"):
+                    if entry.get(field) is None and s.get(field) is not None:
+                        entry[field] = s[field]
+                director, year, length = details.get(s.get("movie_id"), (None, None, None))
+                for field, value in (("director", director), ("release_year", year), ("length", length)):
+                    if entry.get(field) is None and value is not None:
+                        entry[field] = value
+            return meta
 
         except Exception:
             logger.exception(f"[{cinema_name}] Błąd w trakcie scrapowania")

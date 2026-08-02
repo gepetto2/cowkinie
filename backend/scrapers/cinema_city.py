@@ -149,6 +149,9 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             existing_cc = load_existing_movies(supabase, ["director_cc", "cast_cc", "description_cc", "poster_cc", "poster_cc_framed"])
 
             sem = asyncio.Semaphore(10)  # Ograniczenie do max. 10 jednoczesnych połączeń
+            # Ile kin realnie oddało repertuar. Sama niepusta lista kin nie wystarczy: gdyby padło
+            # API dat/seansów, każde kino trafiłoby na `continue` i przebieg zaraportowałby sukces z zerem seansów.
+            cinemas_with_shows = 0
 
             # KROK 3: Iteracja po znalezionych kinach
             for cinema in target_cinemas:
@@ -183,6 +186,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     logger.info(f"Brak dostępnych dat w API dla kina {cinema_name}.")
                     continue
 
+                cinemas_with_shows += 1
                 logger.info(f"Znaleziono {len(dates_list)} dni z seansami. Pobieranie harmonogramów...")
 
                 # Współbieżne pobieranie wydarzeń dla wszystkich dni
@@ -377,6 +381,11 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
 
                 if new_screenings:
                     upsert_screenings_chunked(supabase, new_screenings, cinema_name)
+
+            if not cinemas_with_shows:
+                raise ScraperError(
+                    f"Cinema City: żadne z {len(target_cinemas)} kin nie zwróciło repertuaru - awaria lub blokada API."
+                )
 
             logger.info(f"Zakończono zapisywanie danych z Cinema City dla miast: {', '.join(cities)}!")
 

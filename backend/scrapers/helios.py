@@ -83,6 +83,9 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             db_movies_cache = {}
             global_movie_details_cache = {}
             sem = asyncio.Semaphore(15)
+            # Ile kin realnie oddało repertuar. Zero przy niepustej liście kin = awaria API seansów
+            # (patrz kontrola po pętli) - bez tego licznika przebieg kończyłby się "sukcesem" z zerem seansów.
+            cinemas_with_shows = 0
             
             # Ustawienie ram czasowych
             now = datetime.now(ZoneInfo("Europe/Warsaw"))
@@ -132,12 +135,22 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     if scr_resp.status_code == 200: screenings_data = scr_resp.json()
                     if ev_resp.status_code == 200: events_data = ev_resp.json()
                     if v1_resp.status_code == 200: v1_screenings_data = v1_resp.json()
+
+                    # Kod błędu MUSI trafić do logu. Bez tego awaria restapi (np. HTTP 500
+                    # "Internal ext-soap error") wyglądała w logu jak zwykłe "Brak seansów",
+                    # czyli nie do odróżnienia od kina, które faktycznie nie gra.
+                    for label, resp in (("screening", scr_resp), ("event", ev_resp), ("v1 screenings", v1_resp)):
+                        if resp.status_code != 200:
+                            logger.error(
+                                f"[{cinema_name}] {label}: HTTP {resp.status_code} - {resp.text[:200]}"
+                            )
                 except Exception as e:
                     logger.error(f"Błąd pobierania harmonogramu: {e}")
 
                 if not screenings_data and not events_data:
                     logger.info(f"Brak seansów dla {cinema_name}.")
                     continue
+                cinemas_with_shows += 1
 
                 # 3. Rozwiązanie brakujących tytułów filmów ze zwykłych seansów i wydarzeń
                 unique_movie_ids = {s.get("movieId") for s in screenings_data if s.get("movieId")}
@@ -354,6 +367,14 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
 
                 if new_screenings:
                     upsert_screenings_chunked(supabase, new_screenings, cinema_name)
+
+            # Lista kin przyszła, ale ŻADNE nie oddało repertuaru - to awaria API seansów, nie stan faktyczny
+            # (03.08.2026: restapi.helios.pl oddawało HTTP 500 dla wszystkich kin). Bez tego wyjątku przebieg
+            # kończył się kodem 0, a stare seanse zostawały w bazie po cichu przeterminowane.
+            if not cinemas_with_shows:
+                raise ScraperError(
+                    f"Helios: żadne z {len(target_cinemas)} kin nie zwróciło seansów - awaria API repertuaru."
+                )
 
             logger.info("Zakończono zapisywanie danych z Heliosa!")
 

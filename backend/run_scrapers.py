@@ -23,6 +23,7 @@ from db.database import (
     dedupe_ukrainian_by_tmdb, delete_past_screenings, delete_orphan_movies, log_run_summary,
 )
 from core.enrich_movies import enrich_movies_data, refresh_movie_ratings
+from core.small_sources import save_small_sources
 
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,19 @@ async def run_all() -> bool:
         logger.warning("Nieudane źródła: %s. Kontynuuję konsolidację na danych częściowych.", ", ".join(failed))
     else:
         logger.info("Wszystkie źródła (%s) pobrane i zapisane.", ", ".join(sources))
+
+    # Dane z małych kin scalamy PO zakończeniu wszystkich scraperów, wg jawnego priorytetu.
+    # Scrapery działają równolegle, więc gdyby każdy zapisywał wspólne kolumny *_small sam,
+    # o wartości decydowałby ten, który akurat skończy później (patrz core/small_sources.py).
+    # Klucze muszą odpowiadać nazwom w small_sources.PRIORITY - to one ustalają pierwszeństwo.
+    SMALL_SOURCE_KEYS = {"Kino Rialto": "rialto", "Kino Pałacowe": "palacowe", "Kino Bułgarska 19": "bulgarska"}  # Apollo pomijamy - patrz komentarz w scrapers/kino_apollo.py
+    small_data = {
+        SMALL_SOURCE_KEYS[name]: res
+        for name, res in zip(sources, results)
+        if name in SMALL_SOURCE_KEYS and isinstance(res, dict)
+    }
+    if small_data:
+        save_small_sources(supabase, small_data)
 
     # Łączymy rekordy różniące się tylko diakrytykami w tytule (np. Andre/André Rieu)
     # przed konsolidacją, żeby dalsze kroki pracowały na odchudzonym zbiorze.

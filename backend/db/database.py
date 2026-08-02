@@ -65,15 +65,18 @@ def consolidate_movie_data(supabase):
     # Źródła per pole (kolejność = priorytet tam, gdzie bierzemy pierwszą niepustą wartość).
     # Rok i movie_type mają osobne listy, bo Bułgarska dostarcza tylko movie_type (Kino Dzieci -> DLA DZIECI).
     cinemas = ("multikino", "cc", "helios", "muza")
-    year_sources = cinemas + ("apollo",)              # rok produkcji: kina + Apollo (rok z nawiasu)
-    type_sources = cinemas + ("apollo", "bulgarska")  # movie_type: + Apollo (NzN) i Bułgarska (Kino Dzieci)
-    ot_sources = ("helios", "muza")  # original_title: tylko Helios i Muza (CC/Multikino nie dostarczają), priorytet Helios -> Muza
+    # Reżyser trafia też ze wspólnych kolumn małych kin - używa go dopasowanie w TMDB.
+    director_sources = cinemas + ("small",)
+    year_sources = cinemas + ("apollo", "small")              # rok produkcji: kina + Apollo + małe kina
+    type_sources = cinemas + ("apollo", "bulgarska", "small") # movie_type: + Apollo (NzN), Bułgarska, małe kina
+    # original_title: Helios i Muza (CC/Multikino nie dostarczają) + wspólne źródło małych kin.
+    ot_sources = ("helios", "muza", "small")
 
     # Pobieramy filmy, które nie mają jeszcze głównego release_year, movie_type, director lub original_title
     select_cols = ["id", "title", "release_year", "movie_type", "director", "original_title"]
     select_cols += [f"release_year_{s}" for s in year_sources]
     select_cols += [f"movie_type_{s}" for s in type_sources]
-    select_cols += [f"director_{s}" for s in cinemas]
+    select_cols += [f"director_{s}" for s in director_sources]
     select_cols += [f"original_title_{s}" for s in ot_sources]
     response = supabase.table("movies").select(", ".join(select_cols)).or_(
         "release_year.is.null,movie_type.is.null,director.is.null,original_title.is.null"
@@ -104,7 +107,7 @@ def consolidate_movie_data(supabase):
                 update_data["movie_type"] = valid_types[0]
 
         if movie.get("director") is None:
-            valid_directors = [d for d in (movie.get(f"director_{s}") for s in cinemas) if d]
+            valid_directors = [d for d in (movie.get(f"director_{s}") for s in director_sources) if d]
             if valid_directors:
                 unique_directors = list({d.lower(): d for d in valid_directors}.values())
                 if len(unique_directors) > 1:
@@ -226,21 +229,21 @@ def consolidate_post_enrich(supabase):
     # Źródła per pole. Kolejność = priorytet dla length i poster (pierwsza niepusta wygrywa).
     # Datę/rok premiery bierzemy z kin + TMDB/Filmweb (bez Lumiere - jego premiera bywa datą wznowienia).
     date_sources = ("multikino", "cc", "helios", "tmdb", "filmweb", "muza")
-    year_sources = date_sources + ("apollo",)  # rok produkcji też z Apollo (Apollo nie podaje daty premiery)
-    length_sources = ("tmdb", "filmweb", "helios", "cc", "multikino", "muza", "lumiere")
+    year_sources = date_sources + ("apollo", "small")  # rok też z Apollo i małych kin (nie podają daty premiery)
+    length_sources = ("tmdb", "filmweb", "helios", "cc", "multikino", "muza", "lumiere", "small")
     # Lokalne (PL) plakaty z kin, TMDB/Filmweb jako fallback. "cc_framed" (plakaty CC z brandową
     # pomarańczową ramką) na samym końcu - bierzemy je dopiero w ostateczności, gdy nie ma nic czystszego.
-    poster_sources = ("cc", "helios", "multikino", "muza", "apollo", "tmdb", "filmweb", "cc_framed")
+    poster_sources = ("cc", "helios", "multikino", "muza", "apollo", "small", "tmdb", "filmweb", "cc_framed")
     # Gatunek konsolidujemy jako UNIĘ znormalizowanych tokenów ze wszystkich źródeł. Kolejność źródeł
     # steruje kolejnością wyświetlania (pierwszy gatunek = główny) - Filmweb najpierw (najbogatszy, 75% pokrycia).
-    genre_sources = ("filmweb", "cc", "helios", "lumiere")
+    genre_sources = ("filmweb", "cc", "helios", "lumiere", "small")
     GENRE_MAX = 4  # limit tokenów, by lista nie puchła
     # Obsada: priorytet z zachowaniem kolejności - TMDB (billing) -> najbogatsze kino -> Filmweb (płytki).
     cast_sources = ("tmdb", "cc", "helios", "multikino", "filmweb")
     CAST_MAX = 6  # limit nazwisk
     # Opis: natywny PL i redakcyjny najpierw. Filmweb bywa urwanym teaserem z /preview ("…") - takie
     # DEGRADUJEMY: preferujemy pierwszy PEŁNY (nie urwany) opis, a urwany bierzemy dopiero jako fallback.
-    desc_sources = ("filmweb", "tmdb", "cc", "multikino", "helios", "lumiere", "muza", "apollo")
+    desc_sources = ("filmweb", "tmdb", "cc", "multikino", "helios", "lumiere", "muza", "apollo", "small")
     # Reżyser i tytuł oryginalny: kina konsolidowane są przed-enrich; tu DOPEŁNIAMY z TMDB/Filmweb
     # dla filmów, które nie mają tych danych z kin (TMDB ma kanoniczny original_title).
     director_fallback = ("tmdb", "filmweb")

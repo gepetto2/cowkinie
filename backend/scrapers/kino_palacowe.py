@@ -4,6 +4,7 @@ import re
 from curl_cffi import requests
 
 from utils import parse_start_time, clean_title, ScraperError
+from core.small_sources import fetch_details
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 logger = logging.getLogger(__name__)
@@ -74,8 +75,24 @@ def parse_entries(payload: dict) -> list:
                     "room_name": room,
                     "is_outdoor": outdoor,
                     "booking_link": e.get("ticket_url") or None,
+                    "poster": _poster_url(e.get("photo")),
+                    "movie_id": e.get("id"),
+                    "movie_url": e.get("url") or None,
                 })
     return out
+
+
+def _poster_url(photo) -> str | None:
+    """Pełny adres plakatu z pola `photo` API (ścieżki są względne).
+
+    Bierzemy największy dostępny rozmiar - kafelki i modal skalują obraz w dół, a przy wznowieniach
+    i filmach studyjnych bywa to jedyny plakat, jaki w ogóle mamy.
+    """
+    sizes = (photo or {}).get("sizes") or {}
+    path = sizes.get("lg") or sizes.get("md") or (photo or {}).get("image") or sizes.get("sm")
+    if not path:
+        return None
+    return path if path.startswith("http") else f"{BASE_URL}{path}"
 
 
 async def _discover_widget_hash(client) -> str:
@@ -168,6 +185,28 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 upsert_screenings_chunked(supabase, new_screenings, CINEMA_NAME)
 
             logger.info(f"Zakończono zapisywanie danych z {CINEMA_NAME}!")
+
+            # Reżyser, rok i długość są TYLKO na stronie filmu - API ich nie wystawia (sprawdzone:
+            # calendar, events, search). Pobieramy je raz na FILM, nie raz na seans: 80 seansów to
+            # ~50 unikalnych filmów, więc deduplikacja po identyfikatorze oszczędza 30 żądań.
+            pages = {s["movie_id"]: s["movie_url"] for s in shows if s.get("movie_id") and s.get("movie_url")}
+            details = await fetch_details(client, pages)
+            found = sum(1 for v in details.values() if v[0])
+            logger.info(f"{CINEMA_NAME}: pobrano szczegóły {len(pages)} filmów (reżyser w {found}).")
+
+            # Metadane oddajemy do scalenia po priorytecie (core/small_sources.py). Świadomie BEZ opisu:
+            # pole `lead` z API opisuje wydarzenie ("Plenerowe Pałacowe 2026, Dziedziniec Zamkowy…"),
+            # a nie film, więc jako opis filmu byłoby mylące.
+            meta = {}
+            for s in shows:
+                entry = meta.setdefault(s["title"], {})
+                if entry.get("poster") is None and s.get("poster"):
+                    entry["poster"] = s["poster"]
+                director, year, length = details.get(s.get("movie_id"), (None, None, None))
+                for field, value in (("director", director), ("release_year", year), ("length", length)):
+                    if entry.get(field) is None and value is not None:
+                        entry[field] = value
+            return meta
 
         except Exception:
             logger.exception(f"[{CINEMA_NAME}] Błąd w trakcie scrapowania")

@@ -199,12 +199,22 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             if not screenings:
                 raise ScraperError("Kino Apollo: listing filmowy nie zwrócił żadnego seansu - zmiana struktury strony?")
 
-            # Mapa dopasowania: klucz tytułu -> plakat/opis z CPT 'kino'
+            # Mapa dopasowania: klucz tytułu -> plakat/opis z CPT 'kino'.
+            # UWAGA: danych technicznych (reżyser/rok/długość) NIE bierzemy ze stron katalogu.
+            # Ich treść jest NIESTABILNA między żądaniami - strona filmu potrafi raz zawierać
+            # linię 'reż. …' z bloku polecanych (czyli CUDZEGO filmu), a raz nie. Sprawdzone:
+            # ta sama strona zwróciła raz 'Miloš Forman, 1975', raz nic. Błędny reżyser jest
+            # gorszy niż jego brak, bo psuje dopasowanie w TMDB.
+            # Katalog trzyma tytuły SUROWE („Kultowe wakacje” – Ghost in the Shell (1995)), a listing
+            # oddaje już OCZYSZCZONE (Ghost in the Shell), więc klucz budujemy po tym samym czyszczeniu.
+            # Rejestrujemy też wariant surowy - tytuły bez ozdobników trafiają wtedy obiema drogami.
             kino_by_key = {}
             for k in kino_posts:
-                key = _match_key((k.get("title") or {}).get("rendered") or "")
-                if key and key not in kino_by_key:
-                    kino_by_key[key] = k
+                raw = (k.get("title") or {}).get("rendered") or ""
+                cleaned, _, _ = _clean_apollo_name(unescape(raw))
+                for key in (_match_key(clean_title(cleaned)), _match_key(raw)):
+                    if key and key not in kino_by_key:
+                        kino_by_key[key] = k
 
             # KROK 1: filmy
             movies_to_upsert = {}
