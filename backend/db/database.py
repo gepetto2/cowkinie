@@ -174,6 +174,47 @@ def _canon_genre(token: str):
         return []
     return list(mapped) if isinstance(mapped, tuple) else [mapped]
 
+# Progi, powyżej których uznajemy, że TMDB i Filmweb opisują RÓŻNE filmy, a nie ten sam z drobnymi
+# rozbieżnościami w danych. Rok jest sygnałem najmocniejszym: remake'i i wznowienia dzielą od
+# oryginału zwykle dekady, a legalny rozjazd (premiera festiwalowa vs kinowa) to najwyżej rok.
+_MISMATCH_YEAR_GAP = 3
+_MISMATCH_LENGTH_MIN = 20
+
+
+def _log_source_mismatch(movie: dict):
+    """Ostrzega, gdy TMDB i Filmweb najwyraźniej dopasowały się do DWÓCH RÓŻNYCH filmów.
+
+    Bez tego taki rozjazd przechodzi bez śladu, a konsolidacja skleja z obu źródeł jeden rekord-zlepek:
+    tak powstał "Oldboy" z tmdb_id i reżyserem remake'u z 2013 oraz opisem i rokiem oryginału z 2003.
+    Świadomie tylko logujemy - automatyczne odrzucanie danych przy niepewnej heurystyce zrobiłoby
+    więcej szkody niż pożytku, a wpis w logu wystarczy, by namierzyć film i poprawić dopasowanie.
+    """
+    y_tmdb, y_fw = movie.get("release_year_tmdb"), movie.get("release_year_filmweb")
+    l_tmdb, l_fw = movie.get("length_tmdb"), movie.get("length_filmweb")
+    d_tmdb, d_fw = movie.get("director_tmdb"), movie.get("director_filmweb")
+
+    reasons = []
+    if y_tmdb and y_fw and abs(int(y_tmdb) - int(y_fw)) >= _MISMATCH_YEAR_GAP:
+        reasons.append(f"rok {y_tmdb} vs {y_fw}")
+    if l_tmdb and l_fw and abs(int(l_tmdb) - int(l_fw)) >= _MISMATCH_LENGTH_MIN:
+        reasons.append(f"długość {l_tmdb} vs {l_fw} min")
+    if d_tmdb and d_fw:
+        # Nazwiska bywają zapisane różnie (kolejność, znaki diakrytyczne), więc za rozjazd uznajemy
+        # dopiero brak JAKIEJKOLWIEK wspólnej części - inaczej hałasowałoby przy każdym duecie reżyserów.
+        a, b = d_tmdb.lower(), d_fw.lower()
+        if a not in b and b not in a and not (set(a.split()) & set(b.split())):
+            reasons.append(f"reżyser '{d_tmdb}' vs '{d_fw}'")
+
+    # Sam rozjazd długości bywa niewinny (wersje reżyserskie, różne montaże), więc alarmujemy dopiero
+    # przy dwóch niezależnych sygnałach albo przy rozjeździe roku, który sam w sobie jest rozstrzygający.
+    year_off = any(r.startswith("rok") for r in reasons)
+    if year_off or len(reasons) >= 2:
+        logger.warning(
+            "Niezgodność źródeł dla filmu '%s' - TMDB i Filmweb mogły trafić w różne filmy (%s)",
+            movie.get("title"), "; ".join(reasons),
+        )
+
+
 def consolidate_post_enrich(supabase):
     """Po enrich: konsoliduje pola, które NIE są potrzebne do wyszukiwania w API, więc korzystają
     już z danych TMDB/Filmweb - release_date, release_year (finalny), length, poster, genre.
@@ -225,6 +266,9 @@ def consolidate_post_enrich(supabase):
     updated_count = 0
     for movie in movies:
         update_data = {}
+
+        # Sygnalizujemy rozjazd TMDB/Filmweb ZANIM zaczniemy sklejać z nich jeden rekord.
+        _log_source_mismatch(movie)
 
         # Data premiery: mediana dostępnych źródeł (stringi ISO 'YYYY-MM-DD' porównują się chronologicznie).
         # Odporna na wczesne daty-outliery: TMDB czasem podaje datę festiwalu/premiery (np. lipiec),

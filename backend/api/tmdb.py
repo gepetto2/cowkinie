@@ -180,15 +180,28 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
             unique_results.append(res)
             seen_ids.add(res["id"])
 
-    best_match = None
-    for result in unique_results:
-        res_title = result.get("title", "").lower()
-        res_orig = result.get("original_title", "").lower()
-        if res_title == lower_title or res_orig == lower_title or (lower_original_title and (res_title == lower_original_title or res_orig == lower_original_title)):
-            best_match = result
-            break
-            
-    if not best_match:
+    # Spośród DOKŁADNYCH trafień tytułu bierzemy ten z największą liczbą głosów, a nie pierwszy
+    # z listy. Kolejność TMDB bywa myląca: dla "Oldboy" stawia na czele remake z 2013 (2 tys. głosów)
+    # przed oryginałem z 2003 (10 tys. głosów), przez co film dostawał reżysera i tmdb_id nie tego
+    # tytułu, co opis z Filmwebu. Ta sama zasada obowiązuje już przy dopasowaniu po reżyserze wyżej.
+    #
+    # Ryzyko pomyłki w drugą stronę (nowy film o tytule starego klasyka) jest ograniczone: filmy
+    # z sieciówek mają rok z API kina, więc `perform_search` zawęża wyniki do właściwego rocznika,
+    # a bez roku szukamy głównie repertuaru kin studyjnych, czyli klasyków i wznowień.
+    exact = [
+        r for r in unique_results
+        if (r.get("title", "").lower() in (lower_title, lower_original_title)
+            or r.get("original_title", "").lower() in (lower_title, lower_original_title))
+    ]
+    if exact:
+        best_match = max(exact, key=lambda c: c.get("vote_count") or 0)
+        if best_match is not exact[0]:
+            logger.debug(
+                f"[TMDB] '{title}': wybrano '{best_match.get('title')}' "
+                f"({(best_match.get('release_date') or '')[:4]}, {best_match.get('vote_count')} głosów) "
+                f"zamiast pierwszego '{exact[0].get('title')}' ({(exact[0].get('release_date') or '')[:4]})"
+            )
+    else:
         best_match = unique_results[0]
         
     tmdb_movie = await get_movie_details(best_match["id"])
