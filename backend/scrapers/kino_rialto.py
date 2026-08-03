@@ -103,18 +103,27 @@ def parse_event_dates(html: str) -> list:
 
 
 def _genre_and_length(info: str):
-    """'Dramat | 114 min' -> ('Dramat', 114). Pole bywa niepełne ('Przygodowy' bez czasu)."""
+    """'Dramat | 114 min' -> ('Dramat', 114). Pole bywa niepełne - w dowolną stronę.
+
+    Może zabraknąć czasu ('Przygodowy'), ale też SAMEGO GATUNKU ('133 min') - i wtedy nie ma znaku '|',
+    po którym dzielimy. Dlatego czasu szukamy we WSZYSTKICH członach, a pierwszy człon uznajemy za
+    gatunek dopiero, gdy nie okazał się samą długością. Bez tego film z takim polem dostawał
+    gatunek '133 min' i tracił długość naraz (tak trafiła do bazy 'Kuźma').
+    """
     raw = _strip_html(info)
     if not raw:
         return None, None
     parts = [p.strip() for p in raw.split("|")]
-    genre = parts[0] or None
+
     length = None
-    for p in parts[1:]:
+    for p in parts:
         m = re.search(r"(\d{2,3})\s*min", p)
         if m:
             length = int(m.group(1))
             break
+
+    first = parts[0] or None
+    genre = None if first and re.fullmatch(r"\d{2,3}\s*min\.?", first, re.IGNORECASE) else first
     return genre, length
 
 

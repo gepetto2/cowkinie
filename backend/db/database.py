@@ -164,18 +164,43 @@ _GENRE_CANON = {
     "Przyrodniczy": "Dokumentalny",
     "Dla dzieci": "Familijny",
     "Musical": "Muzyczny",
+    "Dramat Komedia": ("Dramat", "Komedia"),
     "Niemy": None,
+    # FORMATY WYDARZEŃ, nie gatunki filmowe. Helios podaje je w polu gatunku, choć z tych samych
+    # napisów wylicza sobie movie_type (KONCERT, TEATR, CYRK) - ta sama informacja trafiała więc do
+    # dwóch pól, a w gatunku bywała JEDYNĄ wartością ("Katy Perry: The Lifetimes Tour" -> "Koncert").
+    "Koncert": None,
+    "Spektakl teatralny": None,
+    "Wydarzenie cyrkowe": None,
+    "Stand-up": None,
 }
 
+# Token musi wyglądać jak nazwa gatunku: bez cyfr i o rozsądnej długości. Bez tego DOWOLNY napis
+# od kina ląduje w polu widocznym dla użytkownika - tak film 'Kuźma' dostał gatunek '133 min'
+# (Rialto podało w tym polu samą długość). Źródło naprawiamy u siebie, ale kin jest dziesięć i każde
+# może wstawić tam cokolwiek, więc odsiew zostaje TUTAJ, na wspólnej drodze wszystkich źródeł.
+# Dolny limit to 2 znaki - dopuszczamy skróty w rodzaju "SF", odcinamy śmieci w rodzaju "-".
+_GENRE_REJECT = re.compile(r"\d|^.$|^.{31,}$")
+
+
 def _canon_genre(token: str):
-    """Znormalizowane tokeny gatunku: lista 0/1/2 elementów (złożone rozbijamy na składowe)."""
+    """Znormalizowane tokeny gatunku: lista 0/1/2 elementów (złożone rozbijamy na składowe).
+
+    Tokeny spoza mapy przechodzą bez zmian, ale tylko jeśli w ogóle przypominają gatunek.
+    """
     t = (token or "").strip()
     if not t:
         return []
-    mapped = _GENRE_CANON.get(t, t)
-    if mapped is None:
+    if t in _GENRE_CANON:
+        # Wpisy ze słownika są zaufane - dodaliśmy je świadomie i filtr ich nie dotyczy.
+        mapped = _GENRE_CANON[t]
+        if mapped is None:
+            return []
+        return list(mapped) if isinstance(mapped, tuple) else [mapped]
+    if _GENRE_REJECT.search(t):
+        logger.debug("Odrzucono token gatunku (nie wygląda na gatunek): %r", t)
         return []
-    return list(mapped) if isinstance(mapped, tuple) else [mapped]
+    return [t]
 
 # Progi, powyżej których uznajemy, że TMDB i Filmweb opisują RÓŻNE filmy, a nie ten sam z drobnymi
 # rozbieżnościami w danych. Rok jest sygnałem najmocniejszym: remake'i i wznowienia dzielą od
@@ -315,12 +340,20 @@ def consolidate_post_enrich(supabase):
             raw = movie.get(f"genre_{s}")
             if not raw:
                 continue
-            for tok in raw.split(","):
+            # Dzielimy po przecinku ORAZ po ukośniku: małe kina zapisują pary jako "Komedia / Dramat",
+            # co bez tego zostawało jednym tokenem, zjadało miejsce w limicie i dublowało gatunek już
+            # dodany osobno przez inne źródło ('Absolwent': "Dramat, Obyczajowy, Komedia / Dramat").
+            for tok in re.split(r"[,/]", raw):
                 for canon in _canon_genre(tok):
                     if canon not in genre_toks:
                         genre_toks.append(canon)
         genre = ", ".join(genre_toks[:GENRE_MAX]) or None
-        if genre and genre != movie.get("genre"):
+        # Zapisujemy TAKŻE pustkę. Wcześniej warunek brzmiał `if genre and ...`, więc wyczyszczenie
+        # gatunku było niemożliwe: film, którego jedyny token okazał się nie-gatunkiem ('133 min',
+        # 'Koncert'), zachowywał starą wartość mimo poprawki w kanonizacji. Nadpisanie pustką jest tu
+        # bezpieczne, bo kolumny źródłowe `genre_*` zostają w bazie między przebiegami - awaria
+        # pojedynczego źródła nie sprawi, że unia nagle zrobi się pusta.
+        if genre != movie.get("genre"):
             update_data["genre"] = genre
 
         # Reżyser: dopełnienie z TMDB/Filmweb, gdy kina go nie podały (konsolidacja kin jest przed-enrich)
