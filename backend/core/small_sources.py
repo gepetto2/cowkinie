@@ -88,12 +88,25 @@ FIELDS = (
 # tego samego filmu.
 #
 # Kolejność wynika z jakości danych, nie z wielkości kina:
+#  - malta     - najbogatsze źródło: reżyser przy KAŻDYM filmie, pełne opisy i duże plakaty
+#                (oklasowane pola wtyczki wpmovielibrary), ale bez roku produkcji - patrz EXCLUDED_FIELDS,
 #  - apollo    - ma rok produkcji i realny opis filmu,
 #  - rialto    - podaje gatunek i długość wprost przy seansie,
 #  - palacowe  - dobre plakaty, ale UWAGA: jego `lead` opisuje WYDARZENIE ("Plenerowe Pałacowe 2026,
 #                Dziedziniec Zamkowy…"), a nie film, więc opisu stamtąd świadomie nie bierzemy,
 #  - bulgarska - najuboższe źródło, na końcu.
-PRIORITY = ("apollo", "rialto", "palacowe", "bulgarska")
+PRIORITY = ("malta", "apollo", "rialto", "palacowe", "bulgarska")
+
+# Pola, których dane źródło NIE dostarcza wiarygodnie - pomijamy je przy scalaniu nawet wtedy, gdy
+# scraper coś w nich zwróci. To zabezpieczenie na przyszłość: samo pominięcie pola w scraperze działa,
+# ale nie niesie ostrzeżenia i ktoś (łącznie ze mną) dopisze je później "bo przecież jest na stronie".
+EXCLUDED_FIELDS = {
+    # Malta podaje w nawiasie rok POLSKIEJ dystrybucji, nie produkcji: "Requiem dla snu (2026)" przy
+    # filmie z 2000, "Harry Angel (2025)" przy filmie z 1987. A że to kino regularnie gra wznowienia
+    # klasyki, taki rok w release_year kierowałby TMDB prosto na remake - dokładnie ten błąd, przez
+    # który Oldboy dostał opis i plakat wersji z 2013 zamiast oryginału z 2003.
+    "malta": ("release_year",),
+}
 
 
 def merge_by_priority(per_source: dict) -> dict:
@@ -115,9 +128,12 @@ def merge_by_priority(per_source: dict) -> dict:
 
     merged: dict[str, dict] = {}
     for source in order:
+        excluded = EXCLUDED_FIELDS.get(source, ())
         for title, data in (per_source.get(source) or {}).items():
             target = merged.setdefault(title, {})
             for field in FIELDS:
+                if field in excluded:
+                    continue
                 col = f"{field}_small"
                 # Pierwsze źródło z wartością wygrywa - kolejne już jej nie nadpisują.
                 if target.get(col) is None and data.get(field) is not None:

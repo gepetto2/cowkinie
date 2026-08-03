@@ -134,6 +134,83 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
             return _format_tmdb_response(full, extract_directors(full))
         return None
 
+    async def directed_films(person_id: int):
+        """Filmy wyreżyserowane przez daną osobę, z tytułami PO POLSKU I PO ANGIELSKU.
+
+        Pobieramy filmografię w obu językach, bo tytuł od kina bywa raz polski ('Amelia'), a raz
+        angielski ('Breathless' przy filmie, który TMDB prowadzi jako 'Do utraty tchu' /
+        'À bout de souffle'). Scalamy je po id filmu w jeden zestaw tytułów do porównania.
+        """
+        pl_data, en_data = await asyncio.gather(
+            _fetch_json(session, f"https://api.themoviedb.org/3/person/{person_id}/movie_credits",
+                        {"api_key": TMDB_API_KEY, "language": "pl-PL"}),
+            _fetch_json(session, f"https://api.themoviedb.org/3/person/{person_id}/movie_credits",
+                        {"api_key": TMDB_API_KEY, "language": "en-US"}),
+        )
+        films = {}
+        for data in (pl_data, en_data):
+            for c in (data or {}).get("crew", []):
+                if c.get("job") != "Director":
+                    continue
+                entry = films.setdefault(c["id"], {"id": c["id"], "titles": set(), "film": c})
+                for key in ("title", "original_title"):
+                    if c.get(key):
+                        entry["titles"].add(c[key].strip().lower())
+        return list(films.values())
+
+    async def match_by_director_filmography():
+        """Ostatnia deska ratunku: szukamy filmu w FILMOGRAFII reżysera, a nie po tytule.
+
+        Po co: `search/movie` dopasowuje tytuł oryginalny i `alternative_titles`, ale NIE `translations`,
+        więc film o polskim tytule innym niż oryginalny bywa nieosiągalny przez wyszukiwarkę - mimo że
+        TMDB ten polski tytuł zna. Sprawdzone: Amélie ma w TMDB (id 194) tłumaczenie PL dokładnie
+        'Amelia' i 12,5 tys. głosów, a mimo to NIE MA jej wśród 20 wyników zapytania 'Amelia' -
+        wygrywał tam biograficzny 'Amelia' o Amelii Earhart (263 głosy). Tak samo 'Flow' (oryginał
+        'Straume'). W takim układzie dopasowanie po reżyserze wyżej nie ma czego potwierdzić, bo
+        właściwego filmu w ogóle nie ma na liście.
+        `person/{id}/movie_credits` zwraca natomiast tytuły w żądanym języku, więc tam film znajdujemy.
+
+        Wywoływane TYLKO gdy zwykłe wyszukiwanie nie potwierdziło reżysera - to dwa dodatkowe zapytania
+        na ścieżce awaryjnej, nie w każdym przebiegu.
+        """
+        # Przy duetach ('Bartosz Szpak, Helena Ganjalyan') szukamy po pierwszym nazwisku - wyszukiwarka
+        # osób nie zna takich par, a do odnalezienia wspólnego filmu wystarczy jedno z nazwisk.
+        name = director.split(",")[0].strip()
+        if not name:
+            return None
+        people = await _fetch_json(session, "https://api.themoviedb.org/3/search/person",
+                                   {"api_key": TMDB_API_KEY, "query": name})
+        results_people = (people or {}).get("results", [])[:2]  # imiennicy zdarzają się rzadko
+        if not results_people:
+            return None
+
+        candidates = []
+        for person in results_people:
+            candidates.extend(await directed_films(person["id"]))
+        if not candidates:
+            return None
+
+        wanted = {t for t in (lower_title, lower_original_title) if t}
+        by_title = [c for c in candidates if c["titles"] & wanted]
+        # Rok bierzemy pod uwagę dopiero, gdy tytuł niczego nie rozstrzygnął (np. angielski tytuł
+        # od kina przy filmie prowadzonym w TMDB pod tytułem francuskim i polskim).
+        matched = by_title or ([c for c in candidates
+                                if year and (c["film"].get("release_date") or "")[:4] == str(year)]
+                               if year else [])
+        if not matched:
+            return None
+
+        best = max(matched, key=lambda c: c["film"].get("vote_count") or 0)
+        full = await get_movie_details(best["id"])
+        if not full:
+            return None
+        logger.info(
+            f"[TMDB] '{title}': wyszukiwarka nie znalazła filmu tego reżysera - dopasowano przez "
+            f"filmografię {name}: '{full.get('title')}' (id {full.get('id')}, "
+            f"{(full.get('release_date') or '')[:4]}, {full.get('vote_count')} głosów)."
+        )
+        return _format_tmdb_response(full, extract_directors(full))
+
     async def perform_search(query: str, search_year: Optional[int] = None):
         p = base_params.copy()
         p["query"] = query
@@ -168,6 +245,14 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
                 match = await check_director_in_results(results)
                 if match:
                     return match
+
+    # Doszliśmy tutaj, więc ŻADEN wynik wyszukiwania nie potwierdził reżysera podanego przez kino.
+    # Zanim spadniemy do wyboru "najpopularniejszego dokładnego trafienia" (który przy tytułach-
+    # bliźniakach potrafi wskazać zupełnie inny film), próbujemy przejść od strony reżysera.
+    if director:
+        match = await match_by_director_filmography()
+        if match:
+            return match
 
     if not all_results:
         return None
