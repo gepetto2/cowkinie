@@ -99,3 +99,34 @@ export function scopeFromCookie(value: string, allCities: string[]): string[] | 
 export function scopeToCookie(selected: string[]): string {
   return selected.length ? selected.map(citySlug).join(",") : ALL_VALUE;
 }
+
+// Miejscownik nazw miast ("w Poznaniu", nie "w Poznań"). Polskiej odmiany nie da się wyliczyć
+// regułą - Bydgoszcz/Bydgoszczy, Gdynia/Gdyni i Suwałki/Suwałkach mają różne wzorce - więc trzymamy
+// jawną mapę. Miasto spoza mapy dostaje bezpieczne "w mieście X": brzmi sztywniej, ale nigdy nie jest
+// błędem gramatycznym, więc dodanie kina w nowym mieście nie wyprodukuje nagłówka typu "w Kraków".
+const CITY_LOCATIVE: Record<string, string> = {
+  "Bydgoszcz": "Bydgoszczy",
+  "Gdańsk": "Gdańsku",
+  "Gdynia": "Gdyni",
+  "Poznań": "Poznaniu",
+  "Sopot": "Sopocie",
+  "Suwałki": "Suwałkach",
+};
+
+/** "Poznań" -> "Poznaniu". Nieznane miasto zwracamy bez zmian (patrz `citiesLocative`). */
+export function cityLocative(city: string): string | null {
+  return CITY_LOCATIVE[city] ?? null;
+}
+
+/**
+ * Zakres miast -> człon miejsca do nagłówka i tytułu: "w Poznaniu", "w Poznaniu i Gdyni",
+ * "w Poznaniu, Gdańsku i Gdyni", a dla pustego zakresu "w całej Polsce".
+ * Ostatnie dwa miasta łączymy spójnikiem, resztę przecinkami - tak, jak zapisałoby się to w zdaniu.
+ */
+export function citiesLocative(cities: string[]): string {
+  if (cities.length === 0) return "w całej Polsce";
+  const forms = cities.map((c) => cityLocative(c) ?? `mieście ${c}`);
+  if (forms.length === 1) return `w ${forms[0]}`;
+  const last = forms[forms.length - 1];
+  return `w ${forms.slice(0, -1).join(", ")} i ${last}`;
+}

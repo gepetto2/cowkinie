@@ -10,7 +10,7 @@ import MovieCard from '@/components/MovieCard';
 import Carousel from '@/components/Carousel';
 import FilterBar from '@/components/FilterBar';
 import { CityScopeProvider } from '@/components/CityScope';
-import { parseCityScope, scopeFromCookie, cityScopeHref, CITY_COOKIE } from '@/lib/cities';
+import { parseCityScope, scopeFromCookie, cityScopeHref, citiesLocative, CITY_COOKIE } from '@/lib/cities';
 import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
 
 // Szerokość kafelka w karuzelach. Na mobile PŁYNNA i odtwarzająca matematykę siatki `grid-cols-3`
@@ -58,9 +58,9 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const miastaParam = typeof sp?.miasta === 'string' ? sp.miasta : '';
   const { selected, valid } = parseCityScope(slug, miastaParam, cities);
   if (!valid) return { title: 'Nie znaleziono miasta' };
-  const where = selected.length === 1 ? `w mieście ${selected[0]}`
-    : selected.length > 1 ? `w miastach: ${selected.join(', ')}`
-    : 'w całej Polsce';
+  // Odmieniona forma ("w Poznaniu") zamiast sztywnego "w mieście Poznań" - to dosłownie fraza,
+  // którą ludzie wpisują w wyszukiwarkę, więc tytuł strony powinien ją zawierać wprost.
+  const where = citiesLocative(selected);
   return {
     title: `Repertuar kin ${where}`,
     description: `Seanse i godziny w kinach ${where} - Multikino, Cinema City, Helios i kina studyjne w jednym miejscu.`,
@@ -377,9 +377,9 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
   // Nagłówek mówi wprost, jaki zakres oglądasz - miasto jest filtrem głównym, więc nie powinno
   // być widoczne wyłącznie jako pigułka gdzieś w filtrach.
   const heading =
-    selectedCities.length === 1 ? `Repertuar kin - ${selectedCities[0]}`
-    : selectedCities.length > 1 ? `Repertuar kin - ${selectedCities.join(', ')}`
-    : 'Repertuar kin — cała Polska';
+    // Nagłówek brzmi jak nazwa serwisu i jak pytanie, które użytkownik faktycznie zadaje:
+    // "Co w kinie w Poznaniu". Odmianę miasta daje citiesLocative (patrz lib/cities.ts).
+    `Co w kinie ${citiesLocative(selectedCities)}`;
 
   return (
     <CityScopeProvider selected={selectedCities} all={cities}>

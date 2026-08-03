@@ -18,7 +18,15 @@ export const SITE_URL = (
     : "http://localhost:3000")
 ).replace(/\/+$/, "");
 
-export const SITE_NAME = "Repertuar Kin";
+/**
+ * Nazwa marki - spójna z domeną (cowkinie.pl) i z nagłówkiem strony ("Co w kinie w Poznaniu").
+ * Trafia do tytułu zakładki, szablonu tytułów podstron i obrazka podglądu linku, więc trzymanie
+ * jej tutaj jest jedynym miejscem do zmiany.
+ *
+ * Opis celowo zaczyna się od "Repertuar kin": to fraza wyszukiwarkowa, a nazwa marki nic o serwisie
+ * nie mówi komuś, kto trafia na niego pierwszy raz z listy wyników.
+ */
+export const SITE_NAME = "Co w kinie";
 export const SITE_DESCRIPTION =
   "Repertuar kin w jednym miejscu - Multikino, Cinema City, Helios oraz kina studyjne. " +
   "Seanse, godziny i linki do biletów.";

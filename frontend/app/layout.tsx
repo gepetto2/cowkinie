@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: SITE_NAME,
-    // Podstrony ustawiają własny tytuł ("Repertuar kin w mieście Poznań") - szablon dokleja markę,
+    // Podstrony ustawiają własny tytuł ("Repertuar kin w Poznaniu") - szablon dokleja markę,
     // żeby w wynikach wyszukiwania było widać, z jakiego serwisu pochodzi wynik.
     template: `%s | ${SITE_NAME}`,
   },
