@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import NextTopLoader from 'nextjs-toploader';
 import { Analytics } from "@vercel/analytics/next";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,8 +16,30 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Repertuar Kin",
-  description: "Sprawdź aktualny repertuar i dostępność biletów w Twoich ulubionych kinach.",
+  // metadataBase pozwala podawać w podstronach ścieżki względne - Next dokleja do nich domenę.
+  // Bez tego Open Graph dostaje adres względny, a serwisy społecznościowe nie pokazują podglądu.
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_NAME,
+    // Podstrony ustawiają własny tytuł ("Repertuar kin w mieście Poznań") - szablon dokleja markę,
+    // żeby w wynikach wyszukiwania było widać, z jakiego serwisu pochodzi wynik.
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: "website",
+    locale: "pl_PL",
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
