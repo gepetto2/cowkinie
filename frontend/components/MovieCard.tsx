@@ -199,6 +199,11 @@ function availabilityInfo(ratio: number | null): { label: string; color: string;
   return { label: `${pct}% miejsc wolnych`, color: "text-emerald-400", pct, dot };
 }
 
+/**
+ * Szacowanie długości bloku reklam i godziny startu właściwego filmu - WYŁĄCZONE.
+ */
+const SHOW_AD_ESTIMATE = false;
+
 // Widok szczegółów pojedynczego seansu (trzeci poziom modalu): dane z bazy + przycisk zakupu.
 function ScreeningDetails({ screening, dateLabel, filmLength, onBack }: { screening: Screening; dateLabel: string; filmLength: number | null; onBack: () => void }) {
   const c = screening.cinemas;
@@ -212,7 +217,7 @@ function ScreeningDetails({ screening, dateLabel, filmLength, onBack }: { screen
   const startMs = new Date(screening.start_time).getTime();
   const slotMin = screening.end_time ? Math.round((new Date(screening.end_time).getTime() - startMs) / 60000) : null;
   const adMin = slotMin != null && filmLength ? slotMin - filmLength : null;
-  const showAds = adMin != null && adMin >= 5 && adMin <= 60;
+  const showAds = SHOW_AD_ESTIMATE && adMin != null && adMin >= 5 && adMin <= 60;
   const filmStart = showAds ? fmtT(new Date(startMs + (adMin as number) * 60000).toISOString()) : null;
   const avail = availabilityInfo(screening.availability_ratio);
   const rows: [string, string | null][] = [
