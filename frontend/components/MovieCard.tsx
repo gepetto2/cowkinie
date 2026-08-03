@@ -134,6 +134,24 @@ function FranchiseBadge({ franchise, size = "md", className = "" }: { franchise:
   );
 }
 
+/**
+ * Hosty, których plakatów NIE przepuszczamy przez optymalizator obrazków Next.js.
+ *
+ * Multikino odrzuca żądania przychodzące z zagranicznych adresów i serwerowni - to ta sama blokada,
+ * przez którą scraper repertuaru działa z polskiego łącza, a padał przy próbach uruchomienia go
+ * z Azure w USA czy z Cloud Shella. Optymalizator Vercela chodzi we Frankfurcie, więc dostaje od
+ * Multikina odmowę, a Vercel zwraca wtedy 502 OPTIMIZED_EXTERNAL_IMAGE_REQUEST_UNAUTHORIZED
+ * i kafelek zostaje pusty.
+ *
+ * `unoptimized` sprawia, że przeglądarka pobiera taki plakat wprost ze źródła - czyli tak, jak
+ * działało to przed włączeniem optymalizacji. Tracimy na tych obrazkach konwersję do WebP
+ * i skalowanie, ale to jedyny host z tym problemem; pozostałe osiem korzysta z optymalizacji normalnie.
+ */
+const UNOPTIMIZED_POSTER_HOSTS = ["www.multikino.pl"];
+
+const isUnoptimizedPoster = (src: string | null | undefined): boolean =>
+  !!src && UNOPTIMIZED_POSTER_HOSTS.some((host) => src.startsWith(`https://${host}/`));
+
 // Czas trwania w formacie "2 godz. 15 min" / "48 min" / "2 godz."
 function formatRuntime(length: number | null): string | null {
   if (!length || length <= 0) return null;
@@ -549,7 +567,7 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
         <div className="flex flex-col group cursor-pointer">
           <div className="relative w-full aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-3 shadow-sm group-hover:shadow-md transition-shadow">
             {movie.poster ? (
-              <Image src={movie.poster} alt={movie.title} fill priority={priority} sizes="(max-width: 640px) 30vw, (max-width: 1024px) 20vw, 180px" className="object-cover" />
+              <Image src={movie.poster} alt={movie.title} fill priority={priority} unoptimized={isUnoptimizedPoster(movie.poster)} sizes="(max-width: 640px) 30vw, (max-width: 1024px) 20vw, 180px" className="object-cover" />
             ) : (
               <div className="flex items-center justify-center w-full h-full text-slate-500 text-xs text-center p-2">Brak plakatu</div>
             )}
@@ -607,7 +625,7 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
                 aria-label="Powiększ plakat"
                 className="group relative w-[170px] shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-slate-800 shadow-md cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
               >
-                <Image src={movie.poster} alt={movie.title} fill sizes="170px" className="object-cover" />
+                <Image src={movie.poster} alt={movie.title} fill unoptimized={isUnoptimizedPoster(movie.poster)} sizes="170px" className="object-cover" />
                 <span className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors" />
                 <span className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-slate-950/70 text-slate-100 opacity-80 group-hover:opacity-100 group-hover:bg-slate-950/90 transition">
                   <ZoomIn className="h-3.5 w-3.5" />
@@ -837,6 +855,7 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
             alt={movie.title}
             width={800}
             height={1200}
+            unoptimized={isUnoptimizedPoster(movie.poster)}
             sizes="90vw"
             className="h-auto max-h-full w-auto max-w-full rounded-xl object-contain shadow-2xl"
           />
