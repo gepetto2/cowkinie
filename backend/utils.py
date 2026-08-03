@@ -131,6 +131,11 @@ def search_title(title: str) -> str:
         return title
     t = re.sub(r"^(?:Ladies\s*Night|Unlimited\s*Show)\s*-\s*", "", title, flags=re.IGNORECASE)
     t = re.sub(r"^Kino na obcasach:\s*", "", t, flags=re.IGNORECASE)
+    # Cykle dopisywane na KOŃCU tytułu (Helios). Powyższe wzorce łapią tylko przedrostki, więc
+    # "Drugie życie -  Salon Kultury Helios" szło do API w całości i nie znajdowało nic - film został
+    # bez tmdb_id i bez ocen, choć ten sam film jako zwykły seans dopasowywał się bez problemu.
+    # `\s*-\s*` obejmuje przy okazji podwójną spację, którą Helios wstawia po myślniku.
+    t = re.sub(r"\s*-\s*(?:Salon Kultury Helios|Kino Kobiet|premierowe seanse.*)\s*$", "", t, flags=re.IGNORECASE)
     # Sufiks ukraińskiego dubbingu w różnych formach (PL/EN, z nawiasem, po ". "/" - "/spacji)
     t = re.sub(r"\s*[.\-]?\s*\(?(?:ukrai[nń]ski dubbing|ukrainian dubbing)\)?\s*$", "", t, flags=re.IGNORECASE)
     t = re.sub(r"\s*[:.\-]\s*wersja reżyserska\s*$", "", t, flags=re.IGNORECASE)

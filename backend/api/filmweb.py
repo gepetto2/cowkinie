@@ -67,6 +67,12 @@ def _fw_genre(preview_data):
     genres = [(g.get("name") or {}).get("text") for g in preview_data.get("genres", [])]
     return ", ".join(g for g in genres if g) or None
 
+# Ilu kandydatów z wyszukiwarki sprawdzamy pod kątem roku. Piątka wystarcza: przy tytułach-bliźniakach
+# (7 filmów "Wehikuł czasu" na Filmwebie) właściwy jest wysoko, a limit chroni przed serią zapytań
+# przy tytułach generycznych, gdzie i tak niczego nie rozstrzygniemy.
+_YEAR_CHECK_LIMIT = 5
+
+
 async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp.ClientSession):
     # Kodowanie tytułu do formatu URL (zamiana spacji na %20 itp.)
     query = urllib.parse.quote(title)
@@ -86,14 +92,25 @@ async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp
         logger.debug(f"Nie znaleziono żadnych filmów dla zapytania: '{title}'")
         return None
 
-    if year:
-        for hit in film_hits:
-            hit_year = hit.get("year")
-            if hit_year and str(hit_year) == str(year):
-                film_id = hit.get("id")
-                film_title = hit.get("matchedTitle")
-                logger.debug(f"Znaleziono dokładne dopasowanie: '{film_title}' ({hit_year}) z ID: {film_id}")
-                return film_id
+    # Rozstrzygnięcie po ROKU. Wyszukiwarka Filmwebu NIE zwraca roku przy trafieniach (pole `year`
+    # jest puste przy każdym), więc dopasowanie roku wymaga dociągnięcia `/preview` kandydata.
+    # Wcześniej próbowaliśmy czytać rok wprost z wyniku wyszukiwania - warunek nigdy nie był spełniony,
+    # więc kod ZAWSZE brał pierwsze trafienie, a parametr `year` nie działał dla żadnego filmu.
+    # Tak powstały zlepki: "Lawa" Konwickiego z opisem pixarowskiej etiudy o wulkanie, "Planeta małp"
+    # z 1968 z opisem remake'u Burtona, "Wehikuł czasu" z 1960 z opisem wersji z 2002.
+    #
+    # Kandydatów sprawdzamy PO KOLEI i przerywamy na pierwszym trafionym roku - przy zdecydowanej
+    # większości filmów poprawny jest pierwszy wynik, więc kosztuje to jedno dodatkowe żądanie na film.
+    # Pobieranie wszystkich naraz oznaczałoby setki zapytań na przebieg do nieoficjalnego API.
+    if year and len(film_hits) > 1:
+        for hit in film_hits[:_YEAR_CHECK_LIMIT]:
+            hit_id = hit.get("id")
+            if not hit_id:
+                continue
+            preview = await _fetch_json(session, f"https://www.filmweb.pl/api/v1/film/{hit_id}/preview")
+            if preview and str(preview.get("year")) == str(year):
+                logger.debug(f"Dopasowano po roku: '{hit.get('matchedTitle')}' ({year}) z ID: {hit_id}")
+                return hit_id
         logger.debug(f"Nie znaleziono filmu '{title}' z roku {year}. Próba dopasowania pierwszego wyniku...")
 
     # Zwracamy ID pierwszego znalezionego filmu (wartość zapasowa / brak roku)

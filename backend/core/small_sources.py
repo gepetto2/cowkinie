@@ -12,7 +12,12 @@ logger = logging.getLogger(__name__)
 #   Rialto     Reż. Olivia Wilde<br/>USA, 2026, 108 minut
 # Rialto rozdziela człony znacznikami <br>, więc przed czyszczeniem HTML zamieniamy je na przecinki -
 # wtedy wszystkie cztery sprowadzają się do jednego wzorca i wystarczy jeden parser.
-_CREDITS = re.compile(r"re[żz]\.\s*([^<]{5,220})", re.IGNORECASE)
+#
+# Akceptujemy też angielskie "dir.": Pałacowe prowadzi część stron po angielsku (pokazy z napisami,
+# repremiery) i wtedy zamiast "reż." pisze "Breathless , dir. Jean-Luc Godard, France 1960, 90’".
+# Bez tego traciliśmy z takich stron reżysera, rok i długość naraz - a że to właśnie wznowienia klasyki,
+# brak reżysera prowadził dalej do błędnego dopasowania w TMDB (Godard rozpoznany jako remake McBride'a).
+_CREDITS = re.compile(r"(?:re[żz]|dir)\.\s*([^<]{5,220})", re.IGNORECASE)
 
 
 def html_to_text(html: str) -> str:
