@@ -11,6 +11,7 @@ import Carousel from '@/components/Carousel';
 import FilterBar from '@/components/FilterBar';
 import { CityScopeProvider } from '@/components/CityScope';
 import { parseCityScope, scopeFromCookie, cityScopeHref, citiesLocative, CITY_COOKIE } from '@/lib/cities';
+import { categoryLabel } from '@/lib/categories';
 import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
 
 // Szerokość kafelka w karuzelach. Na mobile PŁYNNA i odtwarzająca matematykę siatki `grid-cols-3`
@@ -22,7 +23,7 @@ import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
 const CARD_WIDTH = 'w-[calc((100vw-2.5rem)/3)] sm:w-[160px] lg:w-[180px]';
 
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
-const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY', 'DLA DZIECI', 'SALON KULTURY', 'KONCERT', 'LADIES NIGHT/KNO', 'BALET', 'OPERA', 'PANEL'];
+const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'KINO BEZ BARIER', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY', 'DLA DZIECI', 'SALON KULTURY', 'KONCERT', 'LADIES NIGHT/KNO', 'BALET', 'OPERA', 'PANEL'];
 
 // Maksymalna różnica (w latach) między rokiem produkcji a rokiem premiery kinowej.
 // Powyżej tej wartości traktujemy film jako wznowienie starego tytułu i pomijamy w karuzelach.
@@ -378,8 +379,9 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
   // być widoczne wyłącznie jako pigułka gdzieś w filtrach.
   const heading =
     // Nagłówek brzmi jak nazwa serwisu i jak pytanie, które użytkownik faktycznie zadaje:
-    // "Co w kinie w Poznaniu". Odmianę miasta daje citiesLocative (patrz lib/cities.ts).
-    `Co w kinie ${citiesLocative(selectedCities)}`;
+    // "Co w kinie w Poznaniu?". Odmianę miasta daje citiesLocative (patrz lib/cities.ts).
+    // Znak zapytania zostaje TYLKO tutaj - w <title> byłby szumem w wynikach wyszukiwania.
+    `Co w kinie ${citiesLocative(selectedCities)}?`;
 
   return (
     <CityScopeProvider selected={selectedCities} all={cities}>
@@ -469,12 +471,12 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
           const expanded = query || alwaysWide(category);
           return (
           <section key={category} className="flex flex-col">
-            {/* Sekcja STANDARD to zwykłe filmy bez wyróżnionego typu - bez nagłówka (nazwa niepotrzebna). */}
-            {category !== 'STANDARD' && (
-              <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-indigo-500 rounded-sm">
-                {category}
-              </h2>
-            )}
+            {/* Każda sekcja ma nagłówek, także ta z filmami bez wyróżnionego typu - wcześniej szła bez
+                niego i pierwsza siatka na stronie wisiała bez podpisu. Etykiety bierzemy z categoryLabel,
+                bo klucze to surowe `movie_type` zapisane wersalikami. */}
+            <h2 className="text-2xl font-bold mb-4 text-slate-200 pl-1 border-l-4 border-indigo-500 rounded-sm">
+              {categoryLabel(category)}
+            </h2>
 
             {/* Rozwinięta: responsywna siatka wypełniająca szerokość. Karuzela: poziomy scroll. */}
             {expanded ? (

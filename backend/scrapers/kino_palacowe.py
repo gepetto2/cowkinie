@@ -18,7 +18,14 @@ REPERTOIRE_PAGE = f"{BASE_URL}/podstrony/371-repertuar/"
 CINEMA_NAME = "Kino Pałacowe"
 CITY = "Poznań"
 
-JSON_HEADERS = {"Accept": "application/json"}
+# Serwis jest DWUJĘZYCZNY i wybiera wersję po `Accept-Language`. Bez tego nagłówka część wydarzeń
+# wraca po angielsku - "WAJDA: re-visions. Chronicle of Love Accidents" zamiast "Kronika wypadków
+# miłosnych" - i taki tytuł trafiał do bazy jako osobny film, którego nie dało się dopasować w TMDB
+# (ich angielski tytuł brzmi jeszcze inaczej: "Chronicle of Amorous Accidents").
+# Nagłówek dotyczy tak samo API kalendarza, jak i stron filmów, z których czytamy reżysera i długość -
+# tam angielska wersja podawała "dir." zamiast "reż.".
+PL_HEADERS = {"Accept-Language": "pl-PL,pl;q=0.9"}
+JSON_HEADERS = {"Accept": "application/json", **PL_HEADERS}
 
 # Sale: API podaje angielskie nazwy techniczne, a dziedziniec to seanse plenerowe (jak taras Muzy).
 _ROOMS = {
@@ -30,9 +37,11 @@ _ROOMS = {
 # Przedrostki cykli. Zdejmujemy je, żeby film scalił się z tym samym tytułem z innych kin.
 # Lista jawna - generyczne cięcie po dwukropku zniszczyłoby np. "Spider-Man: Całkiem nowy dzień".
 # Uwaga na brak spacji po dwukropku ("Plenerowe Pałacowe:The Florida Project") - stąd \s* z obu stron.
+# `re-wizje` to polska nazwa cyklu, `re-visions` angielska - zostawiamy oba, bo pojedyncze wydarzenia
+# bywają zakładane po angielsku i wtedy nawet przy Accept-Language: pl wraca wersja oryginalna.
 _CYCLE_PREFIXES = re.compile(
     r"^(?:Poranek dla dzieci|Plenerowe Pałacowe|DKF Zamek|Kino bez barier|Kino Konesera"
-    r"|WAJDA:\s*re-visions\.)\s*:?\s*",
+    r"|WAJDA:\s*re-(?:wizje|visions)\.)\s*:?\s*",
     re.IGNORECASE,
 )
 
@@ -46,13 +55,39 @@ _ANNOTATION = re.compile(r"\s*\|.*$")
 _ACCESSIBILITY = re.compile(r"\s*\((?:AD|CC|PJM|\+|\s)+\)\s*$", re.IGNORECASE)
 
 
+# Cykl "Kino bez barier" - pokazy z audiodeskrypcją, napisami dla niesłyszących i tłumaczeniem
+# na język migowy. W API nie ma na to ŻADNEGO osobnego pola (`category` niesie tylko nazwę sali),
+# więc jedynym sygnałem jest prefiks w tytule: "Kino bez barier: La Grazia (AD + CC + PJM)".
+_BARRIER_FREE = re.compile(r"^\s*Kino bez barier\s*:?\s*", re.IGNORECASE)
+
+# Dopisek doklejany do tytułu takiego seansu. Konwencja jak przy ukraińskim dubbingu czy wersji
+# rozszerzonej: sufiks w nawiasie, dzięki czemu film sortuje się pod własną literą, obok wersji zwykłej.
+BARRIER_FREE_SUFFIX = "(Kino bez barier)"
+BARRIER_FREE_TYPE = "KINO BEZ BARIER"
+
+
+def is_barrier_free(raw: str) -> bool:
+    """Czy wpis pochodzi z cyklu „Kino bez barier" (rozpoznawane po prefiksie tytułu)."""
+    return bool(_BARRIER_FREE.match(raw or ""))
+
+
 def clean_movie_title(raw: str) -> str:
-    """Tytuł oczyszczony z nazw cykli i adnotacji, spójny z pozostałymi kinami."""
+    """Tytuł oczyszczony z nazw cykli i adnotacji, spójny z pozostałymi kinami.
+
+    Seanse „Kino bez barier" dostają ten dopisek z powrotem jako sufiks - świadomie NIE scalamy ich
+    ze zwykłym pokazem tego samego filmu. To osobna WERSJA seansu, a nie ten sam seans: widz, który
+    potrzebuje audiodeskrypcji albo tłumaczenia na migowy, nie pójdzie zamiennie na zwykły pokaz.
+    Ta sama zasada rządzi ukraińskim dubbingiem i wersjami rozszerzonymi.
+    """
     t = (raw or "").strip()
+    barrier_free = is_barrier_free(t)
     t = _CYCLE_PREFIXES.sub("", t)
     t = _ANNOTATION.sub("", t)
     t = _ACCESSIBILITY.sub("", t)
-    return clean_title(t)
+    cleaned = clean_title(t)
+    if barrier_free and cleaned:
+        return f"{cleaned} {BARRIER_FREE_SUFFIX}"
+    return cleaned
 
 
 def parse_entries(payload: dict) -> list:
@@ -71,6 +106,7 @@ def parse_entries(payload: dict) -> list:
                 room, outdoor = _ROOMS.get(e.get("category") or "", (e.get("category") or "", False))
                 out.append({
                     "title": title,
+                    "movie_type": BARRIER_FREE_TYPE if is_barrier_free(e.get("title")) else None,
                     "start_time": parse_start_time(f"{date}T{time}"),
                     "room_name": room,
                     "is_outdoor": outdoor,
@@ -190,7 +226,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             # calendar, events, search). Pobieramy je raz na FILM, nie raz na seans: 80 seansów to
             # ~50 unikalnych filmów, więc deduplikacja po identyfikatorze oszczędza 30 żądań.
             pages = {s["movie_id"]: s["movie_url"] for s in shows if s.get("movie_id") and s.get("movie_url")}
-            details = await fetch_details(client, pages)
+            details = await fetch_details(client, pages, headers=PL_HEADERS)
             found = sum(1 for v in details.values() if v[0])
             logger.info(f"{CINEMA_NAME}: pobrano szczegóły {len(pages)} filmów (reżyser w {found}).")
 
@@ -203,7 +239,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                 if entry.get("poster") is None and s.get("poster"):
                     entry["poster"] = s["poster"]
                 director, year, length = details.get(s.get("movie_id"), (None, None, None))
-                for field, value in (("director", director), ("release_year", year), ("length", length)):
+                for field, value in (("director", director), ("release_year", year), ("length", length),
+                                     ("movie_type", s.get("movie_type"))):
                     if entry.get(field) is None and value is not None:
                         entry[field] = value
             return meta

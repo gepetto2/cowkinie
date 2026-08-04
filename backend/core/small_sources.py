@@ -52,19 +52,22 @@ def parse_credits(text: str):
     return director, year, length
 
 
-async def fetch_details(client, urls: dict, concurrency: int = 4) -> dict:
+async def fetch_details(client, urls: dict, concurrency: int = 4, headers: dict = None) -> dict:
     """Pobiera strony szczegółów filmów i zwraca {klucz: (reżyser, rok, długość)}.
 
     `urls` to {klucz: adres} - klucz jest zwykle identyfikatorem filmu, dzięki czemu pobieramy
     KAŻDY film raz, a nie raz na seans (przy Pałacowym to 50 zapytań zamiast 80).
     Ograniczona równoległość, bo to małe witryny na współdzielonym hostingu.
+
+    `headers` przydaje się przy witrynach dwujęzycznych: Pałacowe wybiera język po `Accept-Language`
+    i bez wymuszenia polskiego oddaje część stron po angielsku, gdzie zamiast "reż." stoi "dir.".
     """
     sem = asyncio.Semaphore(concurrency)
 
     async def one(key, url):
         async with sem:
             try:
-                resp = await client.get(url, timeout=30.0)
+                resp = await client.get(url, timeout=30.0, headers=headers or {})
             except Exception as e:
                 logger.debug("Nie pobrano szczegółów %s: %s", url, e)
                 return key, (None, None, None)

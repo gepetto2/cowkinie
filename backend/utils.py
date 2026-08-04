@@ -140,6 +140,9 @@ def search_title(title: str) -> str:
     t = re.sub(r"\s*[.\-]?\s*\(?(?:ukrai[nń]ski dubbing|ukrainian dubbing)\)?\s*$", "", t, flags=re.IGNORECASE)
     t = re.sub(r"\s*[:.\-]\s*wersja reżyserska\s*$", "", t, flags=re.IGNORECASE)
     t = re.sub(r"\s*\(wersja rozszerzona\)\s*$", "", t, flags=re.IGNORECASE)
+    # Seanse z audiodeskrypcją/napisami/migowym (Pałacowe) trzymamy jako osobny rekord, ale w API
+    # szukamy oczywiście filmu bazowego - dopisek jest cechą pokazu, nie tytułem.
+    t = re.sub(r"\s*\(kino bez barier\)\s*$", "", t, flags=re.IGNORECASE)
     return t.strip() or title
 
 def get_valid_poster(poster_data):

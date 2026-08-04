@@ -28,7 +28,11 @@ def check_and_merge_movie(supabase: Client, current_movie: dict, tmdb_id: int, s
     """
     # DLA DZIECI: prawdziwe filmy dziecięce mają ten sam tmdb_id co event Heliosa (np. karaoke/poranki),
     # ale to osobne pokazy - nie scalamy po tmdb_id (scalanie po tytule i tak działa dla zwykłych filmów).
-    if current_movie.get("movie_type") in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING", "UNLIMITED SHOW", "DLA DZIECI"):
+    # KINO BEZ BARIER: seans z audiodeskrypcją, napisami dla niesłyszących i tłumaczeniem na migowy.
+    # Ten sam film co pokaz zwykły, ale widz potrzebujący tych udogodnień nie pójdzie na niego zamiennie -
+    # scalenie po tmdb_id skasowałoby jedyną informację o dostępnym seansie.
+    if current_movie.get("movie_type") in ("LADIES NIGHT/KNO", "UKRAIŃSKI DUBBING", "UNLIMITED SHOW",
+                                           "DLA DZIECI", "KINO BEZ BARIER"):
         return False
 
     # Klucz uwzględnia wersję: wersja rozszerzona/reżyserska tego samego filmu (to samo tmdb_id)
