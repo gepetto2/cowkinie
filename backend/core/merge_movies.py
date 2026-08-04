@@ -12,7 +12,13 @@ def get_similarity(a: str, b: str) -> float:
 
 # Markery WERSJI filmu (inny montaż, nie inne wydanie tego samego). Wersja rozszerzona/reżyserska ma
 # to samo tmdb_id co podstawowa, ale to OSOBNY film - nie wolno ich scalać po tmdb_id.
-_VERSION_MARKERS = ("rozszerzon", "reżysersk", "rezysersk", "zremasterowan", "extended", "director", "niemy")
+#
+# "karaoke": pokaz z wypalonymi na ekranie tekstami piosenek. Bez tego markera "Vaiana - wersja
+# karaoke" scalała się ze zwykłą "Vaianą" (to samo tmdb_id) i znikała z repertuaru - jej seanse
+# lądowały wśród zwykłych, nie do odróżnienia. Marker działa w obie strony: wersje karaoke z RÓŻNYCH
+# kin nadal scalają się ze sobą, bo mają ten sam klucz.
+_VERSION_MARKERS = ("rozszerzon", "reżysersk", "rezysersk", "zremasterowan", "extended", "director",
+                    "niemy", "karaoke")
 
 def version_key(title: str) -> frozenset:
     """Zbiór markerów wersji obecnych w tytule. Różne zbiory = różne wersje = nie scalamy."""
