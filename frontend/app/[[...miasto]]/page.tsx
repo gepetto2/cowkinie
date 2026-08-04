@@ -22,6 +22,16 @@ import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
 // więc wracamy do sztywnych rozmiarów.
 const CARD_WIDTH = 'w-[calc((100vw-2.5rem)/3)] sm:w-[160px] lg:w-[180px]';
 
+// Parametry adresu NALEŻĄCE DO APLIKACJI. Reszta to znaczniki doklejane przez serwisy, z których
+// przyszedł link (`fbclid` z Facebooka i Messengera, `utm_*`, `gclid`, `igshid`...) - nie niosą
+// żadnej intencji użytkownika, więc nie mogą wpływać na to, co pokazujemy.
+//
+// Powód: wejście na goły "/" ma odesłać na ekran wyboru miasta, ale warunkiem było "brak
+// JAKICHKOLWIEK parametrów". Link otwarty w Messengerze przychodzi jako "/?fbclid=...", więc
+// warunek nie był spełniony i użytkownik lądował od razu na repertuarze całej Polski, nigdy nie
+// widząc ekranu wyboru.
+const APP_PARAMS = ['q', 'miasta', 'from', 'to', 'format', 'genre'] as const;
+
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
 const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'KINO BEZ BARIER', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY', 'DLA DZIECI', 'SALON KULTURY', 'KONCERT', 'LADIES NIGHT/KNO', 'BALET', 'OPERA', 'PANEL'];
 
@@ -99,11 +109,13 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
 
   // Wejście na GOŁY adres główny: jeśli użytkownik już kiedyś wybierał miasto, odsyłamy go tam,
   // a jeśli nie - na ekran wyboru.
-  // Warunek "brak jakichkolwiek parametrów" jest istotny z dwóch powodów. Po pierwsze link
+  // Warunek "brak parametrów APLIKACJI" jest istotny z dwóch powodów. Po pierwsze link
   // z filtrami (np. /?q=spider) ma zadziałać tak, jak go udostępniono, zamiast przerzucać odbiorcę
   // do jego własnego miasta. Po drugie "wszystkie miasta" w filtrach prowadzi na /?miasta=wszystkie,
   // a nie na goły "/" - właśnie po to, żeby nie wpaść tutaj i nie zostać odesłanym z powrotem.
-  if (slug === '' && Object.keys(params).length === 0) {
+  // Znaczniki obcych serwisów (fbclid itp.) świadomie IGNORUJEMY - patrz APP_PARAMS.
+  const hasAppParams = APP_PARAMS.some((k) => typeof params?.[k] === 'string' && params[k]);
+  if (slug === '' && !hasAppParams) {
     const remembered = scopeFromCookie((await cookies()).get(CITY_COOKIE)?.value ?? '', cities);
     if (remembered === null) redirect('/wybierz-miasto');
     // Pusta lista = "cała Polska", czyli dokładnie ten adres - przekierowanie byłoby pętlą.
