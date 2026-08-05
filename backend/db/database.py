@@ -164,7 +164,6 @@ _GENRE_CANON = {
     "Przyrodniczy": "Dokumentalny",
     "Dla dzieci": "Familijny",
     "Musical": "Muzyczny",
-    "Dramat Komedia": ("Dramat", "Komedia"),
     "Niemy": None,
     # FORMATY WYDARZEŃ, nie gatunki filmowe. Helios podaje je w polu gatunku, choć z tych samych
     # napisów wylicza sobie movie_type (KONCERT, TEATR, CYRK) - ta sama informacja trafiała więc do
@@ -183,24 +182,106 @@ _GENRE_CANON = {
 _GENRE_REJECT = re.compile(r"\d|^.$|^.{31,}$")
 
 
+# Słownik nazw gatunków - służy do ROZBIJANIA członów sklejonych spacjami. Kino Rialto zapisuje
+# gatunki niekonsekwentnie: raz "Komedia / Dramat", raz "Dramat Kryminał", raz jednym słowem.
+# Ukośnik i przecinek rozdzielamy przy konsolidacji, ale samej spacji nie da się ciąć na ślepo -
+# "Czarna komedia" i "Komedia romantyczna" to POJEDYNCZE gatunki, które rozpadłyby się na kawałki.
+#
+# Stąd dopasowanie zachłanne od lewej, najdłuższym pasującym członem:
+#   "Akcja Czarna komedia Thriller" -> Akcja + Czarna komedia + Thriller
+# Gatunki, które NIE wymagają mapowania - przechodzą przez kanonizację bez zmian, więc nie ma ich
+# w _GENRE_CANON. Wymieniamy je wyłącznie po to, by `_split_spaced_genres` wiedziało, że są nazwami
+# gatunków. Reszta słownika wylicza się z _GENRE_CANON - patrz niżej.
+_PLAIN_GENRES = (
+    "Anime", "Biograficzny", "Czarna komedia", "Horror", "Krótkometrażowy", "Przygodowy",
+    "Psychologiczny", "Sportowy", "Surrealistyczny", "Thriller", "Wojenny",
+)
+
+
+def _genre_vocabulary() -> tuple:
+    """Wszystkie znane nazwy gatunków, W ORYGINALNEJ PISOWNI: klucze i wartości mapy kanonizującej
+    plus te, które mapowania nie wymagają.
+
+    Wyliczamy je z _GENRE_CANON zamiast przepisywać, bo inaczej obie listy rozjeżdżałyby się przy
+    każdej zmianie. Dopisanie nowego gatunku do mapy działa więc od razu także przy rozbijaniu
+    członów sklejonych spacjami - bez tego np. 'Koncert' i 'Wydarzenie cyrkowe' były w mapie,
+    ale segmentacja ich nie znała i człon w rodzaju "Koncert Dokumentalny" przechodziłby w całości.
+    """
+    names = set(_PLAIN_GENRES) | set(_GENRE_CANON)
+    for value in _GENRE_CANON.values():
+        if isinstance(value, tuple):
+            names.update(value)
+        elif value:
+            names.add(value)
+    return tuple(sorted(names))
+
+
+_GENRE_NAMES = _genre_vocabulary()
+
+# Trzy widoki tego samego słownika, wszystkie kluczowane MAŁYMI literami - bo źródła zapisują
+# gatunki różnie i porównywanie musi być niewrażliwe na wielkość liter:
+#  - _KNOWN_GENRES    -> czy dany człon jest nazwą gatunku (segmentacja po spacjach),
+#  - _CANONICAL_CASE  -> jedna, ustalona pisownia; bez tego Rialto ze swoim "animacja | 45 min"
+#                        tworzyło w bazie DRUGI gatunek obok "Animacja" z pozostałych kin,
+#  - _CANON_KEYS      -> mapowanie synonimów działające niezależnie od zapisu ("ANIMOWANY" też trafi).
+_KNOWN_GENRES = frozenset(n.lower() for n in _GENRE_NAMES)
+_CANONICAL_CASE = {n.lower(): n for n in _GENRE_NAMES}
+_CANON_KEYS = {k.lower(): k for k in _GENRE_CANON}
+
+# Najdłuższa nazwa gatunku (w słowach) - tyle członów próbujemy dopasować naraz. Liczone ze słownika,
+# żeby dodanie dłuższej nazwy nie wymagało pamiętania o tej stałej.
+_MAX_GENRE_WORDS = max(len(n.split()) for n in _KNOWN_GENRES)
+
+
+def _split_spaced_genres(token: str):
+    """Rozbija człon sklejony spacjami na osobne gatunki - ale TYLKO gdy rozkład jest pełny.
+
+    Zwraca listę gatunków albo `[token]` bez zmian, jeśli choć jedno słowo nie jest znanym gatunkiem.
+    Ta zasada "wszystko albo nic" chroni przed sieczką: nieznana nazwa ("Kino akcji przygodowe")
+    zostaje w całości i rozstrzyga o niej dopiero `_canon_genre`, zamiast rozsypać się na wyrazy.
+    """
+    words = token.split()
+    if len(words) < 2:
+        return [token]
+
+    out, i = [], 0
+    while i < len(words):
+        for size in range(min(_MAX_GENRE_WORDS, len(words) - i), 0, -1):
+            candidate = " ".join(words[i:i + size])
+            if candidate.lower() in _KNOWN_GENRES:
+                out.append(candidate)
+                i += size
+                break
+        else:
+            return [token]  # nie rozłożyliśmy w całości - lepiej nie ruszać
+    return out
+
+
 def _canon_genre(token: str):
     """Znormalizowane tokeny gatunku: lista 0/1/2 elementów (złożone rozbijamy na składowe).
 
-    Tokeny spoza mapy przechodzą bez zmian, ale tylko jeśli w ogóle przypominają gatunek.
+    Porównania są NIEWRAŻLIWE NA WIELKOŚĆ LITER, a znane gatunki dostają ustaloną pisownię.
+    Kina zapisują je różnie i bez tego ta sama nazwa tworzyła w bazie dwa osobne gatunki -
+    Rialto podaje przy jednym filmie "animacja", pozostałe kina "Animacja", i obie wersje
+    trafiały na stronę jako oddzielne pozycje.
+
+    Tokeny spoza słownika przechodzą bez zmian (w oryginalnej pisowni, bo nie wiemy, jaka jest
+    właściwa), ale tylko jeśli w ogóle przypominają gatunek.
     """
     t = (token or "").strip()
     if not t:
         return []
-    if t in _GENRE_CANON:
+    key = _CANON_KEYS.get(t.lower())
+    if key is not None:
         # Wpisy ze słownika są zaufane - dodaliśmy je świadomie i filtr ich nie dotyczy.
-        mapped = _GENRE_CANON[t]
+        mapped = _GENRE_CANON[key]
         if mapped is None:
             return []
         return list(mapped) if isinstance(mapped, tuple) else [mapped]
     if _GENRE_REJECT.search(t):
         logger.debug("Odrzucono token gatunku (nie wygląda na gatunek): %r", t)
         return []
-    return [t]
+    return [_CANONICAL_CASE.get(t.lower(), t)]
 
 # Progi, powyżej których uznajemy, że TMDB i Filmweb opisują RÓŻNE filmy, a nie ten sam z drobnymi
 # rozbieżnościami w danych. Rok jest sygnałem najmocniejszym: remake'i i wznowienia dzielą od
@@ -344,9 +425,12 @@ def consolidate_post_enrich(supabase):
             # co bez tego zostawało jednym tokenem, zjadało miejsce w limicie i dublowało gatunek już
             # dodany osobno przez inne źródło ('Absolwent': "Dramat, Obyczajowy, Komedia / Dramat").
             for tok in re.split(r"[,/]", raw):
-                for canon in _canon_genre(tok):
-                    if canon not in genre_toks:
-                        genre_toks.append(canon)
+                # Po przecinku i ukośniku zostają jeszcze człony sklejone spacjami (Rialto) - te
+                # rozbijamy po słowniku gatunków, patrz _split_spaced_genres.
+                for part in _split_spaced_genres(tok.strip()):
+                    for canon in _canon_genre(part):
+                        if canon not in genre_toks:
+                            genre_toks.append(canon)
         genre = ", ".join(genre_toks[:GENRE_MAX]) or None
         # Zapisujemy TAKŻE pustkę. Wcześniej warunek brzmiał `if genre and ...`, więc wyczyszczenie
         # gatunku było niemożliwe: film, którego jedyny token okazał się nie-gatunkiem ('133 min',
