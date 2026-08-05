@@ -663,12 +663,29 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
             meta było shrink-0, a seanse dostawały tylko resztę wysokości i skrolowały się w skrawku).
             Desktop (sm+): kolumna wypełnia stałą wysokość ramy, a wewnątrz przewija się lista seansów. */}
         <div className="flex-1 p-4 sm:p-6 flex flex-col min-h-[450px] sm:min-h-0 max-h-[85vh] overflow-y-auto sm:overflow-hidden">
-          <DialogHeader className="mb-4 shrink-0">
-            <DialogTitle className="text-2xl">{movie.title}</DialogTitle>
-            <DialogDescription className="text-slate-400">
-              Repertuar i godziny seansów.
-            </DialogDescription>
-          </DialogHeader>
+          {/* Miniatura tylko na mobile - tam nie ma lewej kolumny, więc bez niej plakatu nie da się
+              w ogóle obejrzeć. Otwiera ten sam lightbox co plakat na desktopie. */}
+          <div className="mb-4 shrink-0 flex gap-3">
+            {movie.poster && (
+              <button
+                type="button"
+                onClick={() => setZoom(true)}
+                aria-label="Powiększ plakat"
+                className="sm:hidden relative w-[52px] shrink-0 self-start aspect-[2/3] rounded-md overflow-hidden bg-slate-800 cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              >
+                <Image src={movie.poster} alt="" fill unoptimized={isUnoptimizedPoster(movie.poster)} sizes="52px" className="object-cover" />
+                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded bg-slate-950/75 text-slate-100">
+                  <ZoomIn className="h-2.5 w-2.5" />
+                </span>
+              </button>
+            )}
+            <DialogHeader className="min-w-0">
+              <DialogTitle className="text-2xl">{movie.title}</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Repertuar i godziny seansów.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
           {/* Meta na mobile (bez lewej kolumny) - żeby oceny i podstawowe dane były widoczne na telefonie */}
           <div className="sm:hidden shrink-0 mb-4 flex flex-col gap-2.5">
@@ -849,16 +866,20 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
         >
           <X className="h-5 w-5" />
         </button>
+        {/* `fill`, nie width/height: przy `w-auto` rozmiar brałby się z naturalnej szerokości pliku,
+            a `srcset` + `sizes` każe przeglądarce traktować go jak obraz wysokiej gęstości - plakat
+            wychodził przez to ułamek ekranu. Kontener decyduje o rozmiarze, `object-contain` o proporcjach. */}
         {movie.poster && (
+          <div className="relative h-full w-full">
           <Image
             src={movie.poster}
             alt={movie.title}
-            width={800}
-            height={1200}
+            fill
             unoptimized={isUnoptimizedPoster(movie.poster)}
             sizes="90vw"
-            className="h-auto max-h-full w-auto max-w-full rounded-xl object-contain shadow-2xl"
+            className="object-contain drop-shadow-2xl"
           />
+          </div>
         )}
       </DialogContent>
     </Dialog>
