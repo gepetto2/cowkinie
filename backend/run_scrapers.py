@@ -28,7 +28,7 @@ from core.small_sources import save_small_sources
 
 
 logger = logging.getLogger(__name__)
-TARGET_CITIES = ["Poznań", "Bydgoszcz", "Suwałki", "Gdańsk", "Gdynia", "Sopot"]
+TARGET_CITIES = ["Poznań", "Bydgoszcz", "Suwałki", "Gdańsk", "Gdynia", "Sopot", "Kraków", "Warszawa"]
 
 async def run_all() -> bool:
     """Zwraca True, jeśli wszystkie źródła zeskrapowały się bez błędu."""

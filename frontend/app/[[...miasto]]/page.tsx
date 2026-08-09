@@ -283,10 +283,16 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
   // Średnie ocen liczymy z pełnego zbioru (stabilne), a kandydatów bierzemy z przefiltrowanych po
   // mieście/dacie. Dopuszczamy też klasyki/KULTOWE - pomijamy tylko typy wydarzeń.
   const ratingMeans = computeRatingMeans(enhancedMovies);
+  // Próg wyniku, nie tylko sortowanie: po zawężeniu filtrów pula topniała i do "wysoko ocenianych"
+  // wchodziły filmy przeciętne, bo były najlepsze z tego, co zostało. Średnia zbioru to ~7,1,
+  // mediana ~7,4 - stąd 7,5 jako wyraźnie "powyżej przeciętnej". Gdy przejdzie za mało filmów,
+  // karuzela chowa się sama (warunek > SMALL_CATEGORY_MAX przy renderze).
+  const MIN_TOP_RATED_SCORE = 7.5;
   let topRated = filteredMovies
     .filter((m) => !CAROUSEL_EXCLUDED_TYPES.includes(m.movie_type ?? ''))
     .map((m) => ({ movie: m, score: bayesianScore(m, ratingMeans) }))
-    .filter((x): x is { movie: typeof enhancedMovies[number]; score: number } => x.score !== null)
+    .filter((x): x is { movie: typeof enhancedMovies[number]; score: number } =>
+      x.score !== null && x.score >= MIN_TOP_RATED_SCORE)
     .sort((a, b) => b.score - a.score)
     .slice(0, 15)
     .map((x) => x.movie);
