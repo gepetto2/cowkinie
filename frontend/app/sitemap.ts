@@ -30,6 +30,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.5,
     },
+    {
+      url: `${SITE_URL}/kina`,
+      lastModified,
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
     ...cities.map((city) => ({
       url: `${SITE_URL}/${citySlug(city)}`,
       lastModified,

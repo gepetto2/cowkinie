@@ -170,3 +170,27 @@ export async function getFilteredAvailability(
   }
   return map;
 }
+
+// Kina do podstrony /kina. Pola opisowe (adres, url) mamy na razie tylko dla sieciówek,
+// więc typ dopuszcza null - podstrona pokazuje to, co jest.
+export type CinemaListItem = Pick<
+  Database['public']['Tables']['cinemas']['Row'],
+  'id' | 'name' | 'city' | 'franchise' | 'category' | 'address' | 'url'
+>;
+
+export const getCinemas = unstable_cache(
+  async (): Promise<CinemaListItem[]> => {
+    const { data, error } = await supabase
+      .from('cinemas')
+      .select('id, name, city, franchise, category, address, url')
+      .order('city')
+      .order('name');
+    if (error) {
+      console.error('Błąd podczas pobierania kin:', error);
+      return [];
+    }
+    return data ?? [];
+  },
+  ['cinemas-list'],
+  { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
+);

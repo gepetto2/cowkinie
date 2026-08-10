@@ -6,7 +6,7 @@ import sys
 from logging_config import setup_logging
 setup_logging()
 
-from config import supabase
+from config import supabase, TARGET_CITIES
 
 # Importujemy funkcje scrapujące z naszych plików
 from scrapers.multikino import scrape_and_save as scrape_multikina
@@ -28,7 +28,6 @@ from core.small_sources import save_small_sources
 
 
 logger = logging.getLogger(__name__)
-TARGET_CITIES = ["Poznań", "Bydgoszcz", "Suwałki", "Gdańsk", "Gdynia", "Sopot", "Kraków", "Warszawa"]
 
 async def run_all() -> bool:
     """Zwraca True, jeśli wszystkie źródła zeskrapowały się bez błędu."""

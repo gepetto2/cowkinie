@@ -7,14 +7,23 @@ from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
-def upsert_cinema(supabase, name: str, city: str, franchise: str, category: str) -> str:
+def upsert_cinema(supabase, name: str, city: str, franchise: str, category: str,
+                  address: str = None, latitude: float = None, longitude: float = None,
+                  url: str = None) -> str:
     """Dodaje lub aktualizuje kino i zwraca jego ID.
     franchise = realna marka (Cinema City, Kino Muza...); category = klasyfikacja do grupowania
-    badge'ów i sekcji: 'sieć' | 'studyjne' | 'niezależne'."""
-    cinema_res = supabase.table("cinemas").upsert(
-        {"name": name, "city": city, "franchise": franchise, "category": category},
-        on_conflict="name,franchise"
-    ).execute()
+    badge'ów i sekcji: 'sieć' | 'studyjne' | 'niezależne'.
+
+    Pola opisowe (adres, współrzędne, adres strony) są opcjonalne - nie każde źródło je podaje.
+    Puste POMIJAMY w zapisie, żeby scraper bez tych danych nie skasował wartości wpisanej ręcznie
+    albo pobranej wcześniej z innego miejsca.
+    """
+    row = {"name": name, "city": city, "franchise": franchise, "category": category}
+    for key, value in (("address", address), ("latitude", latitude),
+                       ("longitude", longitude), ("url", url)):
+        if value is not None:
+            row[key] = value
+    cinema_res = supabase.table("cinemas").upsert(row, on_conflict="name,franchise").execute()
     return cinema_res.data[0]["id"]
 
 def upsert_movies_batch(supabase, movies_to_upsert: dict) -> dict:

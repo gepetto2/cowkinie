@@ -41,7 +41,10 @@ async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> lis
                     target_cinemas.append({
                         "id": cinema.get("cinemaId"),
                         "name": cinema_name,
-                        "city": matched_city
+                        "city": matched_city,
+                        # Repertuar tego nie używa - korzysta z tego update_cinemas.py, który
+                        # wyciąga ze strony kina adres i współrzędne.
+                        "page": cinema.get("whatsOnUrl"),
                     })
                     
         logger.info(f"Znaleziono {len(target_cinemas)} kin dla miast: {', '.join(cities)}.")
