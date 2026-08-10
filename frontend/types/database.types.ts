@@ -437,6 +437,7 @@ export type Database = {
       movie_screening_counts: {
         Row: {
           movie_id: string | null
+          city: string | null
           screening_count: number | null
         }
         Relationships: [

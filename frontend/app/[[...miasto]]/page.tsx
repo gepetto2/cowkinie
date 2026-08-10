@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import {
   getCities, getMovies, getAvailableDates, getFilteredAvailability, getDateDaysAgo,
-  getCinemaAvailabilities, getTopScreenings, getAvailableFormats,
+  getCinemaAvailabilities, getScreeningCounts, getAvailableFormats,
 } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
 import Carousel from '@/components/Carousel';
@@ -131,14 +131,14 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
   const [
     movies,
     cinemaAvailabilities,
-    topScreenings,
+    screeningCounts,
     availableDates,
     formats,
     serverAvailByCity
   ] = await Promise.all([
     getMovies(),
     getCinemaAvailabilities(),
-    getTopScreenings(),
+    getScreeningCounts(),
     Promise.resolve(getAvailableDates(1)), // dzisiejsza data dla karuzel
     getAvailableFormats(),
     // Gdy aktywny filtr daty/formatu: dostępność (film -> franczyzy) z pasujących seansów, po stronie serwera.
@@ -231,9 +231,6 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
     };
   });
 
-  // Optymalizacja O(1) do szybkiego wyszukiwania pełnych danych filmu po id
-  const moviesMap = new Map(enhancedMovies.map(m => [m.id, m]));
-
   // Dostępne gatunki do filtra + licznik filmów per gatunek (ze wszystkich filmów).
   // Sortowanie: malejąco po liczbie, remisy alfabetycznie.
   const genreCounts = new Map<string, number>();
@@ -244,11 +241,24 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'pl'));
 
-  // Filtr miasta/daty jest już zakodowany w matchesFilters (jeden spójny zbiór dla listy i badge'ów).
-  let topMovies = (topScreenings || [])
-    .map((ts) => (ts.movie_id ? moviesMap.get(ts.movie_id) : undefined))
-    .filter((m): m is typeof enhancedMovies[number] =>
-      m !== undefined && m.matchesFilters && !CAROUSEL_EXCLUDED_TYPES.includes(m.movie_type ?? ''))
+  // Popularność liczona dla WYBRANYCH miast (pusty wybór = cała Polska). Widok daje licznik
+  // per (film, miasto), więc sumujemy go po zaznaczonych. Wcześniej kolejność szła z globalnego
+  // rankingu i tylko odsiewaliśmy z niej filmy niegrane w mieście - przez co np. w Gdyni jedna
+  // pozycja na dziesięć stała na właściwym miejscu, a lokalny hit przegrywał z filmem mającym
+  // tam trzy seanse. Filtr miasta/daty jest już zakodowany w matchesFilters.
+  const screeningsByMovie = new Map<string, number>();
+  for (const row of screeningCounts) {
+    if (selectedCities.length && !selectedCities.includes(row.city)) continue;
+    screeningsByMovie.set(row.movie_id, (screeningsByMovie.get(row.movie_id) ?? 0) + (row.screening_count ?? 0));
+  }
+
+  let topMovies = enhancedMovies
+    .filter((m) => m.matchesFilters
+      && !CAROUSEL_EXCLUDED_TYPES.includes(m.movie_type ?? '')
+      && screeningsByMovie.has(m.id))
+    // Remisy po tytule, żeby kolejność nie skakała między buildami przy równej liczbie seansów.
+    .sort((a, b) => screeningsByMovie.get(b.id)! - screeningsByMovie.get(a.id)!
+      || a.title.localeCompare(b.title, 'pl'))
     .slice(0, 10);
 
   let filteredMovies = enhancedMovies.filter((m) => m.matchesFilters);

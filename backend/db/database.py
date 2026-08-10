@@ -647,8 +647,21 @@ def delete_orphan_movies(supabase):
     """Usuwa filmy bez żadnego seansu (wypadły z repertuaru). Uruchamiać TYLKO gdy wszystkie źródła
     zescrapowały się poprawnie - inaczej skasowalibyśmy filmy chwilowo nieudanego źródła."""
     all_ids = {m["id"] for m in supabase.table("movies").select("id").execute().data}
-    # movie_screening_counts to widok z jednym wierszem na film mający seanse (agregacja) - mieści się w limicie
-    used_ids = {r["movie_id"] for r in supabase.table("movie_screening_counts").select("movie_id").execute().data}
+
+    # movie_screening_counts ma wiersz na (film, MIASTO), więc jest ich wielokrotnie więcej niż filmów
+    # i rosną z każdym nowym mieście. Supabase tnie odpowiedź na 1000 wierszy BEZ sygnalizowania tego,
+    # a film ucięty z tej listy wyglądałby na osieroconego i zostałby skasowany razem z seansami.
+    # Dlatego czytamy stronami - tu ucięcie kosztowałoby utratę danych, nie tylko niepełny widok.
+    PAGE = 1000
+    used_ids, offset = set(), 0
+    while True:
+        batch = (supabase.table("movie_screening_counts").select("movie_id")
+                 .range(offset, offset + PAGE - 1).execute().data)
+        used_ids.update(r["movie_id"] for r in batch)
+        if len(batch) < PAGE:
+            break
+        offset += PAGE
+
     orphans = [i for i in all_ids if i not in used_ids]
 
     if not orphans:

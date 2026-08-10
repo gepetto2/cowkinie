@@ -70,6 +70,20 @@ export const getMovies = unstable_cache(
   { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
 );
 
+// Supabase oddaje najwyżej 1000 wierszy na zapytanie i NIE sygnalizuje ucięcia - zbiór po prostu
+// przychodzi krótszy. Widoki rozpisane na miasta rosną z każdym nowym miastem, więc czytamy stronami.
+async function fetchAllRows<T>(table: keyof Database['public']['Views'], columns: string): Promise<T[]> {
+  const PAGE = 1000;
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from(table).select(columns).range(from, from + PAGE - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as unknown as T[];
+    out.push(...rows);
+    if (rows.length < PAGE) return out;
+  }
+}
+
 // Ziarnista dostępność: jeden wiersz na (film, miasto, franczyza). Pozwala policzyć franczyzy
 // zawężone do wybranego miasta (badge'y na plakacie mają odpowiadać aktywnemu filtrowi), a nie
 // wszystkie franczyzy filmu w ogóle. Wymaga widoku movie_cinema_availability (patrz SQL).
@@ -77,35 +91,33 @@ export type CinemaAvailabilityRow = { movie_id: string; city: string; franchise:
 
 export const getCinemaAvailabilities = unstable_cache(
   async (): Promise<CinemaAvailabilityRow[]> => {
-    const { data, error } = await supabase
-      .from('movie_cinema_availability')
-      .select('movie_id, city, franchise');
-    if (error) {
+    try {
+      return await fetchAllRows<CinemaAvailabilityRow>('movie_cinema_availability', 'movie_id, city, franchise');
+    } catch (error) {
       console.error('Błąd podczas pobierania dostępności kin:', error);
       return [];
     }
-    return (data ?? []) as unknown as CinemaAvailabilityRow[];
   },
   ['cinema-availabilities'],
   { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
 );
 
-export const getTopScreenings = unstable_cache(
-  async () => {
-    // Pobieramy z zapasem (nie 10) - część kandydatów odpada potem po filtrach miasta/daty/typu,
-    // a karuzela "Najpopularniejsze" i tak przycina do 10.
-    const { data, error } = await supabase
-      .from('movie_screening_counts')
-      .select('*')
-      .order('screening_count', { ascending: false })
-      .limit(40);
-    if (error) {
-      console.error('Błąd podczas pobierania rankingu seansów:', error);
+// Liczba seansów per (film, miasto). Wymiar miasta jest konieczny, bo karuzela "Najpopularniejsze"
+// ma odpowiadać wybranemu miastu - globalny ranking był w praktyce rankingiem warszawskim
+// (Warszawa ma najwięcej kin, więc dominowała liczniki). Bez sortowania i limitu w bazie:
+// kolejność zależy od zaznaczonych miast, więc ustala ją strona.
+export type ScreeningCountRow = { movie_id: string; city: string; screening_count: number };
+
+export const getScreeningCounts = unstable_cache(
+  async (): Promise<ScreeningCountRow[]> => {
+    try {
+      return await fetchAllRows<ScreeningCountRow>('movie_screening_counts', 'movie_id, city, screening_count');
+    } catch (error) {
+      console.error('Błąd podczas pobierania liczby seansów:', error);
       return [];
     }
-    return data ?? [];
   },
-  ['top-screenings'],
+  ['screening-counts'],
   { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
 );
 
