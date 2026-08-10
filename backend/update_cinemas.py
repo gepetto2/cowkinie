@@ -75,7 +75,7 @@ async def _from_helios(client) -> list:
     for c in await helios.get_target_cinemas(client, TARGET_CITIES):
         loc = c.get("location") or {}
         city, slug = loc.get("city"), c.get("slug")
-        # Nazwa musi być czyszczona tak samo jak w scraperze repertuaru, inaczej upsert po
+        # Marka musi lecieć z nazwy tak samo jak w scraperze repertuaru, inaczej upsert po
         # (name, franchise) założy drugie kino zamiast uzupełnić istniejące.
         name = (c.get("name") or "").replace("Helios", "").strip()
         if not name or not city:

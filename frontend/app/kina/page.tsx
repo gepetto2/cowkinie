@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { MapPin, ExternalLink } from 'lucide-react';
 import { getCinemas, type CinemaListItem } from '@/lib/supabase/queries';
 import { citySlug } from '@/lib/cities';
+import { cinemaLabel, cinemaAddress, cinemaBadge } from '@/lib/cinemas';
+import { franchiseSurface } from '@/lib/franchise';
 
 export const metadata: Metadata = {
   title: 'Kina',
@@ -16,6 +18,15 @@ function groupByCity(cinemas: CinemaListItem[]): [string, CinemaListItem[]][] {
     const arr = map.get(c.city);
     if (arr) arr.push(c);
     else map.set(c.city, [c]);
+  }
+  // W mieście najpierw po sieci, potem po nazwie - inaczej sortowanie po surowej nazwie przeplata
+  // marki ("Warszawa Blue City" wypada przed "Warszawa - Bemowo", bo spacja < myślnik).
+  for (const list of map.values()) {
+    list.sort(
+      (a, b) =>
+        (a.franchise ?? '').localeCompare(b.franchise ?? '', 'pl') ||
+        cinemaLabel(a, true).localeCompare(cinemaLabel(b, true), 'pl'),
+    );
   }
   return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pl'));
 }
@@ -41,22 +52,23 @@ export default async function CinemasPage() {
             </h2>
 
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {list.map((c) => (
+              {list.map((c) => {
+                const address = cinemaAddress(c.address, c.city);
+                // Barwa sieci niesiona przez samą kartę: lewa krawędź + poświata gasnąca w prawo.
+                // Gradient ustawia background-image, więc nie gryzie się z bg-slate-900/40.
+                const surface = franchiseSurface(cinemaBadge(c) ?? '');
+                return (
                 <li
                   key={c.id}
-                  className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-900/40 p-4"
+                  className={`flex flex-col gap-2 rounded-xl border border-slate-800 border-l-4 bg-slate-900/40 bg-linear-to-r to-transparent p-4 ${surface}`}
                 >
-                  <div>
-                    <p className="font-semibold text-slate-100">{c.name}</p>
-                    {c.franchise && c.franchise !== c.name && (
-                      <p className="text-xs text-slate-500 mt-0.5">{c.franchise}</p>
-                    )}
-                  </div>
+                  {/* Miasto niesie nagłówek sekcji, więc nazwa i adres są bez niego. */}
+                  <p className="font-semibold text-slate-100">{cinemaLabel(c, true)}</p>
 
-                  {c.address && (
+                  {address && (
                     <p className="flex items-start gap-1.5 text-sm text-slate-400">
                       <MapPin className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
-                      {c.address}
+                      {address}
                     </p>
                   )}
 
@@ -72,7 +84,8 @@ export default async function CinemasPage() {
                     </a>
                   )}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
         ))}

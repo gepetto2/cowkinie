@@ -7,6 +7,7 @@ import Image from "next/image";
 import { Database } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
 import { movieRatings, movieRatingsFull } from "@/lib/ratings";
+import { cinemaLabel, cinemaGroup, badgeKey, cinemaBadge } from "@/lib/cinemas";
 import { MovieListItem } from "@/lib/supabase/queries";
 import { useCityScope } from "@/components/CityScope";
 import {
@@ -30,17 +31,6 @@ type Screening = Database["public"]["Tables"]["screenings"]["Row"] & {
   is_outdoor?: boolean | null;
 };
 
-// Grupa do badge'a: dla sieci realna marka, dla reszty kategoria (studyjne/niezależne) - spójnie z widokiem.
-function cinemaGroup(cinema: { franchise: string | null; category: string | null } | null): string | null {
-  if (!cinema) return null;
-  return cinema.category === "sieć" ? cinema.franchise : cinema.category;
-}
-
-// Klucz badge'a: sieci osobno (marka), a studyjne i niezależne łączymy w jedno "Inne".
-function badgeKey(group: string): string {
-  return group === "studyjne" || group === "niezależne" ? "Inne" : group;
-}
-
 // Seans plenerowy („na świeżym powietrzu") - flaga z bazy (ustawiana w scraperze Muzy dla tarasu/poza kinem).
 const isOutdoor = (s: Screening) => !!s.is_outdoor;
 
@@ -63,11 +53,8 @@ function buildCinemaGroups(screenings: Screening[]): CinemaGroup[] {
   const result: CinemaGroup[] = [];
   for (const [key, list] of byCinema) {
     const c = list[0].cinemas;
-    const rawName = c?.name || "Nieznane kino";
-    // Markę dołączamy do każdej nazwy dla spójności ("Helios Bydgoszcz", "Multikino Poznań Stary
-    // Browar"), poza kinami, których nazwa już jest marką (np. "Kino Muza" - bez dublowania).
-    const name = c?.franchise && rawName !== c.franchise ? `${c.franchise} ${rawName}` : rawName;
-    const group = cinemaGroup(c);
+    // Miasto zostaje w nazwie - ten widok nie jest pogrupowany po mieście.
+    const name = cinemaLabel(c);
     const byVersion = new Map<string, Screening[]>();
     for (const s of list) {
       const vparts = [s.format, s.lang].filter(Boolean);
@@ -84,7 +71,7 @@ function buildCinemaGroups(screenings: Screening[]): CinemaGroup[] {
         screenings: [...scr].sort((a, b) => a.start_time.localeCompare(b.start_time)),
       }))
       .sort((a, b) => a.key.localeCompare(b.key));
-    result.push({ key, name, badge: group ? badgeKey(group) : null, versions });
+    result.push({ key, name, badge: cinemaBadge(c), versions });
   }
   return result.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -225,9 +212,8 @@ const SHOW_AD_ESTIMATE = false;
 // Widok szczegółów pojedynczego seansu (trzeci poziom modalu): dane z bazy + przycisk zakupu.
 function ScreeningDetails({ screening, dateLabel, filmLength, onBack }: { screening: Screening; dateLabel: string; filmLength: number | null; onBack: () => void }) {
   const c = screening.cinemas;
-  const cinemaName = c?.franchise && c.name !== c.franchise ? `${c.franchise} ${c.name}` : (c?.name || "Nieznane kino");
-  const group = cinemaGroup(c);
-  const badge = group ? badgeKey(group) : null;
+  const cinemaName = cinemaLabel(c);
+  const badge = cinemaBadge(c);
   const fmtT = (iso: string) => new Date(iso).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
   const end = screening.end_time ? fmtT(screening.end_time) : null;
   // Blok reklam+zwiastunów = (koniec − start) − długość filmu (tylko gdy mamy realny koniec).

@@ -18,6 +18,10 @@ def upsert_cinema(supabase, name: str, city: str, franchise: str, category: str,
     Puste POMIJAMY w zapisie, żeby scraper bez tych danych nie skasował wartości wpisanej ręcznie
     albo pobranej wcześniej z innego miejsca.
     """
+    # Nazwa wchodzi w klucz upsertu, więc białe znaki muszą być znormalizowane w JEDNYM miejscu.
+    # Źródła podają je różnie ("Warszawa -  Arkadia" z CC, "Gdańsk  Forum" po wycięciu marki
+    # w Heliosie), a rozjazd o jedną spację zakłada drugie kino zamiast uzupełnić istniejące.
+    name = re.sub(r"\s+", " ", name or "").strip()
     row = {"name": name, "city": city, "franchise": franchise, "category": category}
     for key, value in (("address", address), ("latitude", latitude),
                        ("longitude", longitude), ("url", url)):
