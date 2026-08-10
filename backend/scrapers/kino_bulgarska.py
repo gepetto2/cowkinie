@@ -70,9 +70,13 @@ def _movie_type(raw_title: str):
 
 
 def parse_repertoire(html: str, now: datetime):
-    """Parsuje HTML repertuaru -> lista seansów (dict): date, time, slug, title, hall.
-    Metadanych filmu NIE zbieramy (bierze je enrichment). Czysta funkcja (testowalna offline)."""
-    out = []
+    """Parsuje HTML repertuaru -> (lista seansów, liczba komunikatów o zamknięciu).
+
+    Seans to dict: date, time, slug, title, hall. Metadanych filmu NIE zbieramy (bierze je
+    enrichment). Drugi element odróżnia kino nieczynne od zmiany struktury strony - przy przerwie
+    technicznej strona ma komplet sekcji dni, tylko w każdej stoi komunikat zamiast filmu.
+    Czysta funkcja (testowalna offline)."""
+    out, closed = [], 0
     # Datowane nagłówki dni (zawierają 'DD miesiąc'); kompaktowa część niżej ma krótkie nazwy -> ją pomijamy.
     day_hdrs = list(re.finditer(r"<h3>([^<]*\d{1,2}\s+[a-ząćęłńóśźż]+[^<]*)</h3>", html, re.I))
     for idx, hdr in enumerate(day_hdrs):
@@ -88,6 +92,7 @@ def parse_repertoire(html: str, now: datetime):
                 continue
             raw_title = m_film.group(2)
             if _NOT_A_SCREENING.search(unescape(raw_title)):
+                closed += 1
                 continue
             title = _title(raw_title)
             if not title:
@@ -106,7 +111,7 @@ def parse_repertoire(html: str, now: datetime):
                 "release_year": year,
                 "length": length,
             })
-    return out
+    return out, closed
 
 
 async def scrape_and_save(supabase, cities=["Poznań"]):
@@ -123,8 +128,15 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             resp = await client.get(REPERTOIRE_URL, timeout=30.0)
             if resp.status_code != 200:
                 raise ScraperError(f"Kino Bułgarska 19: repertuar zwrócił HTTP {resp.status_code}.")
-            shows = parse_repertoire(resp.text, datetime.now(ZoneInfo("Europe/Warsaw")))
+            shows, closed = parse_repertoire(resp.text, datetime.now(ZoneInfo("Europe/Warsaw")))
             if not shows:
+                # Pustka ma dwie przyczyny. Gdy wszystkie wpisy to komunikaty ("kino nieczynne",
+                # "przerwa techniczna"), zero seansów jest PRAWDZIWĄ odpowiedzią - kino jest zamknięte
+                # i zgłoszenie awarii byłoby fałszywym alarmem (a ten blokuje kasowanie osieroconych
+                # filmów w całym przebiegu). Dopiero brak rozpoznanych wpisów znaczy, że strona się zmieniła.
+                if closed:
+                    logger.info("Kino Bułgarska 19: kino nieczynne (%s dni z komunikatem) - brak seansów.", closed)
+                    return
                 raise ScraperError("Kino Bułgarska 19: nie sparsowano żadnego seansu - zmiana struktury strony?")
 
             # KROK 1: filmy - tytuł + movie_type (Kino Dzieci -> DLA DZIECI). Pozostałe metadane (plakat,

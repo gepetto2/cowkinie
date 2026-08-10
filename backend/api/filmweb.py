@@ -72,6 +72,11 @@ def _fw_genre(preview_data):
 # przy tytułach generycznych, gdzie i tak niczego nie rozstrzygniemy.
 _YEAR_CHECK_LIMIT = 5
 
+# Rok produkcji i rok polskiej premiery rozjeżdżają się o jeden nagminnie (film z 2025 wchodzi
+# do kin w 2026), a każde ze źródeł podaje inny z nich. Wymaganie dokładnej zgodności odrzucało
+# poprawnego kandydata i spychało dopasowanie na wynik zapasowy.
+_YEAR_TOLERANCE = 1
+
 
 async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp.ClientSession):
     # Kodowanie tytułu do formatu URL (zamiana spacji na %20 itp.)
@@ -108,12 +113,23 @@ async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp
             if not hit_id:
                 continue
             preview = await _fetch_json(session, f"https://www.filmweb.pl/api/v1/film/{hit_id}/preview")
-            if preview and str(preview.get("year")) == str(year):
-                logger.debug(f"Dopasowano po roku: '{hit.get('matchedTitle')}' ({year}) z ID: {hit_id}")
+            try:
+                hit_year = int((preview or {}).get("year"))
+            except (TypeError, ValueError):
+                continue
+            if abs(hit_year - int(year)) <= _YEAR_TOLERANCE:
+                logger.debug(f"Dopasowano po roku: '{hit.get('matchedTitle')}' ({hit_year}, szukano {year}) z ID: {hit_id}")
                 return hit_id
-        logger.debug(f"Nie znaleziono filmu '{title}' z roku {year}. Próba dopasowania pierwszego wyniku...")
 
-    # Zwracamy ID pierwszego znalezionego filmu (wartość zapasowa / brak roku)
+        # Znamy rok, a żaden kandydat się w nim nie mieści - pierwsze trafienie to wtedy prawie na pewno
+        # INNY film o tym samym polskim tytule (wyszukiwarka sortuje po popularności, więc na czele stoi
+        # klasyk, nie tegoroczna premiera). Wolimy BRAK danych niż ocenę, opis, gatunek i obsadę cudzego
+        # filmu: ocena Filmwebu wchodzi do rankingu, więc taka pomyłka nie jest kosmetyczna.
+        logger.info("Filmweb: brak filmu '%s' z roku ~%s wśród %s kandydatów - pomijam Filmweb dla tego filmu.",
+                    title, year, min(len(film_hits), _YEAR_CHECK_LIMIT))
+        return None
+
+    # Bez znanego roku nie mamy czym rozstrzygać - bierzemy pierwsze trafienie.
     first_film_id = film_hits[0].get("id")
     first_film_title = film_hits[0].get("matchedTitle")
 

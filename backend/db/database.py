@@ -299,7 +299,9 @@ def _canon_genre(token: str):
 # Progi, powyżej których uznajemy, że TMDB i Filmweb opisują RÓŻNE filmy, a nie ten sam z drobnymi
 # rozbieżnościami w danych. Rok jest sygnałem najmocniejszym: remake'i i wznowienia dzielą od
 # oryginału zwykle dekady, a legalny rozjazd (premiera festiwalowa vs kinowa) to najwyżej rok.
-_MISMATCH_YEAR_GAP = 3
+# Publiczny, bo enrich_movies ponawia na nim dopasowanie Filmwebu - oba miejsca MUSZĄ używać tej
+# samej wartości, inaczej ponowienie odpalałoby się dla innych filmów niż te zgłaszane w logu.
+MISMATCH_YEAR_GAP = 3
 _MISMATCH_LENGTH_MIN = 20
 
 
@@ -316,7 +318,7 @@ def _log_source_mismatch(movie: dict):
     d_tmdb, d_fw = movie.get("director_tmdb"), movie.get("director_filmweb")
 
     reasons = []
-    if y_tmdb and y_fw and abs(int(y_tmdb) - int(y_fw)) >= _MISMATCH_YEAR_GAP:
+    if y_tmdb and y_fw and abs(int(y_tmdb) - int(y_fw)) >= MISMATCH_YEAR_GAP:
         reasons.append(f"rok {y_tmdb} vs {y_fw}")
     if l_tmdb and l_fw and abs(int(l_tmdb) - int(l_fw)) >= _MISMATCH_LENGTH_MIN:
         reasons.append(f"długość {l_tmdb} vs {l_fw} min")

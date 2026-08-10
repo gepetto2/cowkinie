@@ -49,6 +49,13 @@ def check_and_merge_movie(supabase: Client, current_movie: dict, tmdb_id: int, s
         seen_movie = seen_tmdb_ids[key]
         seen_movie_id = seen_movie["id"]
         seen_movie_title = seen_movie.get("title", "Nieznany tytuł")
+
+        # Film odnalazł SAM SIEBIE, nie duplikat. Dzieje się tak, gdy wymuszamy ponowne dopasowanie
+        # czyszcząc `title_tmdb`, a `tmdb_id` zostaje - wpis jest wtedy w `seen_tmdb_ids` z własnym id.
+        # Bez tego warunku tytuły są identyczne, więc `sim_seen >= sim_current` uznaje bieżący film
+        # za gorszy i krok 3 niżej KASUJE go razem z seansami.
+        if seen_movie_id == current_movie.get("id"):
+            return False
         
         current_movie_id = current_movie.get("id")
         current_movie_title = current_movie.get("title", "Nieznany tytuł")

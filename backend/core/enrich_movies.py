@@ -8,10 +8,19 @@ from api.tmdb import get_tmdb_movie_details, get_tmdb_ratings_by_id
 from api.filmweb import search_movie_details, get_filmweb_rating_by_id
 from api.omdb import get_omdb_ratings
 from core.merge_movies import check_and_merge_movie, version_key
+from db.database import MISMATCH_YEAR_GAP
 from utils import search_title
 
 
 logger = logging.getLogger(__name__)
+
+
+def _year_of(data: dict | None, key: str):
+    """Rok z odpowiedzi API jako int; None gdy brak albo nieparsowalny."""
+    try:
+        return int(str((data or {}).get(key))[:4])
+    except (TypeError, ValueError):
+        return None
 
 # Po ilu dniach od premiery uznajemy ocenę za ustabilizowaną. Świeży film zbiera głosy lawinowo
 # i jego średnia potrafi się zmienić o kilka dziesiątych w ciągu tygodnia; klasyk sprzed lat
@@ -74,8 +83,23 @@ async def enrich_movies_data(supabase: Client):
 
             tmdb_task = get_tmdb_movie_details(query_title, search_year, db_director, db_original_title, session)
             filmweb_task = search_movie_details(query_title, search_year, session)
-            
+
             tmdb_data, filmweb_data = await asyncio.gather(tmdb_task, filmweb_task)
+
+            # Oba źródła pytamy NIEZALEŻNIE - tylko wtedy ich rozjazd cokolwiek znaczy (na nim stoi
+            # ostrzeżenie z _log_source_mismatch). Dopiero gdy rozjazd wystąpi, ponawiamy Filmweb
+            # z rokiem z TMDB. Pomylonym jest zwykle Filmweb: jego wyszukiwarka przyjmuje sam tytuł
+            # i sortuje po popularności, więc bez roku w bazie zwraca klasyk zamiast tegorocznej
+            # premiery (tak "Werdykt" z 2026 dostał ocenę i opis dramatu Lumeta z 1982). TMDB
+            # dostaje dodatkowo reżysera i tytuł oryginalny, więc ma czym rozstrzygać.
+            tmdb_year, filmweb_year = _year_of(tmdb_data, "release_year"), _year_of(filmweb_data, "year")
+            if tmdb_year and filmweb_year and abs(tmdb_year - filmweb_year) >= MISMATCH_YEAR_GAP:
+                logger.info("Rozjazd lat dla '%s' (TMDB %s vs Filmweb %s) - ponawiam Filmweb z rokiem z TMDB.",
+                            db_title, tmdb_year, filmweb_year)
+                # Gdy ponowienie nic nie znajdzie, zostajemy BEZ danych z Filmwebu - to lepsze niż
+                # ocena, opis i gatunek innego filmu, bo ocena Filmwebu wchodzi do rankingu.
+                filmweb_data = await search_movie_details(query_title, tmdb_year, session)
+
             update_data = {}
             
             if tmdb_data:
