@@ -539,6 +539,13 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
   const filteredScreenings = visibleScreenings.filter(s => toWarsawDay(s.start_time) === selectedDate);
   const cinemaGroups = selectedDate ? buildCinemaGroups(filteredScreenings) : [];
 
+  // Data POLSKIEJ premiery kinowej (konsolidowana z kin i TMDB), nie rok produkcji - ten wisi obok
+  // jako chip. Formatujemy w UTC, żeby strefa nie przesunęła dnia.
+  const premiere = movie.release_date
+    ? new Date(`${movie.release_date}T00:00:00Z`).toLocaleDateString("pl-PL",
+        { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
+    : null;
+
   const formatDateLabel = (dateString: string) => {
     // dateString to już dzień w strefie Warsaw ('YYYY-MM-DD'); formatujemy w UTC, by nie przesunąć dnia
     const d = new Date(`${dateString}T00:00:00Z`);
@@ -641,6 +648,7 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
           </div>
           {movie.director && <InfoRow label="Reżyseria" value={movie.director} />}
           {details?.cast && <InfoRow label="Obsada" value={details.cast} />}
+          {premiere && <InfoRow label="Premiera" value={premiere} />}
           {details?.synopsis && <SynopsisBlock text={details.synopsis} />}
         </div>
 
@@ -691,6 +699,7 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
             )}
             {movie.director && <InfoRow label="Reżyseria" value={movie.director} />}
             {details?.cast && <InfoRow label="Obsada" value={details.cast} />}
+            {premiere && <InfoRow label="Premiera" value={premiere} />}
             {details?.synopsis && <SynopsisBlock text={details.synopsis} lines={3} />}
           </div>
 

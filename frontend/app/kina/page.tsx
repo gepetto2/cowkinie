@@ -5,6 +5,7 @@ import { getCinemas, type CinemaListItem } from '@/lib/supabase/queries';
 import { citySlug } from '@/lib/cities';
 import { cinemaLabel, cinemaAddress, cinemaBadge } from '@/lib/cinemas';
 import { franchiseSurface } from '@/lib/franchise';
+import SiteHeader from '@/components/SiteHeader';
 
 export const metadata: Metadata = {
   title: 'Kina',
@@ -36,7 +37,9 @@ export default async function CinemasPage() {
   const byCity = groupByCity(cinemas);
 
   return (
-    <main className="container mx-auto px-3 sm:px-4 pt-8 pb-16">
+    <>
+    <SiteHeader active="kina" />
+    <main className="container mx-auto px-3 sm:px-4 pt-6 pb-16">
       <h1 className="text-4xl font-extrabold mb-2 text-slate-100 tracking-tight">Kina</h1>
       <p className="text-slate-400 mb-8">
         {cinemas.length} kin w {byCity.length} miastach.
@@ -97,5 +100,6 @@ export default async function CinemasPage() {
         </div>
       )}
     </main>
+    </>
   );
 }

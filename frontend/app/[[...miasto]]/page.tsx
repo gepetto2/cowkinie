@@ -1,6 +1,5 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import {
@@ -11,6 +10,7 @@ import MovieCard from '@/components/MovieCard';
 import Carousel from '@/components/Carousel';
 import FilterBar from '@/components/FilterBar';
 import { CityScopeProvider } from '@/components/CityScope';
+import SiteHeader from '@/components/SiteHeader';
 import { parseCityScope, scopeFromCookie, cityScopeHref, citiesLocative, CITY_COOKIE } from '@/lib/cities';
 import { categoryLabel } from '@/lib/categories';
 import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
@@ -414,13 +414,9 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
 
   return (
     <CityScopeProvider selected={selectedCities} all={cities}>
-    <main className="container mx-auto px-3 sm:px-4 pt-8 pb-16 overflow-x-clip">
-      <div className="mb-8 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-        <h1 className="text-4xl font-extrabold text-slate-100 tracking-tight">{heading}</h1>
-        <Link href="/kina" className="text-sm text-slate-400 hover:text-indigo-300 transition-colors">
-          Lista kin
-        </Link>
-      </div>
+    <SiteHeader />
+    <main className="container mx-auto px-3 sm:px-4 pt-6 pb-16 overflow-x-clip">
+      <h1 className="mb-8 text-4xl font-extrabold text-slate-100 tracking-tight">{heading}</h1>
 
       <Suspense fallback={<div className="h-14 mb-6" />}>
         <FilterBar cities={cities} formats={formats} genres={availableGenres} resultCount={filteredMovies.length} />
