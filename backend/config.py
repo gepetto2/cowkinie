@@ -17,7 +17,3 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     exit(1)
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-# Miasta objete serwisem. Wspolne dla run_scrapers.py (repertuar) i update_cinemas.py
-# (dane o kinach), zeby oba widzialy ten sam zasieg.
-TARGET_CITIES = ["Poznań", "Bydgoszcz", "Suwałki", "Gdańsk", "Gdynia", "Sopot", "Kraków", "Warszawa"]

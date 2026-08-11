@@ -180,11 +180,7 @@ async def _fetch_all(client, cpt: str, fields: str) -> list:
     return out
 
 
-async def scrape_and_save(supabase, cities=["Poznań"]):
-    if CITY not in cities:
-        logger.info("Pomijam Kino Apollo (Poznań nie jest wśród wybranych miast).")
-        return
-
+async def scrape_and_save(supabase):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             logger.info("Rozpoczynam scraping Kina Apollo (Poznań)...")

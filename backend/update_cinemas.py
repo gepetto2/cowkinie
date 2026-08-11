@@ -1,11 +1,15 @@
 """Aktualizuje DANE O KINACH: adres, współrzędne, link do strony.
 
 Osobno od `run_scrapers.py`, bo to informacje, które zmieniają się raz na lata - kino nie przenosi
-się co noc. Trzymanie ich w codziennym przebiegu kosztowałoby 9 dodatkowych żądań do Multikina
-(jedno na kino, bo adresy siedzą w `__NEXT_DATA__` strony) bez żadnego zysku.
+się co noc, a codzienne ich odświeżanie nic nie wnosi.
 
 Repertuar i tak zakłada kina przez `upsert_cinema`, więc nowe kino pojawi się w bazie samo -
 tylko bez adresu, dopóki nie uruchomisz tego skryptu.
+
+UWAGA: strony kin Multikina pobiera teraz także `run_scrapers.py` (miasta nie ma w ich API,
+patrz multikino._city_from_page), więc te 38 żądań lecą w obu skryptach. Da się to scalić -
+`get_target_cinemas` mogłoby zwracać od razu adres i współrzędne - ale wtedy dane opisowe
+wracają do scrapera repertuaru.
 
 Użycie:
     python update_cinemas.py
@@ -22,7 +26,7 @@ setup_logging()
 
 from curl_cffi import requests
 
-from config import supabase, TARGET_CITIES
+from config import supabase
 from db.database import upsert_cinema
 from scrapers import cinema_city, helios, multikino
 
@@ -55,7 +59,7 @@ def _city_slug(city: str) -> str:
 async def _from_cinema_city(client) -> list:
     """[(nazwa, miasto, pola)] dla Cinema City - wszystko jest w liście kin, bez dodatkowych żądań."""
     out = []
-    for c in await cinema_city.get_target_cinemas(client, TARGET_CITIES):
+    for c in await cinema_city.get_target_cinemas(client):
         info = c.get("addressInfo") or {}
         city = info.get("city")
         name = c.get("displayName")
@@ -72,7 +76,7 @@ async def _from_cinema_city(client) -> list:
 
 async def _from_helios(client) -> list:
     out = []
-    for c in await helios.get_target_cinemas(client, TARGET_CITIES):
+    for c in await helios.get_target_cinemas(client):
         loc = c.get("location") or {}
         city, slug = loc.get("city"), c.get("slug")
         # Marka musi lecieć z nazwy tak samo jak w scraperze repertuaru, inaczej upsert po
@@ -141,7 +145,7 @@ async def _from_multikino(client) -> list:
     """Multikino nie ma API z danymi kina (endpointy /cinemas/{id} zwracają 401) - adres
     i współrzędne są w `__NEXT_DATA__` strony repertuaru. Jedno żądanie na kino."""
     out = []
-    for c in await multikino.get_target_cinemas(client, TARGET_CITIES):
+    for c in await multikino.get_target_cinemas(client):
         address, lat, lng = await _multikino_details(client, c.get("page"), c["id"])
         out.append((c["name"], c["city"], {
             "address": _strip_postal_code(address) if address else None,
@@ -181,7 +185,7 @@ SOURCES = [
 
 
 async def update_all() -> bool:
-    logger.info("=== START: aktualizacja danych o kinach (%s) ===", ", ".join(TARGET_CITIES))
+    logger.info("=== START: aktualizacja danych o kinach (cała Polska) ===")
     total, with_address, failed = 0, 0, []
 
     async with requests.AsyncSession(impersonate="chrome") as client:

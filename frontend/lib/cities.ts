@@ -105,12 +105,84 @@ export function scopeToCookie(selected: string[]): string {
 // jawną mapę. Miasto spoza mapy dostaje bezpieczne "w mieście X": brzmi sztywniej, ale nigdy nie jest
 // błędem gramatycznym, więc dodanie kina w nowym mieście nie wyprodukuje nagłówka typu "w Kraków".
 const CITY_LOCATIVE: Record<string, string> = {
+  "Bełchatów": "Bełchatowie",
+  "Biała Podlaska": "Białej Podlaskiej",
+  "Białystok": "Białymstoku",
+  "Bielsko-Biała": "Bielsku-Białej",
   "Bydgoszcz": "Bydgoszczy",
+  "Bytom": "Bytomiu",
+  "Cieszyn": "Cieszynie",
+  "Czechowice-Dziedzice": "Czechowicach-Dziedzicach",
+  "Częstochowa": "Częstochowie",
+  "Dąbrowa Górnicza": "Dąbrowie Górniczej",
+  "Elbląg": "Elblągu",
   "Gdańsk": "Gdańsku",
   "Gdynia": "Gdyni",
+  "Gliwice": "Gliwicach",
+  "Gniezno": "Gnieźnie",
+  "Gorzów Wielkopolski": "Gorzowie Wielkopolskim",
+  "Grudziądz": "Grudziądzu",
+  "Głogów": "Głogowie",
+  "Janki": "Jankach",
+  "Jaworzno": "Jaworznie",
+  "Jelenia Góra": "Jeleniej Górze",
+  "Kalisz": "Kaliszu",
+  "Katowice": "Katowicach",
+  "Kielce": "Kielcach",
+  "Konin": "Koninie",
+  "Koszalin": "Koszalinie",
+  "Kraków": "Krakowie",
+  "Krosno": "Krośnie",
+  "Kędzierzyn-Koźle": "Kędzierzynie-Koźlu",
+  "Kłodzko": "Kłodzku",
+  "Legionowo": "Legionowie",
+  "Legnica": "Legnicy",
+  "Leszno": "Lesznie",
+  "Lubin": "Lubinie",
+  "Lublin": "Lublinie",
+  "Mielec": "Mielcu",
+  "Nowy Sącz": "Nowym Sączu",
+  "Olsztyn": "Olsztynie",
+  "Opole": "Opolu",
+  "Ostrów Wielkopolski": "Ostrowie Wielkopolskim",
+  "Pabianice": "Pabianicach",
+  "Piotrków Trybunalski": "Piotrkowie Trybunalskim",
+  "Piła": "Pile",
   "Poznań": "Poznaniu",
+  "Pruszków": "Pruszkowie",
+  "Przemyśl": "Przemyślu",
+  "Płock": "Płocku",
+  "Radom": "Radomiu",
+  "Ruda Śląska": "Rudzie Śląskiej",
+  "Rumia": "Rumi",
+  "Rybnik": "Rybniku",
+  "Rzeszów": "Rzeszowie",
+  "Siedlce": "Siedlcach",
   "Sopot": "Sopocie",
+  "Sosnowiec": "Sosnowcu",
+  "Stalowa Wola": "Stalowej Woli",
+  "Starachowice": "Starachowicach",
+  "Starogard Gdański": "Starogardzie Gdańskim",
   "Suwałki": "Suwałkach",
+  "Szczecin": "Szczecinie",
+  "Słupsk": "Słupsku",
+  "Tarnów": "Tarnowie",
+  "Tczew": "Tczewie",
+  "Tomaszów Mazowiecki": "Tomaszowie Mazowieckim",
+  "Toruń": "Toruniu",
+  "Tychy": "Tychach",
+  "Warszawa": "Warszawie",
+  "Wałbrzych": "Wałbrzychu",
+  "Wołomin": "Wołominie",
+  "Wrocław": "Wrocławiu",
+  "Włocławek": "Włocławku",
+  "Zabrze": "Zabrzu",
+  "Zgorzelec": "Zgorzelcu",
+  "Zielona Góra": "Zielonej Górze",
+  "Łomża": "Łomży",
+  "Łódź": "Łodzi",
+  "Świdnica": "Świdnicy",
+  "Żory": "Żorach",
 };
 
 /** "Poznań" -> "Poznaniu". Nieznane miasto zwracamy bez zmian (patrz `citiesLocative`). */
@@ -126,7 +198,15 @@ export function cityLocative(city: string): string | null {
 export function citiesLocative(cities: string[]): string {
   if (cities.length === 0) return "w całej Polsce";
   const forms = cities.map((c) => cityLocative(c) ?? `mieście ${c}`);
-  if (forms.length === 1) return `w ${forms[0]}`;
+  // Przyimek zależy od PIERWSZEGO członu, bo tylko przed nim stoi: "we Wrocławiu i Poznaniu".
+  const prep = /^w[^aąeęioóuy]/i.test(forms[0]) ? "we" : "w";
+  if (forms.length === 1) return `${prep} ${forms[0]}`;
   const last = forms[forms.length - 1];
-  return `w ${forms.slice(0, -1).join(", ")} i ${last}`;
+  return `${prep} ${forms.slice(0, -1).join(", ")} i ${last}`;
+}
+
+/** Miasta z bazy, dla których nie mamy odmiany - dostają zapasowe "w mieście X".
+ *  Służy do ostrzeżenia przy starcie, żeby mapa nie dryfowała po cichu za nowymi kinami. */
+export function citiesMissingLocative(cities: string[]): string[] {
+  return cities.filter((c) => !CITY_LOCATIVE[c]);
 }

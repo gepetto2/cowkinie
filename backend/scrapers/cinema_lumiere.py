@@ -27,11 +27,7 @@ def _title_and_lang(event_title: str):
     return clean_title(title), lang
 
 
-async def scrape_and_save(supabase, cities=["Poznań"]):
-    if CITY not in cities:
-        logger.info("Pomijam Cinema Lumiere (Suwałki nie jest wśród wybranych miast).")
-        return
-
+async def scrape_and_save(supabase):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             logger.info("Rozpoczynam scraping Cinema Lumiere (Suwałki)...")

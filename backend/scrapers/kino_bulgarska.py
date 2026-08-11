@@ -114,12 +114,7 @@ def parse_repertoire(html: str, now: datetime):
     return out, closed
 
 
-async def scrape_and_save(supabase, cities=["Poznań"]):
-    # Kino Bułgarska 19 jest wyłącznie w Poznaniu
-    if "Poznań" not in cities:
-        logger.info("Pomijam Kino Bułgarska (Poznań nie jest wśród wybranych miast).")
-        return
-
+async def scrape_and_save(supabase):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             logger.info("Rozpoczynam scraping Kina Bułgarska 19 (Poznań)...")

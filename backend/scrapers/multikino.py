@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from curl_cffi import requests
@@ -13,8 +14,38 @@ KNOWN_FORMATS = {
     "DOLBY ATMOS", "DOLBY CINEMA", "PLF", "270", "270°",
 }
 
-async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
-    """Pobiera listę kin Multikino i filtruje te z wybranych miast."""
+_NEXT_DATA = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
+
+
+async def _city_from_page(client: requests.AsyncSession, page_url: str):
+    """Miasto kina ze strony repertuaru (__NEXT_DATA__).
+
+    Multikino jako jedyne nie podaje miasta w API: kino to sam napis, a `fullName` i `itemName`
+    niosą to samo. Z samego "Elbląg Ogrody" vs "Gorzów Wielkopolski" nie da się orzec, gdzie kończy
+    się miasto, a zaczyna nazwa galerii - rozstrzyga dopiero adres ze strony kina.
+    """
+    if not page_url:
+        return None
+    try:
+        resp = await client.get(page_url, timeout=40.0)
+        if resp.status_code != 200:
+            return None
+        m = _NEXT_DATA.search(resp.text)
+        if not m:
+            return None
+        node = json.loads(m.group(1))["props"]["pageProps"]["layoutData"]["sitecore"]["context"]["cinema"]
+        address = ((node.get("cinemaAddress") or {}).get("value") or "").strip()
+    except Exception as e:
+        logger.debug("Nie odczytano miasta kina z %s: %s", page_url, e)
+        return None
+
+    # Adres jest dwuliniowy: ulica, a niżej "kod-pocztowy Miasto".
+    lines = [x.strip() for x in address.splitlines() if x.strip()]
+    return re.sub(r"\b\d{2}-\d{3}\b\s*", "", lines[-1]).strip() or None if lines else None
+
+
+async def get_target_cinemas(client: requests.AsyncSession) -> list:
+    """Pobiera listę wszystkich kin Multikina w Polsce (miasto per kino - patrz _city_from_page)."""
     cinemas_url = "https://www.multikino.pl/api/microservice/showings/cinemas"
     
     logger.info("Pobieranie listy kin z Multikina...")
@@ -32,29 +63,28 @@ async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> lis
         for group in all_cinemas_groups:
             for cinema in group.get("cinemas", []):
                 cinema_name = cinema.get("cinemaName", "")
-                matched_city = None
-                for city in cities:
-                    if city in cinema_name:
-                        matched_city = city
-                        break
-                if matched_city:
-                    target_cinemas.append({
-                        "id": cinema.get("cinemaId"),
-                        "name": cinema_name,
-                        "city": matched_city,
-                        # Repertuar tego nie używa - korzysta z tego update_cinemas.py, który
-                        # wyciąga ze strony kina adres i współrzędne.
-                        "page": cinema.get("whatsOnUrl"),
-                    })
-                    
-        logger.info(f"Znaleziono {len(target_cinemas)} kin dla miast: {', '.join(cities)}.")
+                # Jedno żądanie na kino - inaczej nie wiemy, do jakiego miasta przypisać seanse.
+                city = await _city_from_page(client, cinema.get("whatsOnUrl"))
+                if not city:
+                    logger.warning("Multikino: nie ustalono miasta dla '%s' - pomijam kino.", cinema_name)
+                    continue
+                target_cinemas.append({
+                    "id": cinema.get("cinemaId"),
+                    "name": cinema_name,
+                    "city": city,
+                    # Repertuar tego nie używa - korzysta z tego update_cinemas.py, który
+                    # wyciąga ze strony kina adres i współrzędne.
+                    "page": cinema.get("whatsOnUrl"),
+                })
+
+        logger.info("Znaleziono %s kin Multikina.", len(target_cinemas))
         return target_cinemas
         
     except Exception as e:
         logger.error(f"Błąd podczas pobierania listy kin: {e}")
         return []
 
-async def scrape_and_save(supabase, cities=["Poznań"]):
+async def scrape_and_save(supabase):
     # Używamy curl_cffi z proxy, co pozwala nam zachować sesję (ciasteczka) i sygnaturę Chrome
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
@@ -62,8 +92,8 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             logger.info("Rozpoczynam pobieranie ciasteczek...")
             await client.get("https://www.multikino.pl/", timeout=60.0)
             
-            # KROK 2: Pobranie kin w wybranych miastach
-            target_cinemas = await get_target_cinemas(client, cities)
+            # KROK 2: Pobranie listy kin (wraz z miastem każdego z nich)
+            target_cinemas = await get_target_cinemas(client)
             if not target_cinemas:
                 # Pusta lista kin = API nie odpowiedziało (typowo 403 od Cloudflare przy IP datacenter).
                 # Rzucamy, żeby przebieg NIE zaraportował sukcesu ze starymi seansami w bazie.

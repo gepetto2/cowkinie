@@ -74,8 +74,8 @@ CC_GENRE_MAP = {
     "romance": "Romans", "sci-fi": "Sci-Fi", "thriller": "Thriller", "war": "Wojenny", "western": "Western",
 }
 
-async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
-    """Pobiera listę kin Cinema City i filtruje te z wybranych miast."""
+async def get_target_cinemas(client: requests.AsyncSession) -> list:
+    """Pobiera listę wszystkich kin Cinema City w Polsce."""
     # Używamy daty daleko w przyszłości, aby mieć pewność, że dostaniemy wszystkie kina, które mają jakiekolwiek wydarzenia
     until_date = (datetime.now(ZoneInfo("Europe/Warsaw")) + timedelta(days=365*2)).strftime("%Y-%m-%d")
     cinemas_url = f"https://www.cinema-city.pl/pl/data-api-service/v1/quickbook/10103/cinemas/with-event/until/{until_date}"
@@ -89,12 +89,10 @@ async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> lis
         data = response.json()
         all_cinemas = data.get("body", {}).get("cinemas", [])
 
-        target_cinemas = [
-            cinema for cinema in all_cinemas
-            if cinema.get("addressInfo", {}).get("city") in cities
-        ]
+        # Miasto bierzemy z addressInfo.city - Cinema City podaje je wprost.
+        target_cinemas = [c for c in all_cinemas if c.get("addressInfo", {}).get("city")]
 
-        logger.info(f"Znaleziono {len(target_cinemas)} kin dla miast: {', '.join(cities)}.")
+        logger.info("Znaleziono %s kin Cinema City.", len(target_cinemas))
         return target_cinemas
 
     except requests.errors.RequestsError as e:
@@ -130,7 +128,7 @@ async def fetch_film_details(client: requests.AsyncSession, api_film_id: str, he
             logger.error(f"Błąd pobierania szczegółów filmu {api_film_id}: {e}")
         return api_film_id, None
 
-async def scrape_and_save(supabase, cities=["Poznań"]):
+async def scrape_and_save(supabase):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             # KROK 1: Inicjalizacja sesji i pobranie ciasteczek
@@ -138,7 +136,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
             await client.get("https://www.cinema-city.pl/", timeout=60.0)
 
             # KROK 2: Pobranie kin
-            target_cinemas = await get_target_cinemas(client, cities)
+            target_cinemas = await get_target_cinemas(client)
             if not target_cinemas:
                 raise ScraperError("Cinema City nie zwróciło żadnych kin - API niedostępne lub zablokowane.")
 
@@ -387,7 +385,7 @@ async def scrape_and_save(supabase, cities=["Poznań"]):
                     f"Cinema City: żadne z {len(target_cinemas)} kin nie zwróciło repertuaru - awaria lub blokada API."
                 )
 
-            logger.info(f"Zakończono zapisywanie danych z Cinema City dla miast: {', '.join(cities)}!")
+            logger.info("Zakończono zapisywanie danych z Cinema City!")
 
         except Exception:
             logger.exception("[Cinema City] Błąd w trakcie scrapowania")

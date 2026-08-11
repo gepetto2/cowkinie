@@ -188,12 +188,8 @@ async def _fetch_day(client, base_url: str, date: str, sem):
         return date, resp.text
 
 
-async def scrape_and_save(supabase, cities=["Poznań"], base_url: str = BASE_URL,
+async def scrape_and_save(supabase, base_url: str = BASE_URL,
                           cinema_name: str = CINEMA_NAME, city: str = CITY):
-    if city not in cities:
-        logger.info(f"Pomijam {cinema_name} ({city} nie jest wśród wybranych miast).")
-        return
-
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             logger.info(f"Rozpoczynam scraping {cinema_name} ({city})...")

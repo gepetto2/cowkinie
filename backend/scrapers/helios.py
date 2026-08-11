@@ -34,8 +34,8 @@ def _helios_premiere_date(movie_info: dict):
             return parse_release_date(d)
     return parse_release_date(movie_info.get("premiereDate"))
 
-async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> list:
-    """Pobiera listę kin Helios z API v1 i filtruje te z wybranych miast."""
+async def get_target_cinemas(client: requests.AsyncSession) -> list:
+    """Pobiera listę wszystkich kin Helios z API v1."""
     cinemas_url = "https://api.helios.pl/api/v1/cinemas"
     
     logger.info("Pobieranie listy kin z Heliosa...")
@@ -47,12 +47,10 @@ async def get_target_cinemas(client: requests.AsyncSession, cities: list) -> lis
             
         all_cinemas = response.json().get("data", [])
         
-        target_cinemas = [
-            cinema for cinema in all_cinemas
-            if cinema.get("location", {}).get("city") in cities
-        ]
-        
-        logger.info(f"Znaleziono {len(target_cinemas)} kin dla miast: {', '.join(cities)}.")
+        # Miasto bierzemy z location.city - Helios podaje je wprost.
+        target_cinemas = [c for c in all_cinemas if c.get("location", {}).get("city")]
+
+        logger.info("Znaleziono %s kin Heliosa.", len(target_cinemas))
         return target_cinemas
         
     except Exception as e:
@@ -71,11 +69,11 @@ async def fetch_movie_details(client: requests.AsyncSession, movie_id: str, sem:
             logger.error(f"Błąd pobierania szczegółów filmu (ID: {movie_id}): {e}")
         return movie_id, {}
 
-async def scrape_and_save(supabase, cities=["Poznań"]):
+async def scrape_and_save(supabase):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             logger.info("Nawiązywanie połączenia z Heliosem...")
-            target_cinemas = await get_target_cinemas(client, cities)
+            target_cinemas = await get_target_cinemas(client)
             
             if not target_cinemas:
                 raise ScraperError("Helios nie zwrócił żadnych kin - API niedostępne lub zablokowane.")

@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 import { supabase } from './client';
 import { Database } from '@/types/database.types';
+import { citiesMissingLocative } from '@/lib/cities';
 
 // Dane repertuaru zmieniają się tylko przy scrapie, więc cache'ujemy odczyty na krótko,
 // zamiast uderzać do Supabase pełnym zapytaniem przy każdym żądaniu (strona i tak filtruje w JS).
@@ -35,7 +36,14 @@ export const getCities = unstable_cache(
       return [];
     }
     // Wyciągamy unikalne miasta i sortujemy je alfabetycznie
-    return Array.from(new Set(data.map((c) => c.city))).sort();
+    const cities = Array.from(new Set(data.map((c) => c.city))).sort();
+    // Nowe kino w nieznanym mieście da nagłówek "w mieście Wrocław" zamiast "we Wrocławiu".
+    // Zapasowa forma nie jest błędem gramatycznym, więc bez tego wpisu rozjazd przechodzi niezauważony.
+    const missing = citiesMissingLocative(cities);
+    if (missing.length) {
+      console.warn(`Brak odmiany (miejscownika) dla miast: ${missing.join(', ')} - uzupełnij CITY_LOCATIVE w lib/cities.ts`);
+    }
+    return cities;
   },
   ['cities'],
   { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },

@@ -161,11 +161,7 @@ async def _discover_widget_hash(client) -> str:
     )
 
 
-async def scrape_and_save(supabase, cities=["Poznań"]):
-    if CITY not in cities:
-        logger.info(f"Pomijam {CINEMA_NAME} ({CITY} nie jest wśród wybranych miast).")
-        return
-
+async def scrape_and_save(supabase):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             logger.info(f"Rozpoczynam scraping {CINEMA_NAME} ({CITY})...")

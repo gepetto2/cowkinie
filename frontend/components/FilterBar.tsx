@@ -8,7 +8,7 @@ import type { DateRange } from "react-day-picker";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useCityScope } from "@/components/CityScope";
-import { cityScopeHref } from "@/lib/cities";
+import { citySlug, cityScopeHref } from "@/lib/cities";
 
 // --- Helpery dat w strefie Europe/Warsaw (spójnie z resztą aplikacji) ---
 const warsawFmt = new Intl.DateTimeFormat("en-CA", {
@@ -119,6 +119,23 @@ export default function FilterBar({ cities, formats, genres, resultCount }: { ci
   };
 
   const [cityOpen, setCityOpen] = useState(false);
+  const [cityQuery, setCityQuery] = useState("");
+  // Zapytanie czyścimy przy zamknięciu - po ponownym otwarciu lista ma być pełna, a nie zawężona
+  // tym, czego szukało się ostatnim razem.
+  const openCity = (o: boolean) => {
+    setCityOpen(o);
+    if (!o) setCityQuery("");
+  };
+  // Do wyboru zostają miasta niezaznaczone (zaznaczone są przypięte nad listą), zawężone zapytaniem.
+  const cityMatches = useMemo(() => {
+    const q = citySlug(cityQuery);
+    const hits = cities.filter((c) => !selectedCities.includes(c) && (!q || citySlug(c).includes(q)));
+    // Trafienia od POCZĄTKU nazwy pierwsze: przy "lodz" najpierw Łódź, potem Kłodzko.
+    return q
+      ? hits.sort((a, b) => Number(!citySlug(a).startsWith(q)) - Number(!citySlug(b).startsWith(q))
+          || a.localeCompare(b, "pl"))
+      : hits;
+  }, [cities, cityQuery, selectedCities]);
   const [formatOpen, setFormatOpen] = useState(false);
   const [genreOpen, setGenreOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false); // zwijanie filtrów na telefonie
@@ -228,7 +245,7 @@ export default function FilterBar({ cities, formats, genres, resultCount }: { ci
 
         {/* Miasto - wybór wielokrotny. Popover zostaje otwarty przy zaznaczaniu, żeby dało się
             zebrać kilka miast (np. Trójmiasto) bez otwierania listy za każdym razem. */}
-        <Popover open={cityOpen} onOpenChange={setCityOpen}>
+        <Popover open={cityOpen} onOpenChange={openCity}>
           <PopoverTrigger asChild>
             <button className={triggerCls(selectedCities.length > 0)}>
               <MapPin className="h-4 w-4" />
@@ -236,29 +253,56 @@ export default function FilterBar({ cities, formats, genres, resultCount }: { ci
               <ChevronDown className="h-3.5 w-3.5 opacity-60" />
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-52 p-2">
+          <PopoverContent align="start" className="w-60 p-2">
+            {/* Wyszukiwarka: przy kilkudziesięciu miastach przewijanie listy przestaje mieć sens.
+                Dopasowanie przez citySlug znosi diakrytyki i zrównuje spacje z myślnikami. */}
+            <div className="flex items-center gap-2 rounded-md border border-slate-700 px-2 py-1.5 mb-2 focus-within:border-indigo-500 transition-colors">
+              <Search className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
+              <input
+                value={cityQuery}
+                onChange={(e) => setCityQuery(e.target.value)}
+                placeholder="Szukaj…"
+                aria-label="Szukaj miasta"
+                className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-500 outline-none"
+              />
+            </div>
+
+            {/* Zaznaczone na górze, poza listą przewijaną - inaczej przy 77 miastach odznaczenie
+                jednego wymagałoby odszukania go w całej liście. */}
+            {selectedCities.map((c) => (
+              <button
+                key={c}
+                onClick={() => toggleCity(c)}
+                className="w-full flex items-center gap-2.5 text-left text-sm px-2.5 py-1.5 rounded-md text-slate-100 bg-indigo-500/10 hover:bg-slate-800 transition-colors"
+              >
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border bg-indigo-600 border-indigo-500">
+                  <Check className="h-3 w-3 text-white" />
+                </span>
+                {c}
+              </button>
+            ))}
+            {selectedCities.length > 0 && <div className="my-1.5 border-t border-slate-800" />}
+
             {/* Ten sam wzorzec co przy formacie/wersji/gatunku - kwadracik z ptaszkiem od razu
                 pokazuje, że wyborów może być kilka. */}
-            {cities.map((c) => {
-              const on = selectedCities.includes(c);
-              return (
+            <div className="max-h-56 overflow-y-auto">
+              {cityMatches.length === 0 && (
+                <p className="px-2.5 py-2 text-sm text-slate-500">Brak miasta.</p>
+              )}
+              {cityMatches.map((c) => (
                 <button
                   key={c}
                   onClick={() => toggleCity(c)}
                   className="w-full flex items-center gap-2.5 text-left text-sm px-2.5 py-1.5 rounded-md text-slate-200 hover:bg-slate-800 transition-colors"
                 >
-                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                    on ? "bg-indigo-600 border-indigo-500" : "border-slate-600"
-                  }`}>
-                    {on && <Check className="h-3 w-3 text-white" />}
-                  </span>
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-600" />
                   {c}
                 </button>
-              );
-            })}
+              ))}
+            </div>
             {selectedCities.length > 0 && (
               <button
-                onClick={() => { setCities([]); setCityOpen(false); }}
+                onClick={() => { setCities([]); openCity(false); }}
                 className="mt-1 w-full text-left text-sm px-2.5 py-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors border-t border-slate-800"
               >
                 Wszystkie miasta

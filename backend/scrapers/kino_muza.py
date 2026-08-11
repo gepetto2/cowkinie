@@ -105,12 +105,7 @@ async def _fetch_poster(client: requests.AsyncSession, title: str, movie_link: s
         return title, None
 
 
-async def scrape_and_save(supabase, cities=["Poznań"]):
-    # Kino Muza jest wyłącznie w Poznaniu
-    if "Poznań" not in cities:
-        logger.info("Pomijam Kino Muza (Poznań nie jest wśród wybranych miast).")
-        return
-
+async def scrape_and_save(supabase):
     async with requests.AsyncSession(impersonate="chrome") as client:
         try:
             logger.info("Rozpoczynam scraping Kina Muza (Poznań)...")

@@ -6,7 +6,7 @@ import sys
 from logging_config import setup_logging
 setup_logging()
 
-from config import supabase, TARGET_CITIES
+from config import supabase
 
 # Importujemy funkcje scrapujące z naszych plików
 from scrapers.multikino import scrape_and_save as scrape_multikina
@@ -31,21 +31,21 @@ logger = logging.getLogger(__name__)
 
 async def run_all() -> bool:
     """Zwraca True, jeśli wszystkie źródła zeskrapowały się bez błędu."""
-    logger.info("=== START: pobieranie danych ze wszystkich kin dla miast: %s ===", ", ".join(TARGET_CITIES))
+    logger.info("=== START: pobieranie danych ze wszystkich kin w Polsce ===")
 
     sources = ["Multikino", "Cinema City", "Helios", "Kino Muza", "Cinema Lumiere", "Kino Apollo", "Kino Bułgarska 19", "Kino Rialto", "Kino Pałacowe", "Kino Malta"]
     # return_exceptions=True: awaria jednego źródła nie przerywa pozostałych ani konsolidacji.
     results = await asyncio.gather(
-        scrape_multikina(supabase, TARGET_CITIES),
-        scrape_cinema_city(supabase, TARGET_CITIES),
-        scrape_helios(supabase, TARGET_CITIES),
-        scrape_muza(supabase, TARGET_CITIES),
-        scrape_lumiere(supabase, TARGET_CITIES),
-        scrape_apollo(supabase, TARGET_CITIES),
-        scrape_bulgarska(supabase, TARGET_CITIES),
-        scrape_rialto(supabase, TARGET_CITIES),
-        scrape_palacowe(supabase, TARGET_CITIES),
-        scrape_malta(supabase, TARGET_CITIES),
+        scrape_multikina(supabase),
+        scrape_cinema_city(supabase),
+        scrape_helios(supabase),
+        scrape_muza(supabase),
+        scrape_lumiere(supabase),
+        scrape_apollo(supabase),
+        scrape_bulgarska(supabase),
+        scrape_rialto(supabase),
+        scrape_palacowe(supabase),
+        scrape_malta(supabase),
         return_exceptions=True
     )
 
