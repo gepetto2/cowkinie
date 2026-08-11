@@ -8,7 +8,7 @@ from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from PIL import Image
-from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date, ScraperError
+from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date, karaoke_type, ScraperError
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked, load_existing_movies
 
 logger = logging.getLogger(__name__)
@@ -73,6 +73,36 @@ CC_GENRE_MAP = {
     "fantasy": "Fantasy", "history": "Historyczny", "horror": "Horror", "musical": "Musical",
     "romance": "Romans", "sci-fi": "Sci-Fi", "thriller": "Thriller", "war": "Wojenny", "western": "Western",
 }
+
+# `special-event` nie mówi, czy to koncert, czy spektakl. Strona wydarzeń CC ma to w data-category,
+# a link niesie kod dystrybutora - ten sam, co w API repertuaru. Jedno żądanie na przebieg.
+_EVENT_PAGE = "https://www.cinema-city.pl/static/pl/pl/event-cinema"
+_EVENT_TILE = re.compile(r'data-category="([^"]+)"(?:.{0,3000}?)href="/filmy/[^/"]+/([^"]+)"', re.S)
+_EVENT_CATEGORIES = {
+    "concert": "KONCERT", "theater": "TEATR", "theatre": "TEATR",
+    "opera": "OPERA", "ballet": "BALET", "sport": "SPORT",
+}
+
+
+async def fetch_event_categories(client: requests.AsyncSession) -> dict:
+    """{KOD_DYSTRYBUTORA: movie_type}. Pusty przy awarii - to dodatek, nie może wywrócić przebiegu."""
+    try:
+        resp = await client.get(_EVENT_PAGE, timeout=30.0)
+        if resp.status_code != 200:
+            logger.warning("CC: strona wydarzeń zwróciła HTTP %s - typy eventów będą ogólne.", resp.status_code)
+            return {}
+    except Exception as e:
+        logger.warning("CC: nie pobrano strony wydarzeń (%s) - typy eventów będą ogólne.", e)
+        return {}
+
+    out = {}
+    for category, code in _EVENT_TILE.findall(resp.text):
+        movie_type = _EVENT_CATEGORIES.get(category.strip().lower())
+        if movie_type:
+            out[code.strip().upper()] = movie_type
+    logger.info("CC: rozpoznano kategorie %s wydarzeń specjalnych.", len(out))
+    return out
+
 
 async def get_target_cinemas(client: requests.AsyncSession) -> list:
     """Pobiera listę wszystkich kin Cinema City w Polsce."""
@@ -139,6 +169,8 @@ async def scrape_and_save(supabase):
             target_cinemas = await get_target_cinemas(client)
             if not target_cinemas:
                 raise ScraperError("Cinema City nie zwróciło żadnych kin - API niedostępne lub zablokowane.")
+
+            event_categories = await fetch_event_categories(client)
 
             movies_cache = {}  # Pamięć podręczna dla pobranych/dodanych filmów z bazy
             global_film_details_cache = {}  # Pamięć dla szczegółów z API (reżyser, obsada, opis)
@@ -251,7 +283,9 @@ async def scrape_and_save(supabase):
                     title = (film.get("name") or "").strip()
                     
                     movie_type_override = None
-                    if re.search(r" - National Theatre Live \d{4}$", title):
+                    if karaoke_type(title):
+                        movie_type_override = "KARAOKE"
+                    elif re.search(r" - National Theatre Live \d{4}$", title):
                         movie_type_override = "TEATR"
                     elif re.match(r"^Ladies\s*Night\b", title, re.IGNORECASE):
                         # CC nie zawsze taguje seans atrybutem 'ladies-night' - łapiemy po prefiksie tytułu.
@@ -274,9 +308,13 @@ async def scrape_and_save(supabase):
                             "ladies-night": "LADIES NIGHT/KNO",
                             # Przedpremiera dla członków Unlimited - CC daje osobny rekord filmu z tym atrybutem
                             # (tytuł bywa "Unlimited Show: X" lub "UL - X", więc łapiemy po atrybucie, nie po tytule).
-                            "unlimited-screening": "UNLIMITED SHOW"
+                            "unlimited-screening": "UNLIMITED SHOW",
                         }
-                        movie_type = movie_type_override or next((val for key, val in type_mapping.items() if key in attribute_ids), None)
+                        # Strona wydarzeń jest rozstrzygająca. Sam atrybut `special-event` NIE wystarcza:
+                        # CC wiesza go też na zwykłych filmach z przedpremierą (np. "Ostrze przeznaczenia").
+                        page_type = event_categories.get((api_film_id or "").upper())
+                        movie_type = movie_type_override or page_type or next(
+                            (val for key, val in type_mapping.items() if key in attribute_ids), None)
 
                         raw_release_year = film.get("releaseYear")
                         release_year = str(raw_release_year).replace('/', ',').split(',')[0].strip() if raw_release_year else None

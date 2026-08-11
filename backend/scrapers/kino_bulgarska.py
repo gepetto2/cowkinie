@@ -5,7 +5,7 @@ from html import unescape
 from zoneinfo import ZoneInfo
 from curl_cffi import requests
 from utils import parse_start_time, clean_title, ScraperError
-from core.small_sources import parse_credits, html_to_text
+from core.small_sources import parse_credits, html_to_text, is_not_a_screening
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 logger = logging.getLogger(__name__)
@@ -53,17 +53,6 @@ def _strip_html(text: str):
     return unescape(re.sub(r"<[^>]+>", "", text)).strip() or None
 
 
-# Wpisy, które NIE są seansem. Kino ogłasza przerwę techniczną jako zwykłą pozycję repertuaru
-# ("KINO NIECZYNNE - PRZERWA TECHNICZNA", godzina 00:00, jedna na każdy dzień zamknięcia), więc bez
-# tego filtra trafiała do bazy jako film z pięcioma seansami.
-#
-# Filtrujemy po TYTULE, choć strukturalnie te wpisy też się wyróżniają (brak plakietki sali i linii
-# `movie-meta` z reżyserem). Powód: gdy zawiedzie filtr tytułowy, do bazy trafi jeden zbędny wpis -
-# rzuca się w oczy i łatwo poprawić. Gdyby zawiódł filtr strukturalny, po cichu zniknąłby prawdziwy
-# seans filmu, który akurat nie ma podanego reżysera.
-_NOT_A_SCREENING = re.compile(r"kino\s+nieczynne|przerwa\s+techniczna", re.IGNORECASE)
-
-
 def _movie_type(raw_title: str):
     """movie_type z dopisku w tytule. Na razie tylko 'Kino Dzieci' -> DLA DZIECI (rozszerzalne)."""
     return "DLA DZIECI" if "kino dzieci" in (raw_title or "").lower() else None
@@ -91,7 +80,7 @@ def parse_repertoire(html: str, now: datetime):
             if not m_time or not m_film:
                 continue
             raw_title = m_film.group(2)
-            if _NOT_A_SCREENING.search(unescape(raw_title)):
+            if is_not_a_screening(unescape(raw_title)):
                 closed += 1
                 continue
             title = _title(raw_title)

@@ -4,7 +4,7 @@ import re
 from curl_cffi import requests
 
 from utils import parse_start_time, clean_title, ScraperError
-from core.small_sources import fetch_details
+from core.small_sources import fetch_details, is_not_a_screening
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 logger = logging.getLogger(__name__)
@@ -99,6 +99,8 @@ def parse_entries(payload: dict) -> list:
     for day in payload.get("results") or []:
         for sub in day.get("subsections") or []:
             for e in sub.get("entries") or []:
+                if is_not_a_screening(e.get("title")):
+                    continue
                 title = clean_movie_title(e.get("title"))
                 date, time = e.get("start_date"), e.get("start_time")
                 if not title or not date or not time:

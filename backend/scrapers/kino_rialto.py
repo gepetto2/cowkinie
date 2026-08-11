@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 from curl_cffi import requests
 
 from utils import parse_start_time, clean_title, normalize_lang, ScraperError
-from core.small_sources import fetch_details
+from core.small_sources import fetch_details, is_not_a_screening
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 logger = logging.getLogger(__name__)
@@ -28,9 +28,6 @@ CITY = "Poznań"
 # Strona renderuje każdy seans DWA razy (osobny markup dla desktopu i mobile), więc deduplikujemy
 # po identyfikatorze seansu z linku do rezerwacji.
 _ITEM_SPLIT = '<div class="list-item">'
-
-# Wpisy, które pojawiają się w repertuarze, ale nie są seansami (np. voucher prezentowy).
-_NOT_A_SCREENING = re.compile(r"bilet\s+podarunkowy", re.IGNORECASE)
 
 # Przedrostki cykli. Zdejmujemy je, bo inaczej "Wakacje w Rialto: Góra mocy" nie scali się z filmem
 # "Góra mocy", który jest już w bazie z innych kin. Lista jawna - generyczne cięcie po dwukropku
@@ -140,8 +137,8 @@ def parse_day(html: str, date: str) -> list:
             continue
 
         raw_title = m_title.group(1)
-        if _NOT_A_SCREENING.search(raw_title):
-            continue  # voucher prezentowy - siedzi w repertuarze, ale nie jest seansem
+        if is_not_a_screening(raw_title):
+            continue
         title = _title(raw_title)
         if not title:
             continue

@@ -34,7 +34,7 @@ const CARD_WIDTH = 'w-[calc((100vw-2.5rem)/3)] sm:w-[160px] lg:w-[180px]';
 const APP_PARAMS = ['q', 'miasta', 'from', 'to', 'format', 'genre'] as const;
 
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
-const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'KINO BEZ BARIER', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY', 'DLA DZIECI', 'SALON KULTURY', 'KONCERT', 'LADIES NIGHT/KNO', 'BALET', 'OPERA', 'PANEL'];
+const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'KINO BEZ BARIER', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY', 'DLA DZIECI', 'SALON KULTURY', 'KONCERT', 'LADIES NIGHT/KNO', 'BALET', 'OPERA', 'PANEL', 'KARAOKE'];
 
 // Maksymalna różnica (w latach) między rokiem produkcji a rokiem premiery kinowej.
 // Powyżej tej wartości traktujemy film jako wznowienie starego tytułu i pomijamy w karuzelach.

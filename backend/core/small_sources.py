@@ -20,6 +20,16 @@ logger = logging.getLogger(__name__)
 _CREDITS = re.compile(r"(?:re[żz]|dir)\.\s*([^<]{5,220})", re.IGNORECASE)
 
 
+# Małe kina ogłaszają zamknięcia i vouchery jako zwykłe pozycje repertuaru - bez tego trafiają
+# do bazy jako filmy (tak powstało "KINO NIECZYNNE" z Pałacowego).
+_NOT_A_SCREENING = re.compile(r"kino\s+nieczynne|przerwa\s+techniczna|bilet\s+podarunkowy", re.IGNORECASE)
+
+
+def is_not_a_screening(title: str) -> bool:
+    """True dla komunikatu udającego pozycję repertuaru."""
+    return bool(_NOT_A_SCREENING.search(title or ""))
+
+
 def html_to_text(html: str) -> str:
     """HTML -> tekst, z <br> zamienionym na przecinek (patrz komentarz przy _CREDITS)."""
     t = re.sub(r"<br\s*/?>", ", ", html or "", flags=re.IGNORECASE)

@@ -33,6 +33,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   // Osobny rekord filmu, nie atrybut seansu - patrz clean_movie_title w scrapers/kino_palacowe.py.
   "KINO BEZ BARIER": "Kino bez barier",
   "NAJLEPSZE Z NAJGORSZYCH": "Najlepsze z najgorszych",
+  "KARAOKE": "Pokazy karaoke",
 
   // Nazwy własne cykli - zapis zgodny z tym, jak posługują się nimi same kina.
   "SALON KULTURY": "Salon Kultury",

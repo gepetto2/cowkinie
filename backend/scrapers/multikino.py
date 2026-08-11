@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from curl_cffi import requests
-from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date, ScraperError
+from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date, karaoke_type, ScraperError
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked
 
 logger = logging.getLogger(__name__)
@@ -164,6 +164,8 @@ async def scrape_and_save(supabase):
 
                     if title.startswith("Maraton:") or title.startswith("Minimaraton") or title.startswith("NMF"):
                         movie_type = "MARATON"
+
+                    movie_type = karaoke_type(title) or movie_type
 
                     # Ukraiński dubbing: Multikino nie taguje go w filmie (osobny wpis z cyrylickim tytułem),
                     # tylko w języku seansu (attribute "UA"). Bez tego typu film zostałby scalony z polskim

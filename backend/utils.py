@@ -122,6 +122,16 @@ def normalize_lang(raw: str):
     key = raw.strip().upper()
     return _LANG_MAP.get(key, key) or None
 
+# Żadna sieć nie taguje karaoke - zostaje dopisek w tytule. Separator wymagany, żeby nie złapać
+# filmu, który po prostu nazywa się "Karaoke".
+_KARAOKE_SUFFIX = re.compile(r"[-–—:(]\s*(?:wersja\s+)?karaoke\b", re.IGNORECASE)
+
+
+def karaoke_type(raw_title: str):
+    """'KARAOKE' albo None. Wołać na tytule surowym, przed clean_title."""
+    return "KARAOKE" if _KARAOKE_SUFFIX.search(raw_title or "") else None
+
+
 def search_title(title: str) -> str:
     """Dodatkowo oczyszczony tytuł WYŁĄCZNIE do wyszukiwania w TMDB/Filmweb.
     Zdejmuje ozdobniki, które w bazie zostawiamy dla odrębności/informacji o rekordzie
@@ -143,6 +153,8 @@ def search_title(title: str) -> str:
     # Seanse z audiodeskrypcją/napisami/migowym (Pałacowe) trzymamy jako osobny rekord, ale w API
     # szukamy oczywiście filmu bazowego - dopisek jest cechą pokazu, nie tytułem.
     t = re.sub(r"\s*\(kino bez barier\)\s*$", "", t, flags=re.IGNORECASE)
+    # Karaoke to cecha pokazu - w API szukamy filmu bazowego.
+    t = re.sub(r"\s*[:.\-–—]\s*(?:wersja\s+)?karaoke\s*$|\s*\((?:wersja\s+)?karaoke\)\s*$", "", t, flags=re.IGNORECASE)
     return t.strip() or title
 
 def get_valid_poster(poster_data):
