@@ -8,7 +8,7 @@ from curl_cffi import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from PIL import Image
-from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date, karaoke_type, ScraperError
+from utils import parse_start_time, clean_title, get_valid_poster, normalize_lang, parse_release_date, karaoke_type, youtube_id, ScraperError
 from db.database import upsert_cinema, upsert_movies_batch, upsert_screenings_chunked, load_existing_movies
 
 logger = logging.getLogger(__name__)
@@ -345,6 +345,7 @@ async def scrape_and_save(supabase):
                             "director_cc": director_cc,
                             "cast_cc": cast_cc,
                             "description_cc": description_cc,
+                            "trailer_cc": youtube_id(film.get("videoLink")),
                             "genre_cc": genre_cc
                         }
                         

@@ -152,6 +152,9 @@ export type Database = {
           title_omdb: string | null
           title_tmdb: string | null
           tmdb_id: number | null
+          trailer: string | null
+          trailer_cc: string | null
+          trailer_tmdb: string | null
         }
         Insert: {
           cast?: string | null
@@ -251,6 +254,9 @@ export type Database = {
           title_omdb?: string | null
           title_tmdb?: string | null
           tmdb_id?: number | null
+          trailer?: string | null
+          trailer_cc?: string | null
+          trailer_tmdb?: string | null
         }
         Update: {
           cast?: string | null
@@ -350,6 +356,9 @@ export type Database = {
           title_omdb?: string | null
           title_tmdb?: string | null
           tmdb_id?: number | null
+          trailer?: string | null
+          trailer_cc?: string | null
+          trailer_tmdb?: string | null
         }
         Relationships: []
       }

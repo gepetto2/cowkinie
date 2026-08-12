@@ -85,7 +85,14 @@ async def _fetch_and_extract(session: aiohttp.ClientSession, title: str, year: O
 
     async def get_movie_details(movie_id: int):
         details_url = f"https://api.themoviedb.org/3/movie/{movie_id}"
-        details_params = {"api_key": TMDB_API_KEY, "language": "pl-PL"}
+        # `videos` doczepiamy do istniejącego zapytania - zero dodatkowych żądań. `include_video_language`
+        # jest konieczne: samo language=pl-PL zawęża wideo do polskich i dla większości filmów daje zero.
+        details_params = {
+            "api_key": TMDB_API_KEY,
+            "language": "pl-PL",
+            "append_to_response": "videos",
+            "include_video_language": "pl,en",
+        }
 
         release_dates_url = f"https://api.themoviedb.org/3/movie/{movie_id}/release_dates"
         release_dates_params = {"api_key": TMDB_API_KEY}
@@ -316,6 +323,17 @@ async def get_tmdb_ratings_by_id(tmdb_id: int, session: aiohttp.ClientSession):
     return {"rating_tmdb": rating, "rating_count_tmdb": vote_count if rating is not None else None}
 
 
+def _extract_trailer(tmdb_movie):
+    """ID zwiastuna z YouTube albo None. TMDB zwraca po kilkadziesiąt wideo na film (klipy, materiały
+    zza kulis, wywiady), więc bierzemy tylko zwiastuny i preferujemy: polski > oficjalny > Trailer."""
+    videos = ((tmdb_movie or {}).get("videos") or {}).get("results") or []
+    cand = [v for v in videos if v.get("site") == "YouTube" and v.get("type") in ("Trailer", "Teaser")]
+    if not cand:
+        return None
+    cand.sort(key=lambda v: (v.get("iso_639_1") != "pl", not v.get("official"), v.get("type") != "Trailer"))
+    return cand[0].get("key") or None
+
+
 def _extract_cast(tmdb_movie, limit=8):
     """Główna obsada z TMDB credits, uporządkowana wg 'order' (billing), złączona przecinkiem.
     Nazwiska aktorów są niezależne od języka (credits pobieramy w en-US)."""
@@ -347,6 +365,7 @@ def _format_tmdb_response(tmdb_movie, dirs):
         "length": runtime if runtime and runtime > 0 else None,
         "director": director_str,
         "cast": _extract_cast(tmdb_movie),
+        "trailer": _extract_trailer(tmdb_movie),
         "poster_path": tmdb_movie.get("poster_path"),
         "overview": tmdb_movie.get("overview"),
         "rating": tmdb_rating,

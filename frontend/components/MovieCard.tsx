@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { ZoomIn, X, Trees, Ellipsis } from "lucide-react";
+import { ZoomIn, X, Trees, Ellipsis, Play } from "lucide-react";
 import Image from "next/image";
 import { Database } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
 import { movieRatings, movieRatingsFull } from "@/lib/ratings";
 import { cinemaLabel, cinemaGroup, badgeKey, cinemaBadge } from "@/lib/cinemas";
+import TrailerEmbed from "@/components/TrailerEmbed";
 import { MovieListItem } from "@/lib/supabase/queries";
 import { useCityScope } from "@/components/CityScope";
 import {
@@ -387,7 +388,9 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedScreening, setSelectedScreening] = useState<Screening | null>(null);
   const [details, setDetails] = useState<MovieDetails | null>(null);
-  const [zoom, setZoom] = useState(false); // powiększenie plakatu (lightbox)
+  // Jedno okno pełnoekranowe na plakat ALBO zwiastun - dwa nakładające się lightboxy mogłyby
+  // się przykryć, a nigdy nie chcemy obu naraz.
+  const [overlay, setOverlay] = useState<"poster" | "trailer" | null>(null);
   // Filtry seansów działają lokalnie (bez URL-a): modal nie ma własnego adresu, więc nie ma czego
   // współdzielić, a filtrowanie na pobranym zbiorze nie wymaga ponownego zapytania przy każdym kliknięciu.
   const [pickedFormats, setPickedFormats] = useState<string[]>([]);
@@ -400,7 +403,7 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
     // Jeśli użytkownik otworzył modal mając wybrany pojedynczy dzień na stronie głównej, użyj go
     setSelectedDate(open ? singleDay : null);
     setSelectedScreening(null);
-    setZoom(false);
+    setOverlay(null);
     // Format przejmujemy z paska filtrów, żeby po wejściu w film widzieć to, czego się szukało.
     // Wersja językowa startuje pusta - nie ma jej wśród filtrów globalnych.
     setPickedFormats(open ? urlFormats : []);
@@ -613,7 +616,7 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
             {movie.poster ? (
               <button
                 type="button"
-                onClick={() => setZoom(true)}
+                onClick={() => setOverlay("poster")}
                 onMouseDown={(e) => e.preventDefault()}
                 aria-label="Powiększ plakat"
                 className="group relative w-[170px] shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-slate-800 shadow-md cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
@@ -644,6 +647,16 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
                   ))}
                 </div>
               )}
+              {movie.trailer && (
+                <button
+                  type="button"
+                  onClick={() => setOverlay("trailer")}
+                  className="inline-flex w-fit items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                >
+                  <Play className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+                  Zwiastun
+                </button>
+              )}
             </div>
           </div>
           {movie.director && <InfoRow label="Reżyseria" value={movie.director} />}
@@ -663,7 +676,7 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
             {movie.poster && (
               <button
                 type="button"
-                onClick={() => setZoom(true)}
+                onClick={() => setOverlay("poster")}
                 aria-label="Powiększ plakat"
                 className="sm:hidden relative w-[52px] shrink-0 self-start aspect-[2/3] rounded-md overflow-hidden bg-slate-800 cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
               >
@@ -696,6 +709,16 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
                   <span key={i} className="rounded-md bg-slate-800 border border-slate-700 px-2 py-0.5 text-xs text-slate-300">{c}</span>
                 ))}
               </div>
+            )}
+            {movie.trailer && (
+              <button
+                type="button"
+                onClick={() => setOverlay("trailer")}
+                className="inline-flex w-fit items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              >
+                <Play className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+                Zwiastun
+              </button>
             )}
             {movie.director && <InfoRow label="Reżyseria" value={movie.director} />}
             {details?.cast && <InfoRow label="Obsada" value={details.cast} />}
@@ -845,18 +868,20 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
 
     {/* Lightbox plakatu jako osobny Dialog Radix - poprawne warstwowanie i zamykanie tylko jego
         (klik w tło / ✕ / Esc zamyka powiększenie, modal filmu zostaje otwarty). */}
-    <Dialog open={zoom} onOpenChange={setZoom}>
+    <Dialog open={overlay !== null} onOpenChange={(o) => !o && setOverlay(null)}>
       <DialogContent
         aria-describedby={undefined}
         showCloseButton={false}
-        onClick={() => setZoom(false)}
+        onClick={() => setOverlay(null)}
         className="inset-0 top-0 left-0 h-full w-full max-w-none sm:max-w-none translate-x-0 translate-y-0 flex items-center justify-center rounded-none bg-black/90 p-6 ring-0 sm:p-10 cursor-zoom-out"
       >
-        <DialogTitle className="sr-only">Plakat: {movie.title}</DialogTitle>
+        <DialogTitle className="sr-only">
+          {overlay === "trailer" ? "Zwiastun" : "Plakat"}: {movie.title}
+        </DialogTitle>
         <button
           type="button"
           aria-label="Zamknij"
-          onClick={() => setZoom(false)}
+          onClick={() => setOverlay(null)}
           className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/90 hover:bg-white/20 hover:text-white transition cursor-pointer"
         >
           <X className="h-5 w-5" />
@@ -864,7 +889,13 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
         {/* `fill`, nie width/height: przy `w-auto` rozmiar brałby się z naturalnej szerokości pliku,
             a `srcset` + `sizes` każe przeglądarce traktować go jak obraz wysokiej gęstości - plakat
             wychodził przez to ułamek ekranu. Kontener decyduje o rozmiarze, `object-contain` o proporcjach. */}
-        {movie.poster && (
+        {overlay === "trailer" && movie.trailer && (
+          // stopPropagation: klik w odtwarzacz nie może zamykać okna (tło ma cursor-zoom-out).
+          <div className="w-full max-w-4xl cursor-default" onClick={(e) => e.stopPropagation()}>
+            <TrailerEmbed youtubeId={movie.trailer} title={movie.title} />
+          </div>
+        )}
+        {overlay === "poster" && movie.poster && (
           <div className="relative h-full w-full">
           <Image
             src={movie.poster}

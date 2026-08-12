@@ -127,6 +127,17 @@ def normalize_lang(raw: str):
 _KARAOKE_SUFFIX = re.compile(r"[-–—:(]\s*(?:wersja\s+)?karaoke\b", re.IGNORECASE)
 
 
+# Kina podają zwiastuny jako adresy YouTube w różnych formach (watch?v=, /embed/, youtu.be),
+# a TMDB samo ID. Trzymamy w bazie ID - z niego zbudujemy i odtwarzacz, i miniaturę.
+_YOUTUBE_ID = re.compile(r"(?:v=|youtu\.be/|embed/)([A-Za-z0-9_-]{11})")
+
+
+def youtube_id(url: str):
+    """ID filmu z adresu YouTube albo None."""
+    m = _YOUTUBE_ID.search(url or "")
+    return m.group(1) if m else None
+
+
 def karaoke_type(raw_title: str):
     """'KARAOKE' albo None. Wołać na tytule surowym, przed clean_title."""
     return "KARAOKE" if _KARAOKE_SUFFIX.search(raw_title or "") else None

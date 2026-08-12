@@ -355,6 +355,9 @@ def consolidate_post_enrich(supabase):
     # Lokalne (PL) plakaty z kin, TMDB/Filmweb jako fallback. "cc_framed" (plakaty CC z brandową
     # pomarańczową ramką) na samym końcu - bierzemy je dopiero w ostateczności, gdy nie ma nic czystszego.
     poster_sources = ("cc", "helios", "multikino", "muza", "apollo", "small", "tmdb", "filmweb", "cc_framed")
+    # Zwiastun (ID z YouTube). Cinema City PRZED TMDB: prowadzi na kanały polskich dystrybutorów, więc trafia w polską wersję, którą
+    # TMDB ma tylko dla ~1/4 filmów. TMDB jest szersze (4x więcej tytułów), więc stoi po nim.
+    trailer_sources = ("cc", "tmdb")
     # Gatunek konsolidujemy jako UNIĘ znormalizowanych tokenów ze wszystkich źródeł. Kolejność źródeł
     # steruje kolejnością wyświetlania (pierwszy gatunek = główny) - Filmweb najpierw (najbogatszy, 75% pokrycia).
     genre_sources = ("filmweb", "cc", "helios", "lumiere", "small")
@@ -370,11 +373,12 @@ def consolidate_post_enrich(supabase):
     director_fallback = ("tmdb", "filmweb")
     original_title_fallback = ("tmdb",)
 
-    select_cols = ["id", "title", "release_year", "length", "poster", "genre", "director", "original_title", "description", "cast"]
+    select_cols = ["id", "title", "release_year", "length", "poster", "genre", "director", "original_title", "description", "cast", "trailer"]
     select_cols += [f"release_date_{s}" for s in date_sources]
     select_cols += [f"release_year_{s}" for s in year_sources]
     select_cols += [f"length_{s}" for s in length_sources]
     select_cols += [f"poster_{s}" for s in poster_sources]
+    select_cols += [f"trailer_{s}" for s in trailer_sources]
     select_cols += [f"genre_{s}" for s in genre_sources]
     select_cols += [f"director_{s}" for s in director_fallback]
     select_cols += [f"original_title_{s}" for s in original_title_fallback]
@@ -428,6 +432,11 @@ def consolidate_post_enrich(supabase):
                 poster = movie.get("poster_multikino")  # ostateczność: placeholder "wkrótce"
             if poster != current_poster:
                 update_data["poster"] = poster
+
+        # Zwiastun: pierwszy niepusty wg priorytetu. Liczymy co przebieg - to czysta pochodna źródeł.
+        trailer = next((t for s in trailer_sources if (t := movie.get(f"trailer_{s}"))), None)
+        if trailer != movie.get("trailer"):
+            update_data["trailer"] = trailer
 
         # Gatunek: unia znormalizowanych tokenów ze wszystkich źródeł (dedup, kolejność wg priorytetu
         # źródeł). Liczymy od nowa co przebieg - gatunek jest w całości pochodną źródeł (bez wartości ręcznych).
