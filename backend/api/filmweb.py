@@ -52,8 +52,7 @@ def _fw_description(description_json, preview_data):
     text = (description_json or {}).get("synopsis") or ((preview_data.get("plot") or {}).get("synopsis"))
     if not text:
         return None
-    # Filmweb wstawia tagi bbcode, np. [person=5182]Michael Jordan[/person] - usuwamy tagi,
-    # zostawiając tekst w środku (nazwisko/tytuł).
+    # Usuwa bbcode Filmwebu ([person=5182]Michael Jordan[/person]), zostawiając tekst w środku.
     text = re.sub(r"\[/?[a-zA-Z]+(?:=[^\]]*)?\]", "", text)
     return unescape(text).strip() or None
 
@@ -67,19 +66,15 @@ def _fw_genre(preview_data):
     genres = [(g.get("name") or {}).get("text") for g in preview_data.get("genres", [])]
     return ", ".join(g for g in genres if g) or None
 
-# Ilu kandydatów z wyszukiwarki sprawdzamy pod kątem roku. Piątka wystarcza: przy tytułach-bliźniakach
-# (7 filmów "Wehikuł czasu" na Filmwebie) właściwy jest wysoko, a limit chroni przed serią zapytań
-# przy tytułach generycznych, gdzie i tak niczego nie rozstrzygniemy.
+# Ilu kandydatów sprawdzamy pod kątem roku. Przy tytułach-bliźniakach właściwy jest wysoko,
+# a limit chroni przed serią zapytań przy tytułach generycznych.
 _YEAR_CHECK_LIMIT = 5
 
-# Rok produkcji i rok polskiej premiery rozjeżdżają się o jeden nagminnie (film z 2025 wchodzi
-# do kin w 2026), a każde ze źródeł podaje inny z nich. Wymaganie dokładnej zgodności odrzucało
-# poprawnego kandydata i spychało dopasowanie na wynik zapasowy.
+# Rok produkcji i rok polskiej premiery nagminnie różnią się o jeden, a źródła podają różne.
 _YEAR_TOLERANCE = 1
 
 
 async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp.ClientSession):
-    # Kodowanie tytułu do formatu URL (zamiana spacji na %20 itp.)
     query = urllib.parse.quote(title)
     url = f"https://www.filmweb.pl/api/v1/search?query={query}"
 
@@ -90,23 +85,23 @@ async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp
 
     search_hits = data.get("searchHits", [])
 
-    # Filtrujemy tylko wyniki, które są filmami
     film_hits = [hit for hit in search_hits if hit.get("type") == "film"]
+
+    # Bajki telewizyjne grane w kinach w blokach ("Pucio", "Kicia Kocia") są na Filmwebie SERIALAMI.
+    # Bierzemy je dopiero, gdy nie ma żadnego filmu - inaczej podmieniłyby poprawne dopasowanie.
+    # Endpointy `/api/v1/film/{id}/*` obsługują też id seriali.
+    if not film_hits:
+        film_hits = [hit for hit in search_hits if hit.get("type") == "serial"]
+        if film_hits:
+            logger.info("Filmweb: '%s' istnieje tylko jako serial - biorę id %s.", title, film_hits[0].get("id"))
 
     if not film_hits:
         logger.debug(f"Nie znaleziono żadnych filmów dla zapytania: '{title}'")
         return None
 
-    # Rozstrzygnięcie po ROKU. Wyszukiwarka Filmwebu NIE zwraca roku przy trafieniach (pole `year`
-    # jest puste przy każdym), więc dopasowanie roku wymaga dociągnięcia `/preview` kandydata.
-    # Wcześniej próbowaliśmy czytać rok wprost z wyniku wyszukiwania - warunek nigdy nie był spełniony,
-    # więc kod ZAWSZE brał pierwsze trafienie, a parametr `year` nie działał dla żadnego filmu.
-    # Tak powstały zlepki: "Lawa" Konwickiego z opisem pixarowskiej etiudy o wulkanie, "Planeta małp"
-    # z 1968 z opisem remake'u Burtona, "Wehikuł czasu" z 1960 z opisem wersji z 2002.
-    #
-    # Kandydatów sprawdzamy PO KOLEI i przerywamy na pierwszym trafionym roku - przy zdecydowanej
-    # większości filmów poprawny jest pierwszy wynik, więc kosztuje to jedno dodatkowe żądanie na film.
-    # Pobieranie wszystkich naraz oznaczałoby setki zapytań na przebieg do nieoficjalnego API.
+    # Wyszukiwarka nie zwraca roku przy trafieniach, więc rok kandydata dociągamy z `/preview`.
+    # Idziemy po kolei i przerywamy na pierwszym trafionym - zwykle poprawny jest pierwszy wynik,
+    # więc kosztuje to jedno dodatkowe żądanie na film zamiast setek na przebieg.
     if year and len(film_hits) > 1:
         for hit in film_hits[:_YEAR_CHECK_LIMIT]:
             hit_id = hit.get("id")
@@ -121,10 +116,9 @@ async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp
                 logger.debug(f"Dopasowano po roku: '{hit.get('matchedTitle')}' ({hit_year}, szukano {year}) z ID: {hit_id}")
                 return hit_id
 
-        # Znamy rok, a żaden kandydat się w nim nie mieści - pierwsze trafienie to wtedy prawie na pewno
-        # INNY film o tym samym polskim tytule (wyszukiwarka sortuje po popularności, więc na czele stoi
-        # klasyk, nie tegoroczna premiera). Wolimy BRAK danych niż ocenę, opis, gatunek i obsadę cudzego
-        # filmu: ocena Filmwebu wchodzi do rankingu, więc taka pomyłka nie jest kosmetyczna.
+        # Żaden kandydat nie mieści się w roku - pierwsze trafienie to niemal na pewno INNY film
+        # o tym samym tytule (wyszukiwarka sortuje po popularności). Wolimy brak danych niż cudze:
+        # ocena Filmwebu wchodzi do rankingu.
         logger.info("Filmweb: brak filmu '%s' z roku ~%s wśród %s kandydatów - pomijam Filmweb dla tego filmu.",
                     title, year, min(len(film_hits), _YEAR_CHECK_LIMIT))
         return None
@@ -137,11 +131,7 @@ async def get_filmweb_movie_id(title: str, year: Optional[int], session: aiohttp
     return first_film_id
 
 async def get_filmweb_rating_by_id(movie_id: int, session: aiohttp.ClientSession):
-    """Sama ocena z Filmwebu dla ZNANEGO id - jedno zapytanie zamiast pięciu.
-
-    Do odświeżania ocen nie potrzebujemy opisu, obsady, plakatu ani dat, które pobiera
-    `get_filmweb_movie_details`. Przy kilkuset filmach na przebieg ta różnica to realne odciążenie
-    nieoficjalnego API.
+    """Sama ocena dla ZNANEGO id - jedno zapytanie zamiast pięciu z get_filmweb_movie_details.
 
     Zwraca {"rating_filmweb": float|None, "rating_count_filmweb": int|None} albo None przy błędzie.
     """
@@ -150,7 +140,7 @@ async def get_filmweb_rating_by_id(movie_id: int, session: aiohttp.ClientSession
         return None
     rate = rating_json.get("rate")
     count = rating_json.get("count")
-    # Bez głosów Filmweb zwraca rate=0 - traktujemy jako brak oceny (spójnie z get_filmweb_movie_details).
+    # Bez głosów Filmweb zwraca rate=0 - traktujemy jako brak oceny.
     has_votes = isinstance(rate, (int, float)) and rate and count
     return {
         "rating_filmweb": round(rate, 1) if has_votes else None,
@@ -176,17 +166,15 @@ async def get_filmweb_movie_details(movie_id: int, session: aiohttp.ClientSessio
         logger.warning(f"Błąd/brak odpowiedzi z Filmwebu dla szczegółów filmu (ID: {movie_id})")
         return None
 
-    # Reżyserzy to lista obiektów, więc wyciągamy z nich imiona
     directors_list = data.get("directors", [])
     directors = ", ".join([d.get("name") for d in directors_list if d.get("name")])
 
-    # Wyciąganie tytułu - fallback na 'originalTitle', jeśli 'title' nie istnieje lub jest null
+    # Tytuł z fallbackiem na oryginalny, gdy `title` jest pusty.
     title_obj = data.get("title") or {}
     orig_title_obj = data.get("originalTitle") or {}
     film_title = title_obj.get("title") or orig_title_obj.get("title")
 
-    # Ocena: rate zaokrąglamy do 1 miejsca (jak wyświetla Filmweb). Bez głosów Filmweb zwraca rate=0 -
-    # traktujemy to jako brak oceny (None), by film nie wyglądał na oceniony na 0.
+    # Zaokrąglamy jak wyświetla Filmweb. Bez głosów zwraca rate=0 - to brak oceny, nie zero.
     rate = (rating_json or {}).get("rate")
     count = (rating_json or {}).get("count")
     has_votes = isinstance(rate, (int, float)) and rate and count
