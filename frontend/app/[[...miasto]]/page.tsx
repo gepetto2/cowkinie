@@ -406,17 +406,21 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
 
   // Nagłówek mówi wprost, jaki zakres oglądasz - miasto jest filtrem głównym, więc nie powinno
   // być widoczne wyłącznie jako pigułka gdzieś w filtrach.
-  const heading =
-    // Nagłówek brzmi jak nazwa serwisu i jak pytanie, które użytkownik faktycznie zadaje:
-    // "Co w kinie w Poznaniu?". Odmianę miasta daje citiesLocative (patrz lib/cities.ts).
-    // Znak zapytania zostaje TYLKO tutaj - w <title> byłby szumem w wynikach wyszukiwania.
-    `Co w kinie ${citiesLocative(selectedCities)}?`;
+  // Nagłówek brzmi jak nazwa serwisu i jak pytanie, które użytkownik faktycznie zadaje:
+  // "Co w kinie w Poznaniu?". Odmianę miasta daje citiesLocative (patrz lib/cities.ts).
+  // Znak zapytania zostaje TYLKO tutaj - w <title> byłby szumem w wynikach wyszukiwania.
+  const headingWhere = citiesLocative(selectedCities);
 
   return (
     <CityScopeProvider selected={selectedCities} all={cities}>
     <SiteHeader />
     <main className="container mx-auto px-3 sm:px-4 pt-6 pb-16 overflow-x-clip">
-      <h1 className="mb-8 text-4xl font-extrabold text-slate-100 tracking-tight">{heading}</h1>
+      {/* Lokalizacja innym kolorem: pierwsza część powtarza markę z paska, więc to człon miejsca
+          niesie tu nową informację. Bez tła - inaczej trzeba by `box-decoration-clone` na zawijanie
+          ("w Piotrkowie Trybunalskim" zawija się na telefonie), a prostokąt udawałby przycisk. */}
+      <h1 className="mb-8 text-4xl font-extrabold text-slate-100 tracking-tight">
+        Co w kinie <span className="text-indigo-300">{headingWhere}</span>?
+      </h1>
 
       <Suspense fallback={<div className="h-14 mb-6" />}>
         <FilterBar cities={cities} formats={formats} genres={availableGenres} resultCount={filteredMovies.length} />
