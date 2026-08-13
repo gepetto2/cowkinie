@@ -34,6 +34,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   "KINO BEZ BARIER": "Kino bez barier",
   "NAJLEPSZE Z NAJGORSZYCH": "Najlepsze z najgorszych",
   "KARAOKE": "Pokazy karaoke",
+  // Bloki konkursowe i pokazy w ramach przeglądów (Orzeł oznacza je wprost w repertuarze).
+  "FESTIWAL": "Festiwale i przeglądy",
 
   // Nazwy własne cykli - zapis zgodny z tym, jak posługują się nimi same kina.
   "SALON KULTURY": "Salon Kultury",

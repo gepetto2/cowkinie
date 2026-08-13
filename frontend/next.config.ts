@@ -19,6 +19,7 @@ const POSTER_HOSTS = [
   "kinopalacowe.pl",
   "www.kinomalta.pl",
   "kinoapollo.pl",
+  "www.kino-orzel.pl",
 ] as const;
 
 const nextConfig: NextConfig = {

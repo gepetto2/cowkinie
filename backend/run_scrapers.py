@@ -19,6 +19,7 @@ from scrapers.kino_bulgarska import scrape_and_save as scrape_bulgarska
 from scrapers.kino_rialto import scrape_and_save as scrape_rialto
 from scrapers.kino_palacowe import scrape_and_save as scrape_palacowe
 from scrapers.kino_malta import scrape_and_save as scrape_malta
+from scrapers.kino_orzel import scrape_and_save as scrape_orzel
 from db.database import (
     consolidate_movie_data, consolidate_post_enrich, dedupe_by_normalized_title,
     dedupe_ukrainian_by_tmdb, delete_past_screenings, delete_orphan_movies, log_run_summary,
@@ -33,7 +34,7 @@ async def run_all() -> bool:
     """Zwraca True, jeśli wszystkie źródła zeskrapowały się bez błędu."""
     logger.info("=== START: pobieranie danych ze wszystkich kin w Polsce ===")
 
-    sources = ["Multikino", "Cinema City", "Helios", "Kino Muza", "Cinema Lumiere", "Kino Apollo", "Kino Bułgarska 19", "Kino Rialto", "Kino Pałacowe", "Kino Malta"]
+    sources = ["Multikino", "Cinema City", "Helios", "Kino Muza", "Cinema Lumiere", "Kino Apollo", "Kino Bułgarska 19", "Kino Rialto", "Kino Pałacowe", "Kino Malta", "Kino Orzeł"]
     # return_exceptions=True: awaria jednego źródła nie przerywa pozostałych ani konsolidacji.
     results = await asyncio.gather(
         scrape_multikina(supabase),
@@ -46,6 +47,7 @@ async def run_all() -> bool:
         scrape_rialto(supabase),
         scrape_palacowe(supabase),
         scrape_malta(supabase),
+        scrape_orzel(supabase),
         return_exceptions=True
     )
 
@@ -63,7 +65,9 @@ async def run_all() -> bool:
     # Scrapery działają równolegle, więc gdyby każdy zapisywał wspólne kolumny *_small sam,
     # o wartości decydowałby ten, który akurat skończy później (patrz core/small_sources.py).
     # Klucze muszą odpowiadać nazwom w small_sources.PRIORITY - to one ustalają pierwszeństwo.
-    SMALL_SOURCE_KEYS = {"Kino Rialto": "rialto", "Kino Pałacowe": "palacowe", "Kino Bułgarska 19": "bulgarska", "Kino Malta": "malta"}  # Apollo pomijamy - patrz komentarz w scrapers/kino_apollo.py
+    SMALL_SOURCE_KEYS = {"Kino Rialto": "rialto", "Kino Pałacowe": "palacowe", "Kino Bułgarska 19": "bulgarska",
+                         "Kino Malta": "malta", "Kino Orzeł": "orzel", "Kino Apollo": "apollo",
+                         "Cinema Lumiere": "lumiere"}
     small_data = {
         SMALL_SOURCE_KEYS[name]: res
         for name, res in zip(sources, results)

@@ -174,6 +174,7 @@ STATIC_CINEMAS = [
     ("Kino Malta", "Poznań", "studyjne", "ul. Rybaki 6a, Poznań", "https://www.kinomalta.pl/"),
     ("Kino Pałacowe", "Poznań", "studyjne", "ul. Św. Marcin 80/82, Poznań", "https://kinopalacowe.pl/"),
     ("Cinema Lumiere", "Suwałki", "niezależne", "Dwernickiego 15, Suwałki", "https://suwalki.cinema-lumiere.pl/"),
+    ("Kino Orzeł", "Bydgoszcz", "studyjne", "ul. Marcinkowskiego 12, Bydgoszcz", "https://www.kino-orzel.pl/"),
 ]
 
 

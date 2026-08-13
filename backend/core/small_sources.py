@@ -108,12 +108,15 @@ FIELDS = (
 # Kolejność wynika z jakości danych, nie z wielkości kina:
 #  - malta     - najbogatsze źródło: reżyser przy KAŻDYM filmie, pełne opisy i duże plakaty
 #                (oklasowane pola wtyczki wpmovielibrary), ale bez roku produkcji - patrz EXCLUDED_FIELDS,
+#  - orzel     - dane ze strony filmu w oklasowanych parach etykieta/wartość (reżyser w 26 z 35
+#                filmów, tytuł oryginalny), a rok to REALNY rok produkcji, nie rok dystrybucji,
 #  - apollo    - ma rok produkcji i realny opis filmu,
 #  - rialto    - podaje gatunek i długość wprost przy seansie,
 #  - palacowe  - dobre plakaty, ale UWAGA: jego `lead` opisuje WYDARZENIE ("Plenerowe Pałacowe 2026,
 #                Dziedziniec Zamkowy…"), a nie film, więc opisu stamtąd świadomie nie bierzemy,
+#  - lumiere   - opis, gatunek i długość z API kina (niewiele filmów, ale dane czyste),
 #  - bulgarska - najuboższe źródło, na końcu.
-PRIORITY = ("malta", "apollo", "rialto", "palacowe", "bulgarska")
+PRIORITY = ("malta", "orzel", "apollo", "rialto", "palacowe", "lumiere", "bulgarska")
 
 # Pola, których dane źródło NIE dostarcza wiarygodnie - pomijamy je przy scalaniu nawet wtedy, gdy
 # scraper coś w nich zwróci. To zabezpieczenie na przyszłość: samo pominięcie pola w scraperze działa,
