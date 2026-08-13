@@ -128,9 +128,7 @@ async def scrape_and_save(supabase):
             # per-małe-kino. Małe kina studyjne wnoszą przede wszystkim SEANSE + kategoryzację.
             movies_to_upsert = {}
             for s in shows:
-                entry = movies_to_upsert.setdefault(s["title"], {"title": s["title"], "movie_type_bulgarska": None})
-                if s["movie_type"] and not entry["movie_type_bulgarska"]:
-                    entry["movie_type_bulgarska"] = s["movie_type"]
+                movies_to_upsert.setdefault(s["title"], {"title": s["title"]})
             movies_cache = upsert_movies_batch(supabase, movies_to_upsert)
             logger.info(f"Zapisano {len(movies_cache)} filmów Kina Bułgarska.")
 
@@ -163,7 +161,7 @@ async def scrape_and_save(supabase):
             meta = {}
             for s in shows:
                 entry = meta.setdefault(s["title"], {})
-                for field in ("director", "release_year", "length"):
+                for field in ("director", "release_year", "length", "movie_type"):
                     if entry.get(field) is None and s.get(field) is not None:
                         entry[field] = s[field]
             return meta

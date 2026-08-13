@@ -43,17 +43,18 @@ async def scrape_and_save(supabase):
 
             # KROK 1: filmy (dane filmu są w zagnieżdżonym 'details' każdego eventu)
             movies_to_upsert = {}
+            meta = {}   # dane opisowe -> wspólne kolumny małych kin (core/small_sources.py)
             for ev in events:
                 title, _lang = _title_and_lang(ev.get("eventTitle") or "")
                 if not title or title in movies_to_upsert:
                     continue
                 det = ev.get("details") or {}
                 length = det.get("lengthInMinutes")
-                movies_to_upsert[title] = {
-                    "title": title,
-                    "length_lumiere": length if isinstance(length, int) and length > 0 else None,
-                    "description_lumiere": _strip_html(det.get("description")),
-                    "genre_lumiere": (det.get("eventDetailType") or "").strip() or None,
+                movies_to_upsert[title] = {"title": title}
+                meta[title] = {
+                    "length": length if isinstance(length, int) and length > 0 else None,
+                    "description": _strip_html(det.get("description")),
+                    "genre": (det.get("eventDetailType") or "").strip() or None,
                 }
 
             movies_cache = upsert_movies_batch(supabase, movies_to_upsert)
@@ -94,6 +95,7 @@ async def scrape_and_save(supabase):
                 upsert_screenings_chunked(supabase, new_screenings, "Cinema Lumiere")
 
             logger.info("Zakończono zapisywanie danych z Cinema Lumiere!")
+            return meta
 
         except Exception:
             logger.exception("[Cinema Lumiere] Błąd w trakcie scrapowania")

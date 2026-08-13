@@ -80,8 +80,8 @@ def consolidate_movie_data(supabase):
     cinemas = ("multikino", "cc", "helios", "muza")
     # Reżyser trafia też ze wspólnych kolumn małych kin - używa go dopasowanie w TMDB.
     director_sources = cinemas + ("small",)
-    year_sources = cinemas + ("apollo", "small")              # rok produkcji: kina + Apollo + małe kina
-    type_sources = cinemas + ("apollo", "bulgarska", "small") # movie_type: + Apollo (NzN), Bułgarska, małe kina
+    year_sources = cinemas + ("small",)                       # rok produkcji: kina sieciowe + małe kina
+    type_sources = cinemas + ("small",)                       # movie_type: kina sieciowe + małe kina
     # original_title: Helios i Muza (CC/Multikino nie dostarczają) + wspólne źródło małych kin.
     ot_sources = ("helios", "muza", "small")
 
@@ -350,24 +350,24 @@ def consolidate_post_enrich(supabase):
     # Źródła per pole. Kolejność = priorytet dla length i poster (pierwsza niepusta wygrywa).
     # Datę/rok premiery bierzemy z kin + TMDB/Filmweb (bez Lumiere - jego premiera bywa datą wznowienia).
     date_sources = ("multikino", "cc", "helios", "tmdb", "filmweb", "muza")
-    year_sources = date_sources + ("apollo", "small")  # rok też z Apollo i małych kin (nie podają daty premiery)
-    length_sources = ("tmdb", "filmweb", "helios", "cc", "multikino", "muza", "lumiere", "small")
+    year_sources = date_sources + ("small",)  # rok też z małych kin (nie podają daty premiery)
+    length_sources = ("tmdb", "filmweb", "helios", "cc", "multikino", "muza", "small")
     # Lokalne (PL) plakaty z kin, TMDB/Filmweb jako fallback. "cc_framed" (plakaty CC z brandową
     # pomarańczową ramką) na samym końcu - bierzemy je dopiero w ostateczności, gdy nie ma nic czystszego.
-    poster_sources = ("cc", "helios", "multikino", "muza", "apollo", "small", "tmdb", "filmweb", "cc_framed")
+    poster_sources = ("cc", "helios", "multikino", "muza", "small", "tmdb", "filmweb", "cc_framed")
     # Zwiastun (ID z YouTube). Cinema City PRZED TMDB: prowadzi na kanały polskich dystrybutorów, więc trafia w polską wersję, którą
     # TMDB ma tylko dla ~1/4 filmów. TMDB jest szersze (4x więcej tytułów), więc stoi po nim.
     trailer_sources = ("cc", "tmdb")
     # Gatunek konsolidujemy jako UNIĘ znormalizowanych tokenów ze wszystkich źródeł. Kolejność źródeł
     # steruje kolejnością wyświetlania (pierwszy gatunek = główny) - Filmweb najpierw (najbogatszy, 75% pokrycia).
-    genre_sources = ("filmweb", "cc", "helios", "lumiere", "small")
+    genre_sources = ("filmweb", "cc", "helios", "small")
     GENRE_MAX = 4  # limit tokenów, by lista nie puchła
     # Obsada: priorytet z zachowaniem kolejności - TMDB (billing) -> najbogatsze kino -> Filmweb (płytki).
     cast_sources = ("tmdb", "cc", "helios", "multikino", "filmweb")
     CAST_MAX = 6  # limit nazwisk
     # Opis: natywny PL i redakcyjny najpierw. Filmweb bywa urwanym teaserem z /preview ("…") - takie
     # DEGRADUJEMY: preferujemy pierwszy PEŁNY (nie urwany) opis, a urwany bierzemy dopiero jako fallback.
-    desc_sources = ("filmweb", "tmdb", "cc", "multikino", "helios", "lumiere", "muza", "apollo", "small")
+    desc_sources = ("filmweb", "tmdb", "cc", "multikino", "helios", "muza", "small")
     # Reżyser i tytuł oryginalny: kina konsolidowane są przed-enrich; tu DOPEŁNIAMY z TMDB/Filmweb
     # dla filmów, które nie mają tych danych z kin (TMDB ma kanoniczny original_title).
     director_fallback = ("tmdb", "filmweb")

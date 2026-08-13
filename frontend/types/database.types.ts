@@ -63,11 +63,9 @@ export type Database = {
           cast_tmdb: string | null
           created_at: string | null
           description: string | null
-          description_apollo: string | null
           description_cc: string | null
           description_filmweb: string | null
           description_helios: string | null
-          description_lumiere: string | null
           description_multikino: string | null
           description_muza: string | null
           description_small: string | null
@@ -85,7 +83,6 @@ export type Database = {
           genre_cc: string | null
           genre_filmweb: string | null
           genre_helios: string | null
-          genre_lumiere: string | null
           genre_small: string | null
           id: string
           imdb_id: string | null
@@ -93,15 +90,12 @@ export type Database = {
           length_cc: number | null
           length_filmweb: number | null
           length_helios: number | null
-          length_lumiere: number | null
           length_multikino: number | null
           length_muza: number | null
           length_omdb: number | null
           length_small: number | null
           length_tmdb: number | null
           movie_type: string | null
-          movie_type_apollo: string | null
-          movie_type_bulgarska: string | null
           movie_type_cc: string | null
           movie_type_helios: string | null
           movie_type_multikino: string | null
@@ -113,7 +107,6 @@ export type Database = {
           original_title_small: string | null
           original_title_tmdb: string | null
           poster: string | null
-          poster_apollo: string | null
           poster_cc: string | null
           poster_cc_framed: string | null
           poster_filmweb: string | null
@@ -138,7 +131,6 @@ export type Database = {
           release_date_muza: string | null
           release_date_tmdb: string | null
           release_year: number | null
-          release_year_apollo: number | null
           release_year_cc: number | null
           release_year_filmweb: number | null
           release_year_helios: number | null
@@ -165,11 +157,9 @@ export type Database = {
           cast_tmdb?: string | null
           created_at?: string | null
           description?: string | null
-          description_apollo?: string | null
           description_cc?: string | null
           description_filmweb?: string | null
           description_helios?: string | null
-          description_lumiere?: string | null
           description_multikino?: string | null
           description_muza?: string | null
           description_small?: string | null
@@ -187,7 +177,6 @@ export type Database = {
           genre_cc?: string | null
           genre_filmweb?: string | null
           genre_helios?: string | null
-          genre_lumiere?: string | null
           genre_small?: string | null
           id?: string
           imdb_id?: string | null
@@ -195,15 +184,12 @@ export type Database = {
           length_cc?: number | null
           length_filmweb?: number | null
           length_helios?: number | null
-          length_lumiere?: number | null
           length_multikino?: number | null
           length_muza?: number | null
           length_omdb?: number | null
           length_small?: number | null
           length_tmdb?: number | null
           movie_type?: string | null
-          movie_type_apollo?: string | null
-          movie_type_bulgarska?: string | null
           movie_type_cc?: string | null
           movie_type_helios?: string | null
           movie_type_multikino?: string | null
@@ -215,7 +201,6 @@ export type Database = {
           original_title_small?: string | null
           original_title_tmdb?: string | null
           poster?: string | null
-          poster_apollo?: string | null
           poster_cc?: string | null
           poster_cc_framed?: string | null
           poster_filmweb?: string | null
@@ -240,7 +225,6 @@ export type Database = {
           release_date_muza?: string | null
           release_date_tmdb?: string | null
           release_year?: number | null
-          release_year_apollo?: number | null
           release_year_cc?: number | null
           release_year_filmweb?: number | null
           release_year_helios?: number | null
@@ -267,11 +251,9 @@ export type Database = {
           cast_tmdb?: string | null
           created_at?: string | null
           description?: string | null
-          description_apollo?: string | null
           description_cc?: string | null
           description_filmweb?: string | null
           description_helios?: string | null
-          description_lumiere?: string | null
           description_multikino?: string | null
           description_muza?: string | null
           description_small?: string | null
@@ -289,7 +271,6 @@ export type Database = {
           genre_cc?: string | null
           genre_filmweb?: string | null
           genre_helios?: string | null
-          genre_lumiere?: string | null
           genre_small?: string | null
           id?: string
           imdb_id?: string | null
@@ -297,15 +278,12 @@ export type Database = {
           length_cc?: number | null
           length_filmweb?: number | null
           length_helios?: number | null
-          length_lumiere?: number | null
           length_multikino?: number | null
           length_muza?: number | null
           length_omdb?: number | null
           length_small?: number | null
           length_tmdb?: number | null
           movie_type?: string | null
-          movie_type_apollo?: string | null
-          movie_type_bulgarska?: string | null
           movie_type_cc?: string | null
           movie_type_helios?: string | null
           movie_type_multikino?: string | null
@@ -317,7 +295,6 @@ export type Database = {
           original_title_small?: string | null
           original_title_tmdb?: string | null
           poster?: string | null
-          poster_apollo?: string | null
           poster_cc?: string | null
           poster_cc_framed?: string | null
           poster_filmweb?: string | null
@@ -342,7 +319,6 @@ export type Database = {
           release_date_muza?: string | null
           release_date_tmdb?: string | null
           release_year?: number | null
-          release_year_apollo?: number | null
           release_year_cc?: number | null
           release_year_filmweb?: number | null
           release_year_helios?: number | null
@@ -445,8 +421,8 @@ export type Database = {
       }
       movie_screening_counts: {
         Row: {
-          movie_id: string | null
           city: string | null
+          movie_id: string | null
           screening_count: number | null
         }
         Relationships: [

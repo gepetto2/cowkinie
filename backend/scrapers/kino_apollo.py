@@ -214,6 +214,7 @@ async def scrape_and_save(supabase):
 
             # KROK 1: filmy
             movies_to_upsert = {}
+            meta = {}
             parsed = []  # (title, start_time, booking_link)
             for booking_id, title, start_time, year, movie_type in screenings:
                 booking_link = f"https://bilety.kinoapollo.pl/event/view/id/{booking_id}" if booking_id else None
@@ -221,12 +222,13 @@ async def scrape_and_save(supabase):
 
                 if title not in movies_to_upsert:
                     km = kino_by_key.get(_match_key(title))
-                    movies_to_upsert[title] = {
-                        "title": title,
-                        "poster_apollo": (km or {}).get("plakat") or None,
-                        "description_apollo": _strip_html((km or {}).get("opis")),
-                        "release_year_apollo": year,
-                        "movie_type_apollo": movie_type,
+                    movies_to_upsert[title] = {"title": title}
+                    # Dane opisowe -> wspólne kolumny małych kin (core/small_sources.py).
+                    meta[title] = {
+                        "poster": (km or {}).get("plakat") or None,
+                        "description": _strip_html((km or {}).get("opis")),
+                        "release_year": year,
+                        "movie_type": movie_type,
                     }
 
             movies_cache = upsert_movies_batch(supabase, movies_to_upsert)
@@ -251,6 +253,7 @@ async def scrape_and_save(supabase):
                 upsert_screenings_chunked(supabase, new_screenings, "Kino Apollo")
 
             logger.info("Zakończono zapisywanie danych z Kina Apollo!")
+            return meta
 
         except Exception:
             logger.exception("[Kino Apollo] Błąd w trakcie scrapowania")
