@@ -49,6 +49,40 @@ export function cinemaLabel(c: CinemaLike | null | undefined, omitCity = false):
   return venue ? `${franchise} ${venue}` : franchise;
 }
 
+/** Sam obiekt, bez marki i miasta: "Poznań - Kinepolis" -> "Kinepolis", "Bydgoszcz" -> "Bydgoszcz".
+ *  Do list POGRUPOWANYCH po sieci, gdzie marka stoi już w nagłówku grupy. */
+export function cinemaVenue(c: CinemaLike | null | undefined): string {
+  const name = squash(c?.name);
+  return stripCity(name, c?.city) || squash(c?.city) || cinemaLabel(c);
+}
+
+type CinemaPickable = CinemaLike & { id: string; category?: string | null };
+
+/** Kina pogrupowane do filtra: najpierw sieci (malejąco po liczbie kin), na końcu reszta razem.
+ *  `franchise` nagłówka jest null dla grupy "Inne" - te kina wybiera się wyłącznie pojedynczo,
+ *  bo ich `franchise` to nazwa własna pojedynczego kina, a nie sieć. */
+export function groupCinemasByChain<T extends CinemaPickable>(cinemas: T[]) {
+  const chains = new Map<string, T[]>();
+  const others: T[] = [];
+  for (const c of cinemas) {
+    if (c.category === 'sieć' && c.franchise) {
+      const arr = chains.get(c.franchise);
+      if (arr) arr.push(c);
+      else chains.set(c.franchise, [c]);
+    } else {
+      others.push(c);
+    }
+  }
+  const byName = (a: T, b: T) => cinemaLabel(a).localeCompare(cinemaLabel(b), 'pl');
+  const groups: { label: string; franchise: string | null; cinemas: T[] }[] = [...chains.entries()]
+    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'pl'))
+    .map(([franchise, list]) => ({ label: franchise, franchise, cinemas: [...list].sort(byName) }));
+  if (others.length) {
+    groups.push({ label: 'Inne kina', franchise: null, cinemas: [...others].sort(byName) });
+  }
+  return groups;
+}
+
 /** Adres bez miasta ("ul. Wołoska 12, Warszawa" -> "ul. Wołoska 12"), gdy miasto niesie nagłówek. */
 export function cinemaAddress(address?: string | null, city?: string | null): string | null {
   const a = squash(address);

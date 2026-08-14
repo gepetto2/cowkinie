@@ -93,40 +93,34 @@ async function fetchAllRows<T>(table: keyof Database['public']['Views'], columns
   }
 }
 
-// Ziarnista dostępność: jeden wiersz na (film, miasto, franczyza). Pozwala policzyć franczyzy
-// zawężone do wybranego miasta (badge'y na plakacie mają odpowiadać aktywnemu filtrowi), a nie
-// wszystkie franczyzy filmu w ogóle. Wymaga widoku movie_cinema_availability (patrz SQL).
-export type CinemaAvailabilityRow = { movie_id: string; city: string; franchise: string | null };
+// Dostępność i liczba seansów w rozbiciu na KINO: jeden wiersz na (film, kino). Wymiar kina jest
+// konieczny do filtrów sieci i konkretnego kina, a przy okazji zastępuje dwa wcześniejsze widoki
+// (movie_cinema_availability + movie_screening_counts) i jest od nich razem wziętych mniejszy.
+// Wymaga widoku movie_cinema_breakdown - patrz sql/2026-08-14-filtr-kin.sql.
+//
+// Miasto wchodzi w wiersz, bo karuzela "Najpopularniejsze" ma odpowiadać wybranemu miastu -
+// globalny ranking był w praktyce rankingiem warszawskim. Bez sortowania i limitu w bazie:
+// kolejność zależy od aktywnych filtrów, więc ustala ją strona.
+export type CinemaBreakdownRow = {
+  movie_id: string;
+  cinema_id: string;
+  city: string;
+  franchise: string | null;
+  category: string | null;
+  screening_count: number;
+};
 
-export const getCinemaAvailabilities = unstable_cache(
-  async (): Promise<CinemaAvailabilityRow[]> => {
+export const getCinemaBreakdown = unstable_cache(
+  async (): Promise<CinemaBreakdownRow[]> => {
     try {
-      return await fetchAllRows<CinemaAvailabilityRow>('movie_cinema_availability', 'movie_id, city, franchise');
+      return await fetchAllRows<CinemaBreakdownRow>(
+        'movie_cinema_breakdown', 'movie_id, cinema_id, city, franchise, category, screening_count');
     } catch (error) {
-      console.error('Błąd podczas pobierania dostępności kin:', error);
+      console.error('Błąd podczas pobierania rozbicia kin:', error);
       return [];
     }
   },
-  ['cinema-availabilities'],
-  { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
-);
-
-// Liczba seansów per (film, miasto). Wymiar miasta jest konieczny, bo karuzela "Najpopularniejsze"
-// ma odpowiadać wybranemu miastu - globalny ranking był w praktyce rankingiem warszawskim
-// (Warszawa ma najwięcej kin, więc dominowała liczniki). Bez sortowania i limitu w bazie:
-// kolejność zależy od zaznaczonych miast, więc ustala ją strona.
-export type ScreeningCountRow = { movie_id: string; city: string; screening_count: number };
-
-export const getScreeningCounts = unstable_cache(
-  async (): Promise<ScreeningCountRow[]> => {
-    try {
-      return await fetchAllRows<ScreeningCountRow>('movie_screening_counts', 'movie_id, city, screening_count');
-    } catch (error) {
-      console.error('Błąd podczas pobierania liczby seansów:', error);
-      return [];
-    }
-  },
-  ['screening-counts'],
+  ['cinema-breakdown'],
   { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
 );
 
@@ -170,6 +164,7 @@ export function getDateDaysAgo(days: number) {
 // Pod przyszłe filtry (format itd.) wystarczy dodać kolejny parametr do funkcji i klauzulę WHERE.
 export async function getFilteredAvailability(
   from?: string, to?: string, cityStr?: string, formats?: string[], langs?: string[],
+  franchises?: string[], cinemaIds?: string[],
 ): Promise<Map<string, string[]>> {
   const { data, error } = await supabase.rpc('filtered_movie_franchises', {
     // Puste pomijamy - funkcja ma dla każdego parametru default null (= brak tego filtra).
@@ -179,6 +174,9 @@ export async function getFilteredAvailability(
     city_filter: cityStr || undefined,
     format_filter: formats && formats.length ? formats : undefined,
     lang_filter: langs && langs.length ? langs : undefined,
+    // Sieć i kino sumują się w funkcji (OR), nie przecinają.
+    franchise_filter: franchises && franchises.length ? franchises : undefined,
+    cinema_filter: cinemaIds && cinemaIds.length ? cinemaIds : undefined,
   });
 
   const map = new Map<string, string[]>();

@@ -3,12 +3,14 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Search, Calendar as CalendarIcon, MapPin, X, ChevronDown, Film, Check, SlidersHorizontal, Tag, Globe2 } from "lucide-react";
+import { Search, Calendar as CalendarIcon, MapPin, Building2, X, Plus, ChevronDown, Film, Check, SlidersHorizontal, Tag, Globe2 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useCityScope } from "@/components/CityScope";
 import { citySlug, cityScopeHref } from "@/lib/cities";
+import { cinemaLabel, cinemaVenue, groupCinemasByChain } from "@/lib/cinemas";
+import type { CinemaListItem } from "@/lib/supabase/queries";
 
 // --- Helpery dat w strefie Europe/Warsaw (spójnie z resztą aplikacji) ---
 const warsawFmt = new Intl.DateTimeFormat("en-CA", {
@@ -22,10 +24,23 @@ const fmtDay = (d?: Date) =>
 const shortLabel = (s: string) =>
   new Date(`${s}T12:00:00Z`).toLocaleDateString("pl-PL", { day: "numeric", month: "short", timeZone: "UTC" });
 
+// Wiersz miasta to DWA osobne przyciski, więc każdy podświetla się z osobna - wspólny hover
+// na całym wierszu zacierałby to, że są to różne akcje. Kreska między nimi jest zawsze (na dotyku
+// nie ma hovera, a to jedyna wskazówka o podziale) i mocnieje, gdy kursor wejdzie w wiersz.
+const cityRowCls = "group flex items-stretch rounded-md";
+const cityNameCls =
+  "flex-1 min-w-0 text-left text-sm px-2.5 py-1.5 text-slate-200 rounded-l-md transition-colors hover:bg-slate-800";
+const cityActionCls =
+  "shrink-0 flex items-center px-2.5 rounded-r-md border-l border-slate-800/80 group-hover:border-slate-700 transition-colors";
+
 const triggerCls = (active: boolean) =>
   `inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium border transition-colors shrink-0 ${
     active ? "bg-indigo-600 border-indigo-500 text-white" : "bg-slate-900 border-slate-800 text-slate-200 hover:bg-slate-800"
   }`;
+
+/** Kina z zadanego zakresu miast. Pusty zakres = cała Polska, czyli wszystkie. */
+const cinemasInScope = (list: CinemaListItem[], scope: string[]) =>
+  scope.length ? list.filter((c) => scope.includes(c.city)) : list;
 
 function formatCount(n: number) {
   const d = n % 10;
@@ -35,7 +50,7 @@ function formatCount(n: number) {
   return `${n} filmów`;
 }
 
-export default function FilterBar({ cities, formats, genres, resultCount }: { cities: string[]; formats: string[]; genres: { name: string; count: number }[]; resultCount: number }) {
+export default function FilterBar({ cities, cinemas, formats, genres, resultCount }: { cities: string[]; cinemas: CinemaListItem[]; formats: string[]; genres: { name: string; count: number }[]; resultCount: number }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -48,6 +63,9 @@ export default function FilterBar({ cities, formats, genres, resultCount }: { ci
   const to = searchParams.get("to") || "";
   const selectedFormats = (searchParams.get("format") || "").split(",").filter(Boolean);
   const selectedGenres = (searchParams.get("genre") || "").split(",").filter(Boolean);
+  // Sieć przeżywa zmianę miasta, konkretne kino nie - patrz setCities.
+  const selectedFranchises = (searchParams.get("siec") || "").split(",").filter(Boolean);
+  const selectedCinemaIds = (searchParams.get("kino") || "").split(",").filter(Boolean);
 
   const setParams = (updates: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -68,11 +86,23 @@ export default function FilterBar({ cities, formats, genres, resultCount }: { ci
   // "pooglądam, co grają w Gdańsku" nie przestawia na stałe tego, co widzisz po wejściu na stronę.
   const setCities = (next: string[]) => {
     const params = new URLSearchParams(searchParams.toString());
+    // Wybór KONKRETNEGO kina jest związany z miastem, więc przy zmianie zakresu przycinamy go do
+    // kin, które w nim zostały - inaczej filtr zostawałby aktywny bez ani jednego pasującego seansu
+    // i wyglądałoby to na pustą bazę. Sieci (?siec=) nie ruszamy: są niezależne od miasta.
+    if (selectedCinemaIds.length) {
+      const allowed = new Set(cinemasInScope(cinemas, next).map((c) => c.id));
+      const kept = selectedCinemaIds.filter((id) => allowed.has(id));
+      if (kept.length) params.set("kino", kept.join(",")); else params.delete("kino");
+    }
     router.push(cityScopeHref(next, params), { scroll: false });
   };
 
-  const toggleCity = (c: string) =>
-    setCities(selectedCities.includes(c) ? selectedCities.filter((x) => x !== c) : [...selectedCities, c]);
+  // Miasto ma DWIE intencje: "zamiast" (częsta) i "dodatkowo" (rzadka), więc dostaje dwa cele
+  // kliknięcia zamiast jednego toggle'a. Przełączenie zamyka listę - wybór jest kompletny;
+  // dodawanie zostawia ją otwartą, bo zwykle idzie seriami (Trójmiasto, aglomeracja).
+  const switchCity = (c: string) => { setCities([c]); openCity(false); };
+  const addCity = (c: string) => setCities([...selectedCities, c]);
+  const removeCity = (c: string) => setCities(selectedCities.filter((x) => x !== c));
 
   // --- Wyszukiwarka (debounce 300ms) ---
   const [query, setQuery] = useState(q);
@@ -138,11 +168,32 @@ export default function FilterBar({ cities, formats, genres, resultCount }: { ci
   }, [cities, cityQuery, selectedCities]);
   const [formatOpen, setFormatOpen] = useState(false);
   const [genreOpen, setGenreOpen] = useState(false);
+  const [venueOpen, setVenueOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false); // zwijanie filtrów na telefonie
-  const activeFilterCount = (from || to ? 1 : 0) + selectedCities.length + selectedFormats.length + selectedGenres.length;
+  const activeFilterCount = (from || to ? 1 : 0) + selectedCities.length + selectedFormats.length
+    + selectedGenres.length + selectedFranchises.length + selectedCinemaIds.length;
 
   const cityLabel = selectedCities.length === 0 ? "Wszystkie miasta"
     : selectedCities.length === 1 ? selectedCities[0] : `Miasta (${selectedCities.length})`;
+
+  // --- Kina: sieci i pojedyncze kina z bieżącego zakresu miast ---
+  const scopedCinemas = useMemo(() => cinemasInScope(cinemas, selectedCities), [cinemas, selectedCities]);
+  const cinemaGroups = useMemo(() => groupCinemasByChain(scopedCinemas), [scopedCinemas]);
+  const cinemaById = useMemo(() => new Map(cinemas.map((c) => [c.id, c])), [cinemas]);
+
+  const toggleFranchise = (f: string) => {
+    const next = selectedFranchises.includes(f) ? selectedFranchises.filter((x) => x !== f) : [...selectedFranchises, f];
+    setParams({ siec: next.join(",") });
+  };
+  const toggleCinema = (id: string) => {
+    const next = selectedCinemaIds.includes(id) ? selectedCinemaIds.filter((x) => x !== id) : [...selectedCinemaIds, id];
+    setParams({ kino: next.join(",") });
+  };
+
+  const venueCount = selectedFranchises.length + selectedCinemaIds.length;
+  const venueLabel = venueCount === 0 ? "Wszystkie kina"
+    : venueCount > 1 ? `Kina (${venueCount})`
+    : selectedFranchises[0] ?? cinemaLabel(cinemaById.get(selectedCinemaIds[0]));
 
   // Przełączenie w multi-select (dropdown zostaje otwarty)
   const toggleFormat = (f: string) => {
@@ -159,12 +210,21 @@ export default function FilterBar({ cities, formats, genres, resultCount }: { ci
     : selectedGenres.length === 1 ? selectedGenres[0] : `Gatunki (${selectedGenres.length})`;
 
   // --- Aktywne filtry (pigułki) ---
-  const pills: { label: string; clear: () => void }[] = [];
+  const pills: { label: string; icon?: boolean; clear: () => void }[] = [];
   if (q) pills.push({ label: `„${q}”`, clear: () => { setQuery(""); setParams({ q: "" }); } });
   if (from || to) pills.push({ label: dateLabel, clear: () => setParams({ from: "", to: "" }) });
   // Każde miasto osobną pigułką - przy kilku wybranych da się odjąć jedno bez czyszczenia reszty.
+  // Pinezka odróżnia je od pigułek formatu i gatunku, które inaczej wyglądają identycznie.
   for (const c of selectedCities) {
-    pills.push({ label: c, clear: () => setCities(selectedCities.filter((x) => x !== c)) });
+    pills.push({ label: c, icon: true, clear: () => removeCity(c) });
+  }
+  for (const f of selectedFranchises) {
+    pills.push({ label: f, clear: () => toggleFranchise(f) });
+  }
+  // Kino z INNEGO miasta niż bieżące nie może się tu pojawić - setCities przycina wybór przy zmianie
+  // zakresu - ale gdyby ktoś wkleił adres z nieznanym id, pigułka i tak pozwoli je zdjąć.
+  for (const id of selectedCinemaIds) {
+    pills.push({ label: cinemaLabel(cinemaById.get(id)), clear: () => toggleCinema(id) });
   }
   for (const f of selectedFormats) {
     pills.push({ label: f, clear: () => setParams({ format: selectedFormats.filter((x) => x !== f).join(",") }) });
@@ -243,8 +303,8 @@ export default function FilterBar({ cities, formats, genres, resultCount }: { ci
           </PopoverContent>
         </Popover>
 
-        {/* Miasto - wybór wielokrotny. Popover zostaje otwarty przy zaznaczaniu, żeby dało się
-            zebrać kilka miast (np. Trójmiasto) bez otwierania listy za każdym razem. */}
+        {/* Miasto - klik w nazwę przełącza, przycisk obok dodaje do wyboru. Odwrotnie niż przy
+            pozostałych filtrach, bo miasto prawie zawsze jest jedno i zwykle się je ZMIENIA. */}
         <Popover open={cityOpen} onOpenChange={openCity}>
           <PopoverTrigger asChild>
             <button className={triggerCls(selectedCities.length > 0)}>
@@ -256,7 +316,11 @@ export default function FilterBar({ cities, formats, genres, resultCount }: { ci
           <PopoverContent align="start" className="w-60 p-2">
             {/* Wyszukiwarka: przy kilkudziesięciu miastach przewijanie listy przestaje mieć sens.
                 Dopasowanie przez citySlug znosi diakrytyki i zrównuje spacje z myślnikami. */}
-            <div className="flex items-center gap-2 rounded-md border border-slate-700 px-2 py-1.5 mb-2 focus-within:border-indigo-500 transition-colors">
+            {/* Enter przełącza na pierwsze trafienie - tak samo jak na ekranie /wybierz-miasto. */}
+            <form
+              onSubmit={(e) => { e.preventDefault(); if (cityMatches.length) switchCity(cityMatches[0]); }}
+              className="flex items-center gap-2 rounded-md border border-slate-700 px-2 py-1.5 mb-2 focus-within:border-indigo-500 transition-colors"
+            >
               <Search className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
               <input
                 value={cityQuery}
@@ -265,39 +329,45 @@ export default function FilterBar({ cities, formats, genres, resultCount }: { ci
                 aria-label="Szukaj miasta"
                 className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-500 outline-none"
               />
-            </div>
+            </form>
 
-            {/* Zaznaczone na górze, poza listą przewijaną - inaczej przy 77 miastach odznaczenie
+            {/* Zaznaczone na górze, poza listą przewijaną - inaczej przy 77 miastach usunięcie
                 jednego wymagałoby odszukania go w całej liście. */}
             {selectedCities.map((c) => (
-              <button
-                key={c}
-                onClick={() => toggleCity(c)}
-                className="w-full flex items-center gap-2.5 text-left text-sm px-2.5 py-1.5 rounded-md text-slate-100 bg-indigo-500/10 hover:bg-slate-800 transition-colors"
-              >
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border bg-indigo-600 border-indigo-500">
-                  <Check className="h-3 w-3 text-white" />
-                </span>
-                {c}
-              </button>
+              <div key={c} className={`${cityRowCls} bg-indigo-500/10`}>
+                <button onClick={() => switchCity(c)} className={cityNameCls} title="Pokaż tylko to miasto">
+                  <span className="truncate">{c}</span>
+                </button>
+                <button
+                  onClick={() => removeCity(c)}
+                  aria-label={`Usuń ${c} z wyboru`}
+                  title="Usuń z wyboru"
+                  className={`${cityActionCls} text-slate-400 hover:bg-rose-500/15 hover:text-rose-300`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ))}
             {selectedCities.length > 0 && <div className="my-1.5 border-t border-slate-800" />}
 
-            {/* Ten sam wzorzec co przy formacie/wersji/gatunku - kwadracik z ptaszkiem od razu
-                pokazuje, że wyborów może być kilka. */}
             <div className="max-h-56 overflow-y-auto">
               {cityMatches.length === 0 && (
                 <p className="px-2.5 py-2 text-sm text-slate-500">Brak miasta.</p>
               )}
               {cityMatches.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => toggleCity(c)}
-                  className="w-full flex items-center gap-2.5 text-left text-sm px-2.5 py-1.5 rounded-md text-slate-200 hover:bg-slate-800 transition-colors"
-                >
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-600" />
-                  {c}
-                </button>
+                <div key={c} className={cityRowCls}>
+                  <button onClick={() => switchCity(c)} className={cityNameCls} title={`Pokaż tylko ${c}`}>
+                    <span className="truncate">{c}</span>
+                  </button>
+                  <button
+                    onClick={() => addCity(c)}
+                    aria-label={`Dodaj ${c} do wyboru`}
+                    title="Dodaj do wyboru"
+                    className={`${cityActionCls} text-slate-500 hover:bg-indigo-500/20 hover:text-indigo-300`}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               ))}
             </div>
             {selectedCities.length > 0 && (
@@ -319,6 +389,77 @@ export default function FilterBar({ cities, formats, genres, resultCount }: { ci
             </Link>
           </PopoverContent>
         </Popover>
+
+        {/* Kina - sieć albo konkretne kino. Ukryte, gdy w zakresie jest jedno kino: w 52 z 77 miast
+            kontrolka nie miałaby czego filtrować. Nagłówek grupy zaznacza całą sieć (?siec=,
+            przeżywa zmianę miasta), wiersz pod nim pojedyncze kino (?kino=, przycinane do zakresu). */}
+        {scopedCinemas.length > 1 && (
+        <Popover open={venueOpen} onOpenChange={setVenueOpen}>
+          <PopoverTrigger asChild>
+            <button className={triggerCls(venueCount > 0)}>
+              <Building2 className="h-4 w-4" />
+              <span className="max-w-[160px] truncate">{venueLabel}</span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72 p-2">
+            <div className="max-h-80 overflow-y-auto">
+              {cinemaGroups.map((group) => {
+                const on = group.franchise !== null && selectedFranchises.includes(group.franchise);
+                return (
+                  <div key={group.label} className="mb-1.5 last:mb-0">
+                    {/* Grupa "Inne kina" nie ma zaznaczalnego nagłówka: jej `franchise` to nazwa
+                        własna pojedynczego kina, a nie sieć, więc byłby to filtr udający sieć. */}
+                    {group.franchise === null ? (
+                      <p className="px-2.5 py-1 text-xs uppercase tracking-wide text-slate-500">{group.label}</p>
+                    ) : (
+                      <button
+                        onClick={() => toggleFranchise(group.franchise!)}
+                        className="w-full flex items-center gap-2.5 text-left text-sm px-2.5 py-1.5 rounded-md font-medium text-slate-100 hover:bg-slate-800 transition-colors"
+                      >
+                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${on ? "bg-indigo-600 border-indigo-500" : "border-slate-600"}`}>
+                          {on && <Check className="h-3 w-3 text-white" />}
+                        </span>
+                        <span className="truncate">{group.label}</span>
+                        <span className="ml-auto shrink-0 text-xs text-slate-500 tabular-nums">{group.cinemas.length}</span>
+                      </button>
+                    )}
+                    {/* Pojedyncze kina sieci pokazujemy tylko wtedy, gdy jest z czego wybierać -
+                        przy jednym kinie powielałyby nagłówek grupy. */}
+                    {(group.franchise === null || group.cinemas.length > 1) && group.cinemas.map((c) => {
+                      const picked = selectedCinemaIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => toggleCinema(c.id)}
+                          className={`w-full flex items-center gap-2.5 text-left text-sm px-2.5 py-1.5 rounded-md hover:bg-slate-800 transition-colors ${group.franchise === null ? "" : "pl-7"} ${picked ? "text-slate-100" : "text-slate-300"}`}
+                        >
+                          <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${picked ? "bg-indigo-600 border-indigo-500" : "border-slate-600"}`}>
+                            {picked && <Check className="h-3 w-3 text-white" />}
+                          </span>
+                          {/* W grupie sieci marka stoi w nagłówku, więc wiersz pokazuje sam obiekt
+                              ("Kinepolis", "Bydgoszcz") - inaczej co drugie słowo to "Helios". */}
+                          <span className="truncate">
+                            {group.franchise === null ? cinemaLabel(c) : cinemaVenue(c)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+            {venueCount > 0 && (
+              <button
+                onClick={() => { setParams({ siec: "", kino: "" }); setVenueOpen(false); }}
+                className="mt-1 w-full text-left text-sm px-2.5 py-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors border-t border-slate-800"
+              >
+                Wszystkie kina
+              </button>
+            )}
+          </PopoverContent>
+        </Popover>
+        )}
 
         {/* Format (multi-select) */}
         {formats.length > 0 && (
@@ -413,8 +554,9 @@ export default function FilterBar({ cities, formats, genres, resultCount }: { ci
             <button
               key={i}
               onClick={p.clear}
-              className="inline-flex items-center gap-1.5 text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full pl-3.5 pr-2.5 py-1.5 transition-colors"
+              className={`inline-flex items-center gap-1.5 text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full ${p.icon ? "pl-2.5" : "pl-3.5"} pr-2.5 py-1.5 transition-colors`}
             >
+              {p.icon && <MapPin className="h-3.5 w-3.5 shrink-0 text-indigo-400" />}
               <span className="max-w-[220px] truncate">{p.label}</span>
               <X className="h-3.5 w-3.5" />
             </button>

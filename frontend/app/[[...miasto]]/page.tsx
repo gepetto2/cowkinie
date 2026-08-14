@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import {
   getCities, getMovies, getAvailableDates, getFilteredAvailability, getDateDaysAgo,
-  getCinemaAvailabilities, getScreeningCounts, getAvailableFormats,
+  getCinemaBreakdown, getCinemas, getAvailableFormats,
 } from '@/lib/supabase/queries';
 import MovieCard from '@/components/MovieCard';
 import Carousel from '@/components/Carousel';
@@ -31,7 +31,7 @@ const CARD_WIDTH = 'w-[calc((100vw-2.5rem)/3)] sm:w-[160px] lg:w-[180px]';
 // JAKICHKOLWIEK parametrów". Link otwarty w Messengerze przychodzi jako "/?fbclid=...", więc
 // warunek nie był spełniony i użytkownik lądował od razu na repertuarze całej Polski, nigdy nie
 // widząc ekranu wyboru.
-const APP_PARAMS = ['q', 'miasta', 'from', 'to', 'format', 'genre'] as const;
+const APP_PARAMS = ['q', 'miasta', 'from', 'to', 'format', 'genre', 'siec', 'kino'] as const;
 
 // Typy filmów pomijane w karuzelach "Nowości"/"Wkrótce" (dopisuj wg potrzeb).
 const CAROUSEL_EXCLUDED_TYPES = ['SPORT', 'TEATR', 'UKRAIŃSKI DUBBING', 'KINO BEZ BARIER', 'UNLIMITED SHOW', 'CYRK', 'MARATON', 'WYSTAWY', 'DLA DZIECI', 'SALON KULTURY', 'KONCERT', 'LADIES NIGHT/KNO', 'BALET', 'OPERA', 'PANEL', 'KARAOKE', 'FESTIWAL'];
@@ -99,6 +99,17 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
   const selectedGenres = typeof params?.genre === 'string' && params.genre
     ? params.genre.split(',').filter(Boolean)
     : [];
+  // Sieć jest NIEZALEŻNA od miasta ("mam Unlimited w Cinema City" nie przestaje być prawdą po
+  // przejeździe do innego miasta), konkretne kino - nie, więc `kino` przycinamy do zakresu miast
+  // (robi to FilterBar przy zmianie miasta) i tu tylko czytamy.
+  const selectedFranchises = typeof params?.siec === 'string' && params.siec
+    ? params.siec.split(',').filter(Boolean)
+    : [];
+  const selectedCinemaIds = typeof params?.kino === 'string' && params.kino
+    ? params.kino.split(',').filter(Boolean)
+    : [];
+  const venueFilterActive = selectedFranchises.length > 0 || selectedCinemaIds.length > 0;
+
   // Filtr daty/formatu wymaga danych na poziomie seansu -> liczymy je po stronie serwera (RPC).
   const serverFilterActive = rangeActive || selectedFormats.length > 0;
 
@@ -130,15 +141,15 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
   // Zrównoleglenie pobierania wszystkich danych (odczyty z bazy są cache'owane w queries.ts)
   const [
     movies,
-    cinemaAvailabilities,
-    screeningCounts,
+    breakdown,
+    allCinemas,
     availableDates,
     formats,
     serverAvailByCity
   ] = await Promise.all([
     getMovies(),
-    getCinemaAvailabilities(),
-    getScreeningCounts(),
+    getCinemaBreakdown(),
+    getCinemas(),
     Promise.resolve(getAvailableDates(1)), // dzisiejsza data dla karuzel
     getAvailableFormats(),
     // Gdy aktywny filtr daty/formatu: dostępność (film -> franczyzy) z pasujących seansów, po stronie serwera.
@@ -148,9 +159,9 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
     serverFilterActive
       ? Promise.all(
           (selectedCities.length ? selectedCities : ['']).map((c) =>
-            getFilteredAvailability(rangeFrom, rangeTo, c, selectedFormats).then(
-              (m) => [c, m] as const,
-            ),
+            getFilteredAvailability(
+              rangeFrom, rangeTo, c, selectedFormats, undefined, selectedFranchises, selectedCinemaIds,
+            ).then((m) => [c, m] as const),
           ),
         )
       : Promise.resolve(null),
@@ -172,10 +183,19 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
       })()
     : null;
 
+  // Filtr sieci/kina zawężamy JUŻ TU, na wierszach rozbicia. Dzięki temu badge'y, przynależność
+  // do wyników i ranking popularności liczą się z tego samego zbioru i nie mogą się rozjechać.
+  // Sieć i kino sumują się (OR) - tak samo jak w RPC dla ścieżki z filtrem daty/formatu.
+  const scopedBreakdown = venueFilterActive
+    ? breakdown.filter((row) =>
+        (row.franchise !== null && selectedFranchises.includes(row.franchise))
+        || selectedCinemaIds.includes(row.cinema_id))
+    : breakdown;
+
   // Dostępność per film: miasta oraz franczyzy w rozbiciu na miasto. Dzięki temu badge'y kin
   // można zawęzić do wybranego miasta (bez filtra pokazujemy wszystkie franczyzy filmu).
   const availabilityByMovie = new Map<string, { cities: Set<string>; franchisesByCity: Map<string, Set<string>> }>();
-  for (const row of cinemaAvailabilities) {
+  for (const row of scopedBreakdown) {
     let entry = availabilityByMovie.get(row.movie_id);
     if (!entry) {
       entry = { cities: new Set(), franchisesByCity: new Map() };
@@ -247,7 +267,7 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
   // pozycja na dziesięć stała na właściwym miejscu, a lokalny hit przegrywał z filmem mającym
   // tam trzy seanse. Filtr miasta/daty jest już zakodowany w matchesFilters.
   const screeningsByMovie = new Map<string, number>();
-  for (const row of screeningCounts) {
+  for (const row of scopedBreakdown) {
     if (selectedCities.length && !selectedCities.includes(row.city)) continue;
     screeningsByMovie.set(row.movie_id, (screeningsByMovie.get(row.movie_id) ?? 0) + (row.screening_count ?? 0));
   }
@@ -423,7 +443,7 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
       </h1>
 
       <Suspense fallback={<div className="h-14 mb-6" />}>
-        <FilterBar cities={cities} formats={formats} genres={availableGenres} resultCount={filteredMovies.length} />
+        <FilterBar cities={cities} cinemas={allCinemas} formats={formats} genres={availableGenres} resultCount={filteredMovies.length} />
       </Suspense>
 
       <div className="space-y-10">

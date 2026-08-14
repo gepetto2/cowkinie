@@ -393,6 +393,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "screenings_cinema_id_fkey"
+            columns: ["cinema_id"]
+            isOneToOne: false
+            referencedRelation: "movie_cinema_breakdown"
+            referencedColumns: ["cinema_id"]
+          },
+          {
             foreignKeyName: "screenings_movie_id_fkey"
             columns: ["movie_id"]
             isOneToOne: false
@@ -408,6 +415,26 @@ export type Database = {
           city: string | null
           franchise: string | null
           movie_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screenings_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movie_cinema_breakdown: {
+        Row: {
+          category: string | null
+          cinema_id: string | null
+          cinema_name: string | null
+          city: string | null
+          franchise: string | null
+          movie_id: string | null
+          screening_count: number | null
         }
         Relationships: [
           {
@@ -445,10 +472,12 @@ export type Database = {
     Functions: {
       filtered_movie_franchises: {
         Args: {
+          cinema_filter?: string[]
           city_filter?: string
           date_from?: string
           date_to?: string
           format_filter?: string[]
+          franchise_filter?: string[]
           lang_filter?: string[]
         }
         Returns: {
