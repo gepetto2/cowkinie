@@ -81,11 +81,18 @@ export const getMovies = unstable_cache(
 
 // Supabase oddaje najwyżej 1000 wierszy na zapytanie i NIE sygnalizuje ucięcia - zbiór po prostu
 // przychodzi krótszy. Widoki rozpisane na miasta rosną z każdym nowym miastem, więc czytamy stronami.
-async function fetchAllRows<T>(table: keyof Database['public']['Views'], columns: string): Promise<T[]> {
+type PagedSource = keyof Database['public']['Views'] | keyof Database['public']['Tables'];
+
+async function fetchAllRows<T>(table: PagedSource, columns: string): Promise<T[]> {
   const PAGE = 1000;
   const out: T[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase.from(table).select(columns).range(from, from + PAGE - 1);
+    // supabase-js ma OSOBNE przeciążenia dla tabel i widoków, więc unia nie pasuje do żadnego.
+    // Rzutujemy wewnątrz - nazwa i tak jest sprawdzona w sygnaturze, a do zapytania idzie sam string.
+    const { data, error } = await supabase
+      .from(table as keyof Database['public']['Tables'])
+      .select(columns)
+      .range(from, from + PAGE - 1);
     if (error) throw error;
     const rows = (data ?? []) as unknown as T[];
     out.push(...rows);
@@ -196,6 +203,33 @@ export type CinemaListItem = Pick<
   Database['public']['Tables']['cinemas']['Row'],
   'id' | 'name' | 'city' | 'franchise' | 'category' | 'address' | 'url'
 >;
+
+// Podsumowanie sal per kino do podstrony /kina. Agregujemy tutaj, a nie w bazie, bo to raptem
+// 951 wierszy bez `layout` (~170 KB) i mieści się w jednym cache'owanym odczycie.
+// Kina bez wpisów (niezależne - nie mają API z mapami sal) po prostu nie trafiają do mapy.
+export type HallStats = { halls: number; seats: number };
+
+export const getHallStats = unstable_cache(
+  async (): Promise<Record<string, HallStats>> => {
+    try {
+      const rows = await fetchAllRows<{ cinema_id: string; seats_total: number | null }>(
+        'cinema_halls', 'cinema_id, seats_total');
+
+      const out: Record<string, HallStats> = {};
+      for (const row of rows) {
+        const stat = (out[row.cinema_id] ??= { halls: 0, seats: 0 });
+        stat.halls += 1;
+        stat.seats += row.seats_total ?? 0;
+      }
+      return out;
+    } catch (error) {
+      console.error('Błąd podczas pobierania danych o salach:', error);
+      return {};
+    }
+  },
+  ['hall-stats'],
+  { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
+);
 
 export const getCinemas = unstable_cache(
   async (): Promise<CinemaListItem[]> => {

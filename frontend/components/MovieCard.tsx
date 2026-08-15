@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { ZoomIn, X, Trees, Ellipsis, Play } from "lucide-react";
+import { ZoomIn, X, Trees, Ellipsis, Play, Sofa, Accessibility } from "lucide-react";
 import Image from "next/image";
 import { Database } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
 import { movieRatings, movieRatingsFull } from "@/lib/ratings";
 import { cinemaLabel, cinemaGroup, badgeKey, cinemaBadge } from "@/lib/cinemas";
 import TrailerEmbed from "@/components/TrailerEmbed";
+import HallPlan from "@/components/HallPlan";
 import { MovieListItem } from "@/lib/supabase/queries";
 import { useCityScope } from "@/components/CityScope";
 import {
@@ -210,8 +211,16 @@ function availabilityInfo(ratio: number | null): { label: string; color: string;
  */
 const SHOW_AD_ESTIMATE = false;
 
+// Dane sali z `cinema_halls`, dociągane osobno: złączenie idzie po (cinema_id, room_name),
+// a to nie jest klucz obcy, więc PostgREST nie zrobi tego zagnieżdżonym selectem.
+type HallInfo = { seats_total: number; rows_count: number; wheelchair_seats: number; sofa_seats: number };
+
+const hallKey = (cinemaId: string, room: string | null) => `${cinemaId}|${room ?? ""}`;
+
+const rowWord = (n: number) => (n === 1 ? "rząd" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "rzędy" : "rzędów");
+
 // Widok szczegółów pojedynczego seansu (trzeci poziom modalu): dane z bazy + przycisk zakupu.
-function ScreeningDetails({ screening, dateLabel, filmLength, onBack }: { screening: Screening; dateLabel: string; filmLength: number | null; onBack: () => void }) {
+function ScreeningDetails({ screening, hall, dateLabel, filmLength, onBack }: { screening: Screening; hall?: HallInfo; dateLabel: string; filmLength: number | null; onBack: () => void }) {
   const c = screening.cinemas;
   const cinemaName = cinemaLabel(c);
   const badge = cinemaBadge(c);
@@ -225,8 +234,15 @@ function ScreeningDetails({ screening, dateLabel, filmLength, onBack }: { screen
   const showAds = SHOW_AD_ESTIMATE && adMin != null && adMin >= 5 && adMin <= 60;
   const filmStart = showAds ? fmtT(new Date(startMs + (adMin as number) * 60000).toISOString()) : null;
   const avail = availabilityInfo(screening.availability_ratio);
+  // Nazwa sali i jej rozmiar to jedna informacja - rozbita na dwa wiersze wyglądała jak dwa
+  // niezależne fakty.
+  const hallLabel = [
+    screening.room_name,
+    hall && `${hall.seats_total} miejsc`,
+    hall && `${hall.rows_count} ${rowWord(hall.rows_count)}`,
+  ].filter(Boolean).join(" · ");
   const rows: [string, string | null][] = [
-    ["Sala", screening.room_name],
+    ["Sala", hallLabel || null],
     ["Format", screening.format],
     ["Wersja", screening.lang],
   ];
@@ -264,6 +280,22 @@ function ScreeningDetails({ screening, dateLabel, filmLength, onBack }: { screen
           </div>
         ))}
       </dl>
+      {/* Kanapy i miejsca dla niepełnosprawnych pokazujemy TYLKO gdy są. Zera nie renderujemy, bo "0 kanap"
+          nieprawdziwie sugerowałoby, że sieć to zgłasza - Cinema City kanap w ogóle nie oznacza. */}
+      {hall && (hall.sofa_seats > 0 || hall.wheelchair_seats > 0) && (
+        <div className="flex flex-wrap gap-2 -mt-1">
+          {hall.sofa_seats > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-xs text-slate-300">
+              <Sofa className="h-3.5 w-3.5 text-indigo-300" /> {hall.sofa_seats} miejsc na kanapach
+            </span>
+          )}
+          {hall.wheelchair_seats > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-xs text-slate-300">
+              <Accessibility className="h-3.5 w-3.5 text-indigo-300" /> {hall.wheelchair_seats} dla niepełnosprawnych
+            </span>
+          )}
+        </div>
+      )}
       <div className="border-t border-slate-800 pt-3">
         <div className={`text-sm font-medium ${avail.color}`}>{avail.label}</div>
         {avail.pct !== null && (
@@ -280,6 +312,16 @@ function ScreeningDetails({ screening, dateLabel, filmLength, onBack }: { screen
       >
         Kup bilet →
       </a>
+      {/* Plan sali NA KOŃCU, pod przyciskiem zakupu: to najwyższy element tego widoku, a jest
+          dodatkiem, nie powodem wejścia tutaj. Wyżej spychał "Kup bilet" poza ekran.
+          `key` wymusza remount przy zmianie sali - inaczej zostałby stan poprzedniego układu. */}
+      {hall && screening.room_name && (
+        <HallPlan
+          key={`${screening.cinema_id}|${screening.room_name}`}
+          cinemaId={screening.cinema_id}
+          roomName={screening.room_name}
+        />
+      )}
     </div>
   );
 }
@@ -384,6 +426,7 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
 
   const [isOpen, setIsOpen] = useState(false);
   const [screenings, setScreenings] = useState<Screening[]>([]);
+  const [halls, setHalls] = useState<Map<string, HallInfo>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedScreening, setSelectedScreening] = useState<Screening | null>(null);
@@ -447,6 +490,19 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
       if (!cancelled) {
         setScreenings(all);
         setIsLoading(false);
+      }
+
+      // Sale dociągamy DOPIERO po seansach i tylko dla kin, które w nich wystąpiły - komplet to
+      // 951 sal (168 KB), a jeden film gra zwykle w kilkunastu. Bez `layout`, który waży 10 MB.
+      const cinemaIds = [...new Set(all.map((s) => s.cinema_id))];
+      if (!cancelled && cinemaIds.length) {
+        const { data } = await supabase
+          .from("cinema_halls")
+          .select("cinema_id, room_name, seats_total, rows_count, wheelchair_seats, sofa_seats")
+          .in("cinema_id", cinemaIds);
+        if (!cancelled && data) {
+          setHalls(new Map(data.map((h) => [hallKey(h.cinema_id!, h.room_name), h as HallInfo])));
+        }
       }
     }
 
@@ -731,8 +787,9 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
               scrollbar-gutter:stable rezerwuje miejsce na pasek, żeby przełączanie dat (raz lista
               dłuższa, raz krótsza) nie przesuwało treści w poziomie. */}
           {/* Filtry seansów NAD obszarem przewijania (shrink-0), żeby nie uciekały przy scrollowaniu
-              listy dni. Znikają, gdy film ma tylko jedną wersję i jeden format. */}
-          {!isLoading && screenings.length > 0 && (availableFormats.length > 1 || availableLangs.length > 1) && (
+              listy dni. Znikają, gdy film ma tylko jedną wersję i jeden format, oraz w szczegółach
+              pojedynczego seansu - tam nie ma już czego zawężać, a zabierały miejsce nad treścią. */}
+          {!isLoading && !selectedScreening && screenings.length > 0 && (availableFormats.length > 1 || availableLangs.length > 1) && (
             <div className="shrink-0 mb-3 flex flex-col gap-2">
               <OptionChips
                 label="Format"
@@ -798,6 +855,7 @@ export default function MovieCard({ movie, priority = false, typeLabel }: { movi
             ) : selectedScreening ? (
               <ScreeningDetails
                 screening={selectedScreening}
+                hall={halls.get(hallKey(selectedScreening.cinema_id, selectedScreening.room_name))}
                 dateLabel={formatDateLabel(selectedDate)}
                 filmLength={movie.length}
                 onBack={() => setSelectedScreening(null)}

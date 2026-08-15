@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { MapPin, ExternalLink } from 'lucide-react';
-import { getCinemas, type CinemaListItem } from '@/lib/supabase/queries';
+import { MapPin, ExternalLink, Armchair } from 'lucide-react';
+import { getCinemas, getHallStats, type CinemaListItem } from '@/lib/supabase/queries';
 import { citySlug } from '@/lib/cities';
 import { cinemaLabel, cinemaAddress, cinemaBadge } from '@/lib/cinemas';
 import { franchiseSurface } from '@/lib/franchise';
@@ -11,6 +11,14 @@ export const metadata: Metadata = {
   title: 'Kina',
   description: 'Wszystkie kina w serwisie - sieciowe i studyjne, z adresami i linkami do stron.',
 };
+
+// Polska odmiana po liczbie: 1 sala / 2-4 sale / 5+ sal, z wyjątkiem nastek (12-14 idą jak 5+).
+function plural(n: number, one: string, few: string, many: string) {
+  const d = n % 10;
+  const dd = n % 100;
+  if (n === 1) return `${n} ${one}`;
+  return `${n} ${d >= 2 && d <= 4 && (dd < 12 || dd > 14) ? few : many}`;
+}
 
 // Grupujemy po mieście, a nie po sieci: użytkownik szuka kina tam, gdzie jest, a nie u konkretnej marki.
 function groupByCity(cinemas: CinemaListItem[]): [string, CinemaListItem[]][] {
@@ -33,8 +41,12 @@ function groupByCity(cinemas: CinemaListItem[]): [string, CinemaListItem[]][] {
 }
 
 export default async function CinemasPage() {
-  const cinemas = await getCinemas();
+  const [cinemas, hallStats] = await Promise.all([getCinemas(), getHallStats()]);
   const byCity = groupByCity(cinemas);
+  const totals = Object.values(hallStats).reduce(
+    (acc, s) => ({ halls: acc.halls + s.halls, seats: acc.seats + s.seats }),
+    { halls: 0, seats: 0 },
+  );
 
   return (
     <>
@@ -42,7 +54,10 @@ export default async function CinemasPage() {
     <main className="container mx-auto px-3 sm:px-4 pt-6 pb-16">
       <h1 className="text-4xl font-extrabold mb-2 text-slate-100 tracking-tight">Kina</h1>
       <p className="text-slate-400 mb-8">
-        {cinemas.length} kin w {byCity.length} miastach.
+        {cinemas.length} kin w {byCity.length} miastach
+        {/* Sale znamy tylko dla sieciówek, więc podajemy je jako osobny fakt, a nie jako sumę
+            opisującą wszystkie kina z lewej strony zdania. */}
+        {totals.halls > 0 && `, w tym ${plural(totals.halls, 'sala', 'sale', 'sal')} i ${plural(totals.seats, 'miejsce', 'miejsca', 'miejsc')}`}.
       </p>
 
       <div className="flex flex-col gap-10">
@@ -60,6 +75,7 @@ export default async function CinemasPage() {
                 // Barwa sieci niesiona przez samą kartę: lewa krawędź + poświata gasnąca w prawo.
                 // Gradient ustawia background-image, więc nie gryzie się z bg-slate-900/40.
                 const surface = franchiseSurface(cinemaBadge(c) ?? '');
+                const stats = hallStats[c.id];
                 return (
                 <li
                   key={c.id}
@@ -67,6 +83,15 @@ export default async function CinemasPage() {
                 >
                   {/* Miasto niesie nagłówek sekcji, więc nazwa i adres są bez niego. */}
                   <p className="font-semibold text-slate-100">{cinemaLabel(c, true)}</p>
+
+                  {/* Kina niezależne nie mają sal w bazie (brak API z mapami), więc wiersz po
+                      prostu nie powstaje - lepsze niż "0 sal", które sugerowałoby zamknięte kino. */}
+                  {stats && (
+                    <p className="flex items-center gap-1.5 text-sm text-slate-400">
+                      <Armchair className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      {plural(stats.halls, 'sala', 'sale', 'sal')} · {plural(stats.seats, 'miejsce', 'miejsca', 'miejsc')}
+                    </p>
+                  )}
 
                   {address && (
                     <p className="flex items-start gap-1.5 text-sm text-slate-400">

@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      cinema_halls: {
+        Row: {
+          cinema_id: string
+          fetched_at: string | null
+          id: string
+          layout: Json | null
+          room_name: string
+          rows_count: number | null
+          seats_total: number | null
+          sofa_seats: number | null
+          source: string | null
+          wheelchair_seats: number | null
+        }
+        Insert: {
+          cinema_id: string
+          fetched_at?: string | null
+          id?: string
+          layout?: Json | null
+          room_name: string
+          rows_count?: number | null
+          seats_total?: number | null
+          sofa_seats?: number | null
+          source?: string | null
+          wheelchair_seats?: number | null
+        }
+        Update: {
+          cinema_id?: string
+          fetched_at?: string | null
+          id?: string
+          layout?: Json | null
+          room_name?: string
+          rows_count?: number | null
+          seats_total?: number | null
+          sofa_seats?: number | null
+          source?: string | null
+          wheelchair_seats?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cinema_halls_cinema_id_fkey"
+            columns: ["cinema_id"]
+            isOneToOne: false
+            referencedRelation: "cinemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cinema_halls_cinema_id_fkey"
+            columns: ["cinema_id"]
+            isOneToOne: false
+            referencedRelation: "movie_cinema_breakdown"
+            referencedColumns: ["cinema_id"]
+          },
+        ]
+      }
       cinemas: {
         Row: {
           address: string | null
