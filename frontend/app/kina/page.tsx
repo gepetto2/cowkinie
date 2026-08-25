@@ -48,8 +48,32 @@ export default async function CinemasPage() {
     { halls: 0, seats: 0 },
   );
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    'itemListElement': cinemas.map((c, i) => ({
+      '@type': 'ListItem',
+      'position': i + 1,
+      'item': {
+        '@type': 'MovieTheater',
+        'name': cinemaLabel(c, true),
+        'address': c.address ? {
+          '@type': 'PostalAddress',
+          'streetAddress': c.address,
+          'addressLocality': c.city,
+          'addressCountry': 'PL'
+        } : undefined,
+        'url': c.url || undefined
+      }
+    }))
+  };
+
   return (
     <>
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
     <SiteHeader active="kina" />
     <main className="container mx-auto px-3 sm:px-4 pt-6 pb-16">
       <h1 className="text-4xl font-extrabold mb-2 text-slate-100 tracking-tight">Kina</h1>

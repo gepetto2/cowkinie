@@ -14,6 +14,7 @@ import SiteHeader from '@/components/SiteHeader';
 import { parseCityScope, scopeFromCookie, cityScopeHref, citiesLocative, CITY_COOKIE } from '@/lib/cities';
 import { categoryLabel } from '@/lib/categories';
 import { computeRatingMeans, bayesianScore } from '@/lib/ratings';
+import { SITE_URL } from '@/lib/site';
 
 // Szerokość kafelka w karuzelach. Na mobile PŁYNNA i odtwarzająca matematykę siatki `grid-cols-3`
 // niżej, żeby karuzele i rozwinięte sekcje miały identyczny rozmiar - wcześniej siatka dawała ~106 px,
@@ -431,8 +432,39 @@ export default async function Home({ params: routeParams, searchParams }: PagePr
   // Znak zapytania zostaje TYLKO tutaj - w <title> byłby szumem w wynikach wyszukiwania.
   const headingWhere = citiesLocative(selectedCities);
 
+  // Generowanie Schema.org (JSON-LD) dla wydarzeń/filmów na stronie
+  // Wrzucamy top 50 wyników do schemy (usuwając duplikaty z karuzel)
+  const schemaMovies = renderOrder
+    .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i)
+    .slice(0, 50);
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    'itemListElement': schemaMovies.map((m, index) => {
+      const url = `${SITE_URL}${slug ? `/${slug}` : ''}?q=${encodeURIComponent(m.title)}`;
+      return {
+        '@type': 'ListItem',
+        'position': index + 1,
+        'item': {
+          '@type': 'Movie',
+          'url': url,
+          'name': m.title,
+          'image': m.poster || undefined,
+          'director': m.director ? { '@type': 'Person', 'name': m.director } : undefined,
+          'actor': m.cast ? m.cast.split(',').slice(0, 3).map(actor => ({ '@type': 'Person', 'name': actor.trim() })) : undefined,
+          'dateCreated': m.release_year ? m.release_year.toString() : undefined
+        }
+      };
+    })
+  };
+
   return (
     <CityScopeProvider selected={selectedCities} all={cities}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
     <SiteHeader />
     <main className="container mx-auto px-3 sm:px-4 pt-6 pb-16 overflow-x-clip">
       {/* Lokalizacja innym kolorem: pierwsza część powtarza markę z paska, więc to człon miejsca
