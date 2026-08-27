@@ -55,6 +55,16 @@ def parse_release_date(raw) -> str:
             return s[:10]
         return None
 
+# Tytuły, które RÓŻNE sieci nadają temu samemu pokazowi. Reguły ogólne tu nie pomogą - "re-release"
+# i "wersja rozszerzona" zwykle ZNACZĄ co innego i scalanie ich byłoby błędem. To lista wyjątków
+# potwierdzonych ręcznie, po jednym wpisie na przypadek.
+# Klucz: tytuł po clean_title, małymi literami. Wartość: nazwa kanoniczna.
+TITLE_ALIASES = {
+    # Powrót do kin 09.2026: CC nazywa go wersją rozszerzoną, Helios re-release. Ten sam montaż.
+    "avengers: koniec gry - re-release": "Avengers: Koniec gry - wersja rozszerzona",
+}
+
+
 def clean_title(title: str) -> str:
     if not title:
         return ""
@@ -68,15 +78,18 @@ def clean_title(title: str) -> str:
     # Usuwa przedrostek Royal Ballet and Opera (sezon generalizowany, np. 2026-27, 2027-28...)
     title = re.sub(r'^Royal Ballet (?:and|&) Opera Sezon Kinowy \d{4}-\d{2}:\s*', '', title, flags=re.IGNORECASE)
     # Usuwa rocznice np. " 40. Rocznica", " 40th Anniversary", " - 40. rocznica"
-    title = re.sub(r'\s*-?\s*(?:\.\s*)?\s*\d+(?:\.|st|nd|rd|th)?\s*(?:rocznica|Anniversary)\b.*$', '', title, flags=re.IGNORECASE)
+    title = re.sub(r'\s*[-(]?\s*(?:\.\s*)?\s*\d+(?:\.|st|nd|rd|th)?\s*(?:rocznica|Anniversary)\b.*$', '', title, flags=re.IGNORECASE)
     # Usuwa dopiski typu "25-lecie", "100-lecie"
-    title = re.sub(r'\s*-?\s*\d+-lecie\b.*$', '', title, flags=re.IGNORECASE)
+    title = re.sub(r'\s*[-(]?\s*\d+-lecie\b.*$', '', title, flags=re.IGNORECASE)
     # Usuwa typowy dopisek CC (rok generalizowany, np. 2026, 2027...)
     title = re.sub(r"\s*-\s*National Theatre Live \d{4}", "", title)
     title = title.removesuffix(" - wersja oryginalna")
     # Dopisek "LEKTOR" (CC dodaje go do tytułu zamiast do atrybutu wersji) - zdejmujemy, by wersja
     # lektorska scaliła się z filmem bazowym; sam lektor trafia do `lang` seansu (patrz cinema_city.py).
     title = re.sub(r"\s*-?\s*LEKTOR\s*$", "", title, flags=re.IGNORECASE)
+    # Infinity Vision to FORMAT, a nie inny film - CC wpisuje go w tytuł, tak jak "LEKTOR" wyżej.
+    # Zdejmujemy, bo seans i tak dostaje go w `format` z attributeIds (CC_FORMAT_MAP).
+    title = re.sub(r"\s*-?\s*Infinity Vision\s*$", "", title, flags=re.IGNORECASE)
     title = title.removesuffix(". Wersja zremasterowana")
     title = title.removesuffix("- powrót do kin")
     title = title.removesuffix(" | NAJLEPSZE Z NAJGORSZYCH")
@@ -86,7 +99,12 @@ def clean_title(title: str) -> str:
     # Zamiana skrótu na pełne słowo (np. "Diuna: cz. 2" -> "Diuna: część 2")
     title = title.replace("cz.", "część").replace("Cz.", "Część")
     
+    # Kilka reguł wyżej kończy się `.*$` i zjada domykający nawias razem z dopiskiem
+    # ("Auta (20. rocznica)" dawało "Auta ("). Osierocony otwierający zdejmujemy na końcu.
+    title = re.sub(r"\s*[(\[]\s*$", "", title)
+
     cleaned_title = title.strip()
+    cleaned_title = TITLE_ALIASES.get(cleaned_title.lower(), cleaned_title)
     if original_title != cleaned_title:
         logger.debug(f"Zmieniono tytuł: '{original_title}' -> '{cleaned_title}'")
         

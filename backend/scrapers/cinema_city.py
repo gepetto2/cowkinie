@@ -60,7 +60,7 @@ CC_FORMAT_MAP = {
     "2d": "2D", "3d": "3D",
     "imax": "IMAX", "imax-3d": "IMAX 3D",
     "4dx": "4DX", "4dx-3d": "4DX 3D", "4dx-2d": "4DX",
-    "screenx": "ScreenX", "vip": "VIP",
+    "screenx": "ScreenX", "vip": "VIP", "infinity-vision": "Infinity Vision",
     "dolby-atmos": "Dolby Atmos", "dbox": "D-BOX", "d-box": "D-BOX",
 }
 

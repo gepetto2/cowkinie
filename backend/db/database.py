@@ -426,7 +426,13 @@ def consolidate_post_enrich(supabase):
         # pomijając placeholder "wkrótce" z Multikino. Dopiero gdy NIC innego nie ma, używamy go jako
         # ostateczność (lepszy niż brak plakatu). Repick uruchamiamy też, gdy główny plakat to placeholder.
         current_poster = movie.get("poster")
-        if current_poster is None or _is_multikino_placeholder(current_poster):
+        # Plakat bywa NIEAKTUALNY: źródło podmienia go u siebie (Helios wystawił najpierw plakat
+        # jednego filmu z maratonu, potem właściwy maratonowy), a my trzymaliśmy pierwszy wybór na
+        # zawsze. Gdy obecny nie odpowiada już ŻADNEJ kolumnie źródłowej, wybieramy od nowa.
+        # Warunek `source_posters` chroni przed wyzerowaniem, gdy źródła nie mają nic.
+        source_posters = {p for s in poster_sources if (p := movie.get(f"poster_{s}"))}
+        stale_poster = bool(source_posters) and current_poster not in source_posters
+        if current_poster is None or _is_multikino_placeholder(current_poster) or stale_poster:
             poster = next((p for s in poster_sources if (p := movie.get(f"poster_{s}")) and not _is_multikino_placeholder(p)), None)
             if poster is None:
                 poster = movie.get("poster_multikino")  # ostateczność: placeholder "wkrótce"

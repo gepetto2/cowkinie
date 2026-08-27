@@ -259,18 +259,23 @@ async def scrape_and_save(supabase):
                         
                     posters = ev.get("posters") or movie_info.get("posters") or []
                     
+                    # MARATON to ZESTAW filmów. `movie_info` opisuje items[0], czyli PRZYPADKOWY
+                    # film z programu (items przychodzą nieposortowane), więc opis, obsada i reżyser
+                    # dotyczyły nie tego filmu co tytuł. Event ma własny opis, gatunki i plakat.
+                    is_set = movie_type == "MARATON"
                     movies_to_upsert[title] = {
                         "title": title,
                         "movie_type_helios": movie_type,
                         "length_helios": ev.get("duration") or movie_info.get("duration"),
                         "poster_helios": get_valid_poster(posters),
-                        "release_year_helios": movie_info.get("yearOfProduction"),
-                        "release_date_helios": _helios_premiere_date(movie_info) or parse_release_date(ev.get("releaseDate")),
-                        "director_helios": movie_info.get("director"),
-                        "original_title_helios": movie_info.get("originalTitle"),
-                        "genre_helios": _helios_genre(movie_info),
-                        "description_helios": _clean_text(movie_info.get("description")),
-                        "cast_helios": _clean_text(movie_info.get("filmCast"))
+                        "release_year_helios": None if is_set else movie_info.get("yearOfProduction"),
+                        "release_date_helios": parse_release_date(ev.get("releaseDate")) if is_set
+                            else (_helios_premiere_date(movie_info) or parse_release_date(ev.get("releaseDate"))),
+                        "director_helios": None if is_set else movie_info.get("director"),
+                        "original_title_helios": None if is_set else movie_info.get("originalTitle"),
+                        "genre_helios": _helios_genre(ev if is_set else movie_info),
+                        "description_helios": _clean_text((ev if is_set else movie_info).get("description")),
+                        "cast_helios": None if is_set else _clean_text(movie_info.get("filmCast"))
                     }
 
                 for scr in screenings_data:
