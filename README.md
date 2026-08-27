@@ -209,7 +209,7 @@ descriptions and per-source fields that a poster tile has no use for.
 
 **Data** Supabase (PostgreSQL); TMDB, Filmweb and OMDb for enrichment
 
-**Infrastructure** Vercel, GitHub Actions
+**Infrastructure** Vercel
 
 ## Project structure
 

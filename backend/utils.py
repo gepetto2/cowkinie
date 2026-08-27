@@ -160,7 +160,13 @@ def search_title(title: str) -> str:
     # Sufiks ukraińskiego dubbingu w różnych formach (PL/EN, z nawiasem, po ". "/" - "/spacji)
     t = re.sub(r"\s*[.\-]?\s*\(?(?:ukrai[nń]ski dubbing|ukrainian dubbing)\)?\s*$", "", t, flags=re.IGNORECASE)
     t = re.sub(r"\s*[:.\-]\s*wersja reżyserska\s*$", "", t, flags=re.IGNORECASE)
-    t = re.sub(r"\s*\(wersja rozszerzona\)\s*$", "", t, flags=re.IGNORECASE)
+    # Wersja rozszerzona w nawiasie ORAZ po myślniku, gdzie za nią bywa jeszcze nazwa cyklu
+    # ("Avengers: Koniec gry - wersja rozszerzona Infinity Vision") - stąd `.*` do końca.
+    t = re.sub(r"\s*(?:\(wersja rozszerzona\)|[:.\-–—]\s*wersja rozszerzona.*)\s*$", "", t, flags=re.IGNORECASE)
+    # Wznowienia i dopiski o wersji językowej to cecha pokazu, nie inny film.
+    t = re.sub(r"\s*\((?:re-?release|z polskim dubbingiem)\)\s*$", "", t, flags=re.IGNORECASE)
+    # Cykl poranków dla dzieci (Multikino) - w API szukamy samego tytułu bajki.
+    t = re.sub(r"^Filmowe Poranki:\s*", "", t, flags=re.IGNORECASE)
     # Seanse z audiodeskrypcją/napisami/migowym (Pałacowe) trzymamy jako osobny rekord, ale w API
     # szukamy oczywiście filmu bazowego - dopisek jest cechą pokazu, nie tytułem.
     t = re.sub(r"\s*\(kino bez barier\)\s*$", "", t, flags=re.IGNORECASE)
