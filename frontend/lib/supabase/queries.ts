@@ -231,6 +231,26 @@ export const getHallStats = unstable_cache(
   { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
 );
 
+// Znacznik świeżości repertuaru. `screenings.created_at` nadaje się na to wprost: potok wstawia
+// seanse od nowa przy każdym przebiegu, więc wszystkie wiersze mają datę ostatniego scrapa.
+export const getLastScrape = unstable_cache(
+  async (): Promise<string | null> => {
+    const { data, error } = await supabase
+      .from('screenings')
+      .select('created_at')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.error('Błąd podczas pobierania daty ostatniego scrapa:', error);
+      return null;
+    }
+    return data?.created_at ?? null;
+  },
+  ['last-scrape'],
+  { tags: ['movies'], revalidate: CACHE_REVALIDATE_SECONDS },
+);
+
 export const getCinemas = unstable_cache(
   async (): Promise<CinemaListItem[]> => {
     const { data, error } = await supabase
